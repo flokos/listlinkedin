@@ -1,0 +1,71 @@
+# TLS reverse proxy for the API. The nginx image renders this template at startup,
+# substituting ${SERVER_NAME} only (NGINX_ENVSUBST_FILTER); $nginx_variables are untouched.
+
+server_tokens off;
+
+# Requests carry a title and a URL; Django rejects bodies over 16 KB with a JSON 413.
+# This only stops anything far larger before it reaches a worker.
+client_max_body_size 32k;
+
+# nginx buffers request bodies before proxying (proxy_request_buffering is on by default),
+# so slow clients tie up nginx connections, not Gunicorn's few sync workers.
+client_header_timeout 10s;
+client_body_timeout 10s;
+
+# Unknown hosts: drop plain HTTP connections and refuse TLS handshakes for other names.
+server {
+    listen 80 default_server;
+    listen 443 ssl default_server;
+    ssl_reject_handshake on;
+    return 444;
+}
+
+server {
+    listen 80;
+    server_name ${SERVER_NAME};
+
+    # Let's Encrypt HTTP-01 challenges (certbot --webroot -w <ACME_WEBROOT>).
+    location /.well-known/acme-challenge/ {
+        root /var/www/acme;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${SERVER_NAME};
+
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    # Mozilla "intermediate" profile.
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:TLS:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    # HSTS is sent by Django (SECURE_HSTS_SECONDS), so it is not repeated here.
+
+    # Internal-only deployment: uncomment and list your office/VPN ranges.
+    # allow 10.0.0.0/8;
+    # allow 192.168.0.0/16;
+    # deny all;
+
+    location / {
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        # Overwrite rather than append: clients cannot inject fake hops, so the API
+        # (DJANGO_NUM_PROXIES=1) always sees the address nginx actually received.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 5s;
+        # A little above Gunicorn's 30 s worker timeout.
+        proxy_read_timeout 35s;
+        proxy_send_timeout 35s;
+    }
+}

@@ -58,10 +58,23 @@
 * **No SSRF surface**: the server never fetches destination URLs, so there are no previews
   and no reachability checks. `/healthz` reveals only whether the database is reachable.
 * **Production**: HTTPS redirect, HSTS, proxy SSL header, secure cookies, `DEBUG=False`,
-  secrets only from the environment, non-root container user. The API port is published on
-  loopback only, so clients can't go around the TLS proxy to skip HTTPS or forge
-  `X-Forwarded-*` headers. Database `lock_timeout`/`statement_timeout` keep a stuck lock
-  from tying up workers.
+  secrets only from the environment, non-root container user. Database
+  `lock_timeout`/`statement_timeout` keep a stuck lock from tying up workers.
+* **TLS proxy (bundled nginx)**: it is the only published service, so the API port can't
+  be reached directly to skip HTTPS or forge `X-Forwarded-*` headers. nginx:
+  - overwrites `X-Forwarded-For` with the address it actually received, so clients can't
+    inject hops,
+  - drops unknown `Host` headers and refuses TLS handshakes for unknown names,
+  - buffers and caps request bodies (32 KB),
+  - times out slow headers and bodies after 10 s, which protects Gunicorn's sync workers,
+  - hides its version and allows TLS 1.2 and 1.3 only (Mozilla intermediate profile).
+
+  `deploy/smoke-test.sh` checks these properties against the real stack in CI. A mutation
+  run confirmed it fails when the proxy appends to `X-Forwarded-For` instead of overwriting
+  it.
+* **Client IPs on rootless Docker**: rootless Docker's default port driver hides client
+  IPs behind its gateway address, which would merge every client into one rate limit. Run
+  production on rootful Docker, or use the `slirp4netns` port driver.
 
 ## Known limitations and risks
 

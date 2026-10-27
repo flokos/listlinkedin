@@ -254,24 +254,64 @@ curl -s -o /dev/null -w '%{http_code}\n' -X DELETE \
 
 ## Deployment
 
-1. `cp .env.example .env` and set real values: a long random `DJANGO_SECRET_KEY`,
-   `DJANGO_ALLOWED_HOSTS`, database credentials, `PUBLIC_BASE_URL=https://your.domain`, and
-   `DJANGO_NUM_PROXIES` (number of reverse proxies in front of the API). Optionally set
-   `BLOCKED_DESTINATION_HOSTS` to denylist abusive domains. After changing it, restart
-   with `up -d` and the new list takes effect, including for short URLs already shared.
-2. Put a TLS-terminating reverse proxy on the same host in front of `127.0.0.1:8000` that
-   sets `X-Forwarded-Proto` and `X-Forwarded-For`. **All management traffic must use
-   HTTPS.** The API is published on loopback only. Don't expose port 8000 publicly: direct
-   clients could bypass HTTPS and spoof the forwarded headers. If the proxy runs on another
-   machine, use a private network or a firewall rule instead. The proxy must **buffer
-   requests**: Gunicorn's sync workers can otherwise be tied up by slow clients. nginx does
-   this by default; with Traefik or similar, enable request buffering.
-3. Start the stack:
+The production stack bundles an **nginx** TLS proxy ([deploy/nginx/default.conf.template](deploy/nginx/default.conf.template)).
+It's the only published service, on ports 80 and 443, and the API is reachable only on
+the internal compose network. nginx:
+
+- redirects HTTP to HTTPS and serves Let's Encrypt challenges,
+- drops requests for unknown hosts and refuses TLS for unknown names,
+- buffers request bodies (protecting Gunicorn's sync workers from slow clients) and caps
+  them at 32 KB,
+- **overwrites** `X-Forwarded-For`, so clients can't spoof their IP to dodge rate limits.
+
+[`deploy/smoke-test.sh`](deploy/smoke-test.sh) verifies all of this end to end and runs in
+CI.
+
+1. **Configure:** `cp .env.example .env` and set real values:
+   - a long random `DJANGO_SECRET_KEY`,
+   - `DJANGO_ALLOWED_HOSTS` and `SERVER_NAME` (your hostname),
+   - `PUBLIC_BASE_URL=https://<hostname>`,
+   - the database credentials.
+
+   Optionally set `BLOCKED_DESTINATION_HOSTS` to denylist abusive domains. Restarting with
+   `up -d` applies it, including to short URLs already shared. If another proxy or load
+   balancer sits in front of nginx, raise `DJANGO_NUM_PROXIES` by one for each.
+2. **Get a certificate** into `TLS_CERT_DIR` (default `deploy/certs/`, git-ignored) as
+   `fullchain.pem` and `privkey.pem`. With Let's Encrypt, issue the first certificate while
+   the stack is down, since port 80 must be free:
+
+   ```bash
+   docker run --rm -p 80:80 -v /etc/letsencrypt:/etc/letsencrypt certbot/certbot \
+     certonly --standalone -d go.example.com
+   mkdir -p deploy/certs
+   sudo cp -L /etc/letsencrypt/live/go.example.com/{fullchain,privkey}.pem deploy/certs/
+   ```
+
+   For renewals, nginx serves `ACME_WEBROOT` at `/.well-known/acme-challenge/`, so they
+   can run while the stack is up:
+   `certbot renew --webroot -w deploy/acme`. Copy the files again afterwards and reload
+   with `docker compose -f compose.prod.yaml exec nginx nginx -s reload`, for example from a
+   certbot `--deploy-hook`.
+3. **Start** the stack and check it:
 
    ```bash
    docker compose -f compose.prod.yaml up --build -d
    docker compose -f compose.prod.yaml exec api python manage.py check --deploy
+   curl https://go.example.com/healthz        # {"status": "ok"}
    ```
+
+**Internal-only deployment:** uncomment the `allow` / `deny` block in the nginx template
+and list your office or VPN ranges. That removes most of the public-abuse risk in
+[docs/security.md](docs/security.md).
+
+**Use rootful Docker on the server.** Rootless Docker's default port forwarding replaces
+every client's IP with the gateway address, so all clients would share one rate limit. If
+you must run rootless, use the `slirp4netns` port driver.
+
+**Bringing your own proxy** (Traefik, a cloud load balancer, …): remove the `nginx`
+service and publish the API on a private interface, e.g. `127.0.0.1:8000:8000`. Your
+proxy must then do what the bundled nginx does: set `X-Forwarded-Proto: https`, overwrite
+`X-Forwarded-For` (or set `DJANGO_NUM_PROXIES` to match its chain), and buffer requests.
 
 The production image (`prod` target) has no dev dependencies, runs as a non-root `app`
 user, and serves through Gunicorn (`WEB_CONCURRENCY` workers, 30 s timeout, access log to
