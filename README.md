@@ -120,6 +120,12 @@ and cover lists, links, ownership, the shortener (including simulated code colli
 expiration, cleanup, a real multi-threaded race for the 100-link limit, and an end-to-end
 workflow in `tests/integration/`.
 
+**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request
+and every push to `main`, and can be started by hand from the Actions tab. It uses the same
+Docker commands as above, in this order: ruff lint and format check, migrations up to date,
+the full test suite against PostgreSQL, then a production image build with
+`check --deploy --fail-level WARNING`.
+
 ## API
 
 Interactive docs: **http://localhost:8000/api/docs/** (Swagger) ·
