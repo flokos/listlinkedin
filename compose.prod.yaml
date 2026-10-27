@@ -1,0 +1,73 @@
+# Production stack: `docker compose -f compose.prod.yaml up --build -d`.
+# Requires a `.env` file (see `.env.example`) and a TLS-terminating reverse proxy in front of `api`.
+x-app: &app
+  build:
+    context: .
+    target: prod
+  image: listlinkedin:prod
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.production
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?set DJANGO_ALLOWED_HOSTS}
+    DJANGO_NUM_PROXIES: ${DJANGO_NUM_PROXIES:-1}
+    POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
+    BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
+    WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}  # Gunicorn workers
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: sh -c "python manage.py migrate --noinput && python manage.py createcachetable"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app
+    ports:
+      # Loopback only: the TLS reverse proxy on this host is the only way in. Exposing the
+      # port publicly would let clients bypass HTTPS and spoof X-Forwarded-* headers.
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  cleanup:
+    <<: *app
+    # supercronic runs docker/crontab (daily at 03:00 UTC) and stops cleanly on SIGTERM.
+    command: ["supercronic", "-passthrough-logs", "docker/crontab"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:

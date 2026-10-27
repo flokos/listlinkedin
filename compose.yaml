@@ -1,0 +1,70 @@
+# Development stack. Works from a clean checkout; values can be overridden in `.env`.
+x-app: &app
+  build:
+    context: .
+    target: dev
+  image: listlinkedin:dev
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.development
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-secret-key}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+    POSTGRES_DB: ${POSTGRES_DB:-listlinkedin}
+    POSTGRES_USER: ${POSTGRES_USER:-listlinkedin}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-listlinkedin}
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
+    BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
+  volumes:
+    - .:/app  # live code reload
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-listlinkedin}
+      POSTGRES_USER: ${POSTGRES_USER:-listlinkedin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-listlinkedin}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: sh -c "python manage.py migrate --noinput && python manage.py createcachetable"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  cleanup:
+    <<: *app
+    # supercronic runs docker/crontab (daily at 03:00 UTC) and stops cleanly on SIGTERM.
+    command: ["supercronic", "-passthrough-logs", "docker/crontab"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:

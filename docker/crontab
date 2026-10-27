@@ -1,0 +1,4 @@
+# Run by supercronic in the `cleanup` container (times are UTC).
+# Daily at 03:00: delete expired lists (with links and redirects) and prune rate-limit rows.
+# The API already refuses expired lists with 410, so this only reclaims storage.
+0 3 * * * python manage.py cleanup_expired
