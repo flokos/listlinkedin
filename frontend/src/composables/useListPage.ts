@@ -26,6 +26,8 @@ export function useListPage(code: Ref<string>) {
 
   const token = computed(() => owned.tokenFor(code.value))
   const isOwner = computed(() => Boolean(token.value) && !ownerRevoked.value)
+  // A new token (pasted edit link, restored backup, another tab) gets a fresh chance.
+  watch(token, () => (ownerRevoked.value = false))
 
   let controller: AbortController | undefined
 

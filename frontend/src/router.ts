@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import { trackNavigations } from './composables/useRouteFocus'
+
 declare module 'vue-router' {
   interface RouteMeta {
     /** Page title; views with dynamic titles (a list's name) set document.title themselves. */
@@ -71,6 +73,8 @@ const router = createRouter({
     return { top: 0 }
   },
 })
+
+trackNavigations(router)
 
 router.afterEach((to, from) => {
   if (to.path === from.path && from.matched.length) return // query/hash only: keep the title

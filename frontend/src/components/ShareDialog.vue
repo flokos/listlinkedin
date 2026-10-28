@@ -30,7 +30,7 @@ watch(
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="480">
+  <v-dialog v-model="open" max-width="480" aria-label="Share this list">
     <v-card class="pa-2">
       <v-card-item>
         <v-card-title class="text-title-large">Share this list</v-card-title>

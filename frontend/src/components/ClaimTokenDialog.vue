@@ -53,7 +53,7 @@ async function submit() {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="520">
+  <v-dialog v-model="open" max-width="520" aria-label="Open with an edit link">
     <v-card class="pa-2">
       <v-card-item :prepend-icon="mdiKeyOutline">
         <v-card-title class="text-title-large">Open with an edit link</v-card-title>

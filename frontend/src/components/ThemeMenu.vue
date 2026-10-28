@@ -24,10 +24,12 @@ const current = computed(() => options.find((o) => o.value === preference.value)
         :aria-label="`Theme: ${current.title}. Change theme`"
       />
     </template>
-    <v-list density="compact" nav aria-label="Theme">
+    <v-list density="compact" nav aria-label="Theme" role="menu">
       <v-list-item
         v-for="option in options"
         :key="option.value"
+        role="menuitemradio"
+        :aria-checked="option.value === preference"
         :title="option.title"
         :prepend-icon="option.icon"
         :active="option.value === preference"

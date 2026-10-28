@@ -75,9 +75,15 @@ const heading = computed(() => props.link.title || displayHost(props.link.destin
             :aria-label="`More actions for ${heading}`"
           />
         </template>
-        <v-list density="compact" nav>
-          <v-list-item :prepend-icon="mdiPencilOutline" title="Edit" @click="emit('edit')" />
+        <v-list role="menu" density="compact" nav>
           <v-list-item
+            role="menuitem"
+            :prepend-icon="mdiPencilOutline"
+            title="Edit"
+            @click="emit('edit')"
+          />
+          <v-list-item
+            role="menuitem"
             :prepend-icon="mdiDeleteOutline"
             title="Delete"
             base-color="error"

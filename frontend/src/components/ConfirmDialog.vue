@@ -38,7 +38,7 @@ async function confirm() {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="460" :persistent="busy">
+  <v-dialog v-model="open" max-width="460" :persistent="busy" :aria-label="title">
     <v-card :title="title" class="pa-2">
       <v-card-text class="text-body-medium">
         <p>{{ text }}</p>

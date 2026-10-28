@@ -13,3 +13,7 @@ node_modules/
 frontend/dist/
 # Playwright MCP output (screenshots, snapshots)
 .playwright-mcp/
+
+# End-to-end test output
+e2e/report/
+e2e/test-results/

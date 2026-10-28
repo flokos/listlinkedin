@@ -36,6 +36,11 @@ describe('display helpers', () => {
     expect(displayUrl('https://example.com/a?b=1')).toBe('example.com/a?b=1')
   })
 
+  it('keeps internationalized hosts in punycode, as stored by the server', () => {
+    expect(displayHost('https://bücher.example/')).toBe('xn--bcher-kva.example')
+    expect(displayHost('https://xn--bcher-kva.example/')).toBe('xn--bcher-kva.example')
+  })
+
   it('gives a host a stable avatar', () => {
     const a = avatarFor('https://github.com/x')
     expect(a).toEqual(avatarFor('https://www.github.com/y'))

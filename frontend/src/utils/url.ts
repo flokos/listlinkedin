@@ -32,7 +32,11 @@ export function validateUrl(input: string): string | null {
   return null
 }
 
-/** Hostname for display: lowercase, without `www.`, and decoded from punycode by the URL parser where possible. */
+/**
+ * Hostname for display: lowercase and without `www.`. Internationalized hosts stay in
+ * punycode (`xn--…`), as the server stores them: decoding would let look-alike hosts
+ * (Cyrillic "а" for Latin "a") pass for familiar sites.
+ */
 export function displayHost(input: string): string {
   try {
     return new URL(input).hostname.replace(/^www\./, '')

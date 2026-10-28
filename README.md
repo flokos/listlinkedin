@@ -142,6 +142,11 @@ and cover lists, links, ownership, the shortener (including simulated code colli
 expiration, cleanup, a real multi-threaded race for the 100-link limit, and an end-to-end
 workflow in `backend/tests/integration/`.
 
+**End-to-end:** `bash e2e/run.sh` drives Chromium, Firefox, WebKit and phone emulation
+against the production stack over HTTPS, all in Docker. See [e2e/README.md](e2e/README.md).
+Things automation can't judge, such as screen readers and real phones, are in
+[docs/qa-checklist.md](docs/qa-checklist.md).
+
 **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request
 and every push to `main`, and can be started by hand from the Actions tab. It uses the same
 Docker commands as above, in this order: ruff lint and format check, migrations up to date,

@@ -83,17 +83,23 @@ const isDev = import.meta.env.DEV
         <template #activator="{ props }">
           <v-btn v-bind="props" :icon="mdiDotsVertical" variant="text" aria-label="More" />
         </template>
-        <v-list density="compact" nav>
+        <v-list role="menu" density="compact" nav>
           <v-list-item
             v-for="link in externalNav"
             :key="link.label"
+            role="menuitem"
             :href="link.href"
             target="_blank"
             rel="noopener noreferrer"
             :title="link.label"
             :append-icon="mdiOpenInNew"
           />
-          <v-list-item v-if="isDev" :to="{ name: 'design' }" title="Design system" />
+          <v-list-item
+            v-if="isDev"
+            role="menuitem"
+            :to="{ name: 'design' }"
+            title="Design system"
+          />
         </v-list>
       </v-menu>
     </div>
