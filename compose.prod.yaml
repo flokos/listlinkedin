@@ -1,9 +1,10 @@
 # Production stack: `docker compose -f compose.prod.yaml up --build -d`.
 # Requires a `.env` file (see `.env.example`) and a TLS certificate in TLS_CERT_DIR.
-# nginx is the only published service; the API is reachable only on the compose network.
+# nginx is the only published service: it serves the Vue app and proxies the API, which is
+# reachable only on the compose network.
 x-app: &app
   build:
-    context: .
+    context: ./backend
     target: prod
   image: listlinkedin:prod
   environment:
@@ -61,7 +62,11 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:1.30-alpine
+    # nginx with the built Vue app baked in (frontend/Dockerfile, `prod` target).
+    build:
+      context: ./frontend
+      target: prod
+    image: listlinkedin-nginx:prod
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"

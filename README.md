@@ -5,11 +5,12 @@ shares the list URL with colleagues. Anyone with the URL can read the list. Only
 creator, who holds a private **owner token**, can change it. The whole list expires
 **30 days after creation**.
 
-No accounts, no login, no frontend: a Django REST API plus two short-URL namespaces:
+No accounts, no login: a Django REST API, a Vue frontend ([frontend/](frontend/)) and two
+short-URL namespaces:
 
 | URL | Meaning |
 |---|---|
-| `/l/{list_code}` | Public list URL: `302` redirect to `/api/v1/lists/{list_code}/` (JSON) |
+| `/l/{list_code}` | Public list URL: the list's page in the Vue app |
 | `/r/{redirect_code}` | Short URL of one link: `302` redirect to its current destination |
 
 Everything runs in Docker. You need only Docker Engine/Desktop with Compose, Git and an
@@ -20,8 +21,9 @@ editor. No virtualenv and no host Python.
 ## Quick start
 
 ```bash
-docker compose up --build -d      # db + migrations + api + cleanup
+docker compose up --build -d      # db + migrations + api + cleanup + frontend
 docker compose logs -f api
+open http://localhost:5173/            # the Vue app (Vite dev server, hot reload)
 open http://localhost:8000/api/docs/   # Swagger UI
 docker compose down               # stop (add -v to also drop the database volume)
 ```
@@ -34,22 +36,26 @@ optional (copy `.env.example` to override values).
 A modular monolith with two Django apps and an explicit boundary:
 
 ```text
-config/                 settings (base / development / production), urls, wsgi, middleware
-apps/sharing/           owns lists and links
-  models.py             SharedList, SharedLink
-  domain.py             business rules: 30-day lifetime, 100-link cap, URL normalization
-  tokens.py             owner token generation, SHA-256 hashing, constant-time verify
-  services.py           all writes (transactions + row locks)
-  selectors.py          reads (404 vs 410 decision, links annotated with short code)
-  permissions.py        bearer-token auth, per-list owner permission, write throttle
-  serializers.py, views.py, urls.py
-  management/commands/cleanup_expired.py
-apps/shortener/         owns short codes and redirect mappings
-  generators.py         secrets-based 16-char Base64URL codes
-  models.py             ShortRedirect
-  services.py           collision-safe code insertion, redirect creation and resolution
-  views.py              GET /r/{code}
-tests/integration/      full HTTP workflow against PostgreSQL
+backend/                Django API (its own Docker build context)
+  config/               settings (base / development / production), urls, wsgi, middleware
+  apps/sharing/         owns lists and links
+    models.py             SharedList, SharedLink
+    domain.py             business rules: 30-day lifetime, 100-link cap, URL normalization
+    tokens.py             owner token generation, SHA-256 hashing, constant-time verify
+    services.py           all writes (transactions + row locks)
+    selectors.py          reads (404 vs 410 decision, links annotated with short code)
+    permissions.py        bearer-token auth, per-list owner permission, write throttle
+    serializers.py, views.py, urls.py
+    management/commands/cleanup_expired.py
+  apps/shortener/       owns short codes and redirect mappings
+    generators.py         secrets-based 16-char Base64URL codes
+    models.py             ShortRedirect
+    services.py           collision-safe code insertion, redirect creation and resolution
+    views.py              GET /r/{code}
+  tests/integration/    full HTTP workflow against PostgreSQL
+  Dockerfile, pyproject.toml, uv.lock, docker/crontab
+frontend/               Vue 3 + Vuetify app; its Dockerfile also builds the production nginx
+deploy/                 nginx proxy config and production smoke test
 compose.yaml            development stack  ·  compose.prod.yaml  production stack
 ```
 
@@ -65,7 +71,8 @@ Docker services:
 | `db` | `postgres:17`, named volume `pgdata`, `pg_isready` health check |
 | `migrate` | One-shot `manage.py migrate`. Starts only once `db` is healthy |
 | `api` | Django (dev: `runserver` with bind-mounted code and auto-reload; prod: Gunicorn). Health check every 30 s against `/healthz`, which includes a database round-trip. Shown in `docker compose ps`. Compose only marks an unhealthy container; it doesn't restart it. |
-| `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`docker/crontab`](docker/crontab): `cleanup_expired` daily at 03:00 UTC. No host cron, Celery or Redis. |
+| `frontend` | Development only: Vite dev server on port 5173 with bind-mounted sources and hot reload. Proxies `/api/` and `/r/` to `api`, so the app sees one origin as it does behind nginx. In production the built app is served by `nginx` instead. |
+| `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`backend/docker/crontab`](backend/docker/crontab): `cleanup_expired` daily at 03:00 UTC. No host cron, Celery or Redis. |
 
 `api` and `cleanup` start only after `migrate` has **completed successfully**, so nothing
 talks to PostgreSQL before it is ready and migrated.
@@ -101,9 +108,24 @@ them with `uv sync --locked` straight into the container's system Python. After 
 dependencies, regenerate the lock inside a container and rebuild:
 
 ```bash
-docker run --rm -v "$PWD":/app -w /app ghcr.io/astral-sh/uv:0.9.5-python3.13-bookworm-slim uv lock
+docker run --rm -v "$PWD/backend":/app -w /app ghcr.io/astral-sh/uv:0.9.5-python3.13-bookworm-slim uv lock
 docker compose up --build -d
 ```
+
+Frontend dependencies are declared in `frontend/package.json` and locked in
+`package-lock.json`. Add one inside a container, then rebuild so the dev image picks it up:
+
+```bash
+docker run --rm -v "$PWD/frontend":/app -w /app node:24-alpine npm install --package-lock-only <package>
+docker compose up --build -d frontend
+docker compose exec frontend npm run type-check
+```
+
+Frontend checks (all run in CI): `docker compose exec frontend npm run lint`, `… npm run test`,
+`… npm run check:contrast`. See [frontend/README.md](frontend/README.md). The UI's design
+system (purple palette, tokens, components and accessibility rules) is documented in
+[docs/design-system.md](docs/design-system.md), and the dev server renders a style guide at
+http://localhost:5173/design.
 
 > Dev containers run as the image's root user so files created through the bind mount
 > (e.g. new migrations) belong to you under rootless Docker. With classic (rootful) Docker,
@@ -118,13 +140,13 @@ docker compose run --rm api pytest
 Tests run against a real PostgreSQL test database (created automatically by pytest-django)
 and cover lists, links, ownership, the shortener (including simulated code collisions),
 expiration, cleanup, a real multi-threaded race for the 100-link limit, and an end-to-end
-workflow in `tests/integration/`.
+workflow in `backend/tests/integration/`.
 
 **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request
 and every push to `main`, and can be started by hand from the Actions tab. It uses the same
 Docker commands as above, in this order: ruff lint and format check, migrations up to date,
-the full test suite against PostgreSQL, then a production image build with
-`check --deploy --fail-level WARNING`.
+the full test suite against PostgreSQL, a production image build with
+`check --deploy --fail-level WARNING`, then the frontend type-check and production build.
 
 ## API
 
@@ -143,7 +165,7 @@ Interactive docs: **http://localhost:8000/api/docs/** (Swagger) ·
 | `PATCH` | `/api/v1/lists/{list_code}/links/{link_id}/` | owner (title, destination_url) |
 | `DELETE` | `/api/v1/lists/{list_code}/links/{link_id}/` | owner |
 | `GET` | `/r/{redirect_code}` | public, `302` + `Cache-Control: no-store`, `Referrer-Policy: no-referrer` |
-| `GET` | `/l/{list_code}` | public, `302` to the list's API URL |
+| `GET` | `/l/{list_code}` | public; the Vue app's list page. Requests that reach Django directly (port 8000 in development) get a `302` to the list's API URL |
 | `GET` | `/healthz` | public, `200 {"status":"ok"}` or `503` when the database is unreachable |
 
 `/r/` and `/l/` also accept a trailing slash, since some apps add one when links are
@@ -179,7 +201,7 @@ BASE=http://localhost:8000
 # 1. Create a list (public endpoint).
 curl -s -X POST $BASE/api/v1/lists/ -H 'Content-Type: application/json' \
      -d '{"title": "Friday Team Bonding"}' | tee list.json
-# {"id":"…","public_code":"X7pKm2Qv8Nw4Rs6A","public_url":"http://localhost:8000/l/X7pKm2Qv8Nw4Rs6A",
+# {"id":"…","public_code":"X7pKm2Qv8Nw4Rs6A","public_url":"http://localhost:5173/l/X7pKm2Qv8Nw4Rs6A",
 #  "title":"Friday Team Bonding","created_at":"…","expires_at":"…","owner_token":"<PRIVATE>"}
 
 # 2. Extract values. CODE / public_url are PUBLIC, so share them. TOKEN is PRIVATE, keep it.
@@ -191,7 +213,7 @@ TOKEN=$(python3 -c 'import json;print(json.load(open("list.json"))["owner_token"
 curl -s -X POST $BASE/api/v1/lists/$CODE/links/ \
      -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
      -d '{"title": "Interesting Article", "destination_url": "https://example.com/article"}'
-# {"id":"<LINK_ID>", …, "short_url":"http://localhost:8000/r/Ab3Kp7Nq2Wz8Lm5R"}
+# {"id":"<LINK_ID>", …, "short_url":"http://localhost:5173/r/Ab3Kp7Nq2Wz8Lm5R"}
 LINK_ID=<LINK_ID>; SHORT=Ab3Kp7Nq2Wz8Lm5R
 
 # 4. View the list anonymously (no token): metadata, then links.
@@ -243,7 +265,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X DELETE \
   instant, the list, its links and its short URLs return `410 Gone`, even before cleanup.
   The check is repeated under the row lock during writes.
 * The `cleanup` service uses [supercronic](https://github.com/aptible/supercronic) to run
-  `cleanup_expired` daily at 03:00 UTC, as set in [`docker/crontab`](docker/crontab). Edit
+  `cleanup_expired` daily at 03:00 UTC, as set in [`backend/docker/crontab`](backend/docker/crontab). Edit
   that file to change the schedule, then restart with `docker compose up -d`. The command
   deletes expired lists in batches of 500 using short transactions, cascading to links and
   redirects, prunes expired rate-limit entries, and reports the counts in
@@ -256,7 +278,12 @@ curl -s -o /dev/null -w '%{http_code}\n' -X DELETE \
 
 The production stack bundles an **nginx** TLS proxy ([deploy/nginx/default.conf.template](deploy/nginx/default.conf.template)).
 It's the only published service, on ports 80 and 443, and the API is reachable only on
-the internal compose network. nginx:
+the internal compose network. Its image is built from [frontend/Dockerfile](frontend/Dockerfile)
+with the compiled Vue app inside. nginx:
+
+- serves the app for every path except `/api/`, `/r/` and `/healthz`, which go to Django,
+  with the same security headers Django sends (HSTS, `Referrer-Policy: no-referrer`,
+  `noindex`) plus a Content Security Policy,
 
 - redirects HTTP to HTTPS and serves Let's Encrypt challenges,
 - drops requests for unknown hosts and refuses TLS for unknown names,

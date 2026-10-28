@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end test of the production stack behind nginx, using a throwaway self-signed
+# End-to-end test of the production stack (Vue app and API) behind nginx, using a throwaway self-signed
 # certificate and an isolated compose project. Runs locally and in CI:
 #
 #   bash deploy/smoke-test.sh            # HTTP_PORT/HTTPS_PORT default to 8080/8443
@@ -74,6 +74,20 @@ headers=$(curl_ -sI "$https/api/v1/lists/$code/" | tr -d '\r' | tr 'A-Z' 'a-z')
 check "HSTS header from Django" "strict-transport-security: max-age=31536000; includesubdomains" \
     "$(grep '^strict-transport-security' <<<"$headers")"
 check "nginx hides its version" "server: nginx" "$(grep '^server:' <<<"$headers")"
+
+page=$(curl_ "$https/l/$code")
+check "public list URL serves the app" 1 "$(grep -c '<div id="app"></div>' <<<"$page")"
+page_headers=$(curl_ -sI "$https/l/$code" | tr -d '\r' | tr 'A-Z' 'a-z')
+check "app page sends HSTS" "strict-transport-security: max-age=31536000; includesubdomains" \
+    "$(grep '^strict-transport-security' <<<"$page_headers")"
+check "app page never leaks its URL as a referrer" "referrer-policy: no-referrer" \
+    "$(grep '^referrer-policy' <<<"$page_headers")"
+check "app page sends a CSP" 1 "$(grep -c "^content-security-policy: default-src 'self'" <<<"$page_headers")"
+asset=$(grep -o '/assets/index-[^"]*\.js' <<<"$page")
+check "fingerprinted assets are cached immutably" "cache-control: public, max-age=31536000, immutable" \
+    "$(curl_ -sI "$https$asset" | tr -d '\r' | tr 'A-Z' 'a-z' | grep '^cache-control')"
+check "missing asset is a 404, not the app" 404 \
+    "$(curl_ -o /dev/null -w '%{http_code}' "$https/assets/missing.js")"
 
 check "unknown Host header is dropped" 000 \
     "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$HTTP_PORT/" || true)"

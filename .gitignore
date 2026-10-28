@@ -8,3 +8,8 @@ __pycache__/
 # TLS material and ACME challenges for the nginx proxy (never commit keys)
 deploy/certs/
 deploy/acme/
+# Frontend
+node_modules/
+frontend/dist/
+# Playwright MCP output (screenshots, snapshots)
+.playwright-mcp/

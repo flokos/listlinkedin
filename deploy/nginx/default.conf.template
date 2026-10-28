@@ -1,4 +1,5 @@
-# TLS reverse proxy for the API. The nginx image renders this template at startup,
+# TLS reverse proxy: serves the Vue app (built into this image from frontend/) and forwards
+# the API to Django. The nginx image renders this template at startup,
 # substituting ${SERVER_NAME} only (NGINX_ENVSUBST_FILTER); $nginx_variables are untouched.
 
 server_tokens off;
@@ -11,6 +12,13 @@ client_max_body_size 32k;
 # so slow clients tie up nginx connections, not Gunicorn's few sync workers.
 client_header_timeout 10s;
 client_body_timeout 10s;
+
+# Vite fingerprints everything under /assets/, so those files never change; index.html and
+# other public files are revalidated so a deploy is picked up on the next load.
+map $uri $static_cache_control {
+    ~^/assets/  "public, max-age=31536000, immutable";
+    default     "no-cache";
+}
 
 # Unknown hosts: drop plain HTTP connections and refuse TLS handshakes for other names.
 server {
@@ -56,7 +64,8 @@ server {
     # allow 192.168.0.0/16;
     # deny all;
 
-    location / {
+    # API, short-URL redirects and the health check go to Django.
+    location ~ ^/(api|r)/|^/healthz$ {
         proxy_pass http://api:8000;
         proxy_set_header Host $host;
         # Overwrite rather than append: clients cannot inject fake hops, so the API
@@ -67,5 +76,35 @@ server {
         # A little above Gunicorn's 30 s worker timeout.
         proxy_read_timeout 35s;
         proxy_send_timeout 35s;
+    }
+
+    # Everything else is the single-page app, including the public list URLs (/l/{code}).
+    # Django sends its own security headers; these mirror them for the app's files.
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri /index.html;
+
+        add_header Cache-Control $static_cache_control always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options nosniff always;
+        # List URLs are capabilities: never leak them in a Referer.
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        # Vuetify injects its theme as a <style> element, hence 'unsafe-inline' for styles.
+        add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+
+        # Compression only for the app's static files, never for API responses (BREACH).
+        gzip on;
+        gzip_types text/css application/javascript image/svg+xml;
+
+        # A missing fingerprinted file is a 404, not the app's HTML. Inherits the headers.
+        location /assets/ {
+            try_files $uri =404;
+        }
+
+        # nginx's MIME table has no entry for web app manifests.
+        location = /manifest.webmanifest {
+            default_type application/manifest+json;
+        }
     }
 }
