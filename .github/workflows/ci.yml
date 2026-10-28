@@ -3,7 +3,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
   workflow_dispatch:
 
@@ -19,6 +19,22 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      # Version 2 work lives on v2 and its pull requests must target v2. A pull_request run
+      # uses the workflow from the PR's merge commit, so this only fires for branches built on
+      # v2; V1 pull requests from main run main's workflow. See docs/v2/16-GIT-WORKFLOW.md.
+      - name: V2 pull requests must target v2
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$BASE_REF" = "main" ] && { [ "$HEAD_REF" != "v2" ] || [ "$HEAD_REPO" != "$REPO" ]; }; then
+            echo "::error title=Wrong base branch::This pull request contains Version 2 work but targets main. Change its base branch to v2. Only the release PR from v2 may target main. See docs/v2/16-GIT-WORKFLOW.md."
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
