@@ -27,6 +27,30 @@ test('the edit link unlocks editing and never stays in the address bar', async (
   }
 })
 
+test('the secret leaves the address bar at once, even while checking or when rejected', async ({
+  page,
+  api,
+}) => {
+  const list = await api.createList('Hidden token')
+  // Hold the ownership check so the address bar can be inspected mid-check.
+  let release!: () => void
+  const held = new Promise<void>((resolve) => (release = resolve))
+  await page.route(`**/api/v1/lists/${list.public_code}/`, async (route) => {
+    if (route.request().method() === 'PATCH') await held
+    await route.continue()
+  })
+  await page.goto(editLinkFor(list))
+  await expect(page.getByRole('heading', { name: 'Opening your list…' })).toBeVisible()
+  expect(page.url()).not.toContain('#t=')
+  release()
+  await expect(page.getByText('Your list', { exact: true })).toBeVisible()
+
+  // A rejected link stays on its error page, but without the token.
+  await page.goto(`/l/${list.public_code}/manage#t=not-the-right-token-at-all-0000`)
+  await expect(page.getByRole('heading', { name: 'This edit link no longer works' })).toBeVisible()
+  expect(page.url()).not.toContain('#t=')
+})
+
 test('a wrong or incomplete edit link explains itself', async ({ page, api }) => {
   const list = await api.createList('Wrong token')
   await page.goto(`/l/${list.public_code}/manage#t=not-the-right-token-at-all-0000`)
