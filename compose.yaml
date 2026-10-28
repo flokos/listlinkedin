@@ -15,6 +15,11 @@ x-app: &app
     POSTGRES_PORT: "5432"
     PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}  # the frontend dev server
     BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
+    # Outgoing mail (verification, password reset) goes to Mailpit: http://localhost:8025
+    DJANGO_EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+    EMAIL_HOST: mailpit
+    EMAIL_PORT: "1025"
+    EMAIL_USE_TLS: "false"
   volumes:
     - ./backend:/app  # live code reload
 
@@ -65,6 +70,14 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  mailpit:
+    # Catches the mail the app sends in development, so nothing leaves your machine.
+    # Read it at http://localhost:8025 (account verification and password-reset links).
+    image: axllent/mailpit:v1.31
+    ports:
+      - "8025:8025"
     restart: unless-stopped
 
   frontend:

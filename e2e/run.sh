@@ -24,7 +24,8 @@ export HTTP_PORT=0 HTTPS_PORT=0
 # The rate-limit UI is tested with mocked responses instead.
 export THROTTLE_LIST_CREATE=10000/hour THROTTLE_LIST_MANAGE=100000/hour
 
-compose() { docker compose -f compose.prod.yaml "$@"; }
+# The production stack plus Mailpit for account emails (e2e/compose.e2e.yaml).
+compose() { docker compose -f compose.prod.yaml -f e2e/compose.e2e.yaml "$@"; }
 status=1
 cleanup() {
     if [[ $status -ne 0 ]]; then compose logs --no-color --tail=40 api nginx || true; fi

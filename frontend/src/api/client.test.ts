@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { addLink, ApiError, errorMessage, getLinks, NetworkError } from './api'
+import { addLink, ApiError, errorMessage, getLinks, NetworkError, request } from '.'
 
 function respond(status: number, body: unknown, headers: Record<string, string> = {}) {
   vi.stubGlobal(
@@ -13,7 +13,14 @@ function respond(status: number, body: unknown, headers: Record<string, string> 
   )
 }
 
-afterEach(() => vi.unstubAllGlobals())
+function setCookie(value: string) {
+  Object.defineProperty(document, 'cookie', { value, configurable: true, writable: true })
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  setCookie('')
+})
 
 describe('ApiError', () => {
   it('parses DRF field errors and picks the first as the user message', () => {
@@ -26,6 +33,28 @@ describe('ApiError', () => {
     expect(new ApiError(410, { detail: 'This list has expired.' }).userMessage).toBe(
       'This list has expired.',
     )
+  })
+
+  it('reads the v2 machine code without treating it as a field error', () => {
+    const error = new ApiError(409, { detail: 'Changed meanwhile.', code: 'stale_preview' })
+    expect(error.code).toBe('stale_preview')
+    expect(error.fieldErrors).toEqual({})
+  })
+
+  it('maps allauth errors to fields and a general message', () => {
+    const error = new ApiError(400, {
+      status: 400,
+      errors: [
+        { message: 'This password is too short.', code: 'password_too_short', param: 'password' },
+        { message: 'This password is too common.', code: 'password_too_common', param: 'password' },
+        { message: 'Too many attempts.', code: 'too_many_login_attempts' },
+      ],
+    })
+    expect(error.fieldErrors).toEqual({
+      password: ['This password is too short.', 'This password is too common.'],
+    })
+    expect(error.detail).toBe('Too many attempts.')
+    expect(error.code).toBe('password_too_short')
   })
 
   it('falls back to a message per status', () => {
@@ -48,7 +77,39 @@ describe('request', () => {
     expect(init?.method).toBe('POST')
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret')
     expect(init?.body).toBe('{"destination_url":"https://example.com/"}')
-    expect(init?.credentials).toBe('omit')
+    expect(init?.credentials).toBe('same-origin')
+  })
+
+  it('needs no CSRF token for owner-token requests', async () => {
+    respond(201, { id: '1' })
+    await addLink('CODE', 'secret', { destination_url: 'https://example.com/' })
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+    const headers = vi.mocked(fetch).mock.calls[0]![1]!.headers as Record<string, string>
+    expect(headers['X-CSRFToken']).toBeUndefined()
+  })
+
+  it('sends the CSRF cookie back as a header on session writes', async () => {
+    setCookie('other=1; csrftoken=abc123')
+    respond(200, {})
+    await request('/api/v2/me/', { method: 'PATCH', body: { display_name: 'Ada' } })
+    const headers = vi.mocked(fetch).mock.calls[0]![1]!.headers as Record<string, string>
+    expect(headers['X-CSRFToken']).toBe('abc123')
+  })
+
+  it('fetches the session first when there is no CSRF cookie yet', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url === '/api/v2/session/') setCookie('csrftoken=fresh')
+      return new Response('{}', { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await request('/_allauth/browser/v1/auth/login', { method: 'POST', body: {} })
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      '/api/v2/session/',
+      '/_allauth/browser/v1/auth/login',
+    ])
+    expect((fetchMock.mock.calls[1]![1].headers as Record<string, string>)['X-CSRFToken']).toBe(
+      'fresh',
+    )
   })
 
   it('loads a whole list of links in one page', async () => {

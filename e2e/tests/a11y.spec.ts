@@ -1,6 +1,13 @@
 // Automated WCAG 2.2 A/AA checks with axe, in light and dark mode. Complements (does not
 // replace) the manual screen-reader checks in docs/qa-checklist.md.
-import { expect, expectNoA11yViolations, openAsOwner, test } from './fixtures'
+import {
+  expect,
+  expectNoA11yViolations,
+  openAsOwner,
+  signUpThroughApi,
+  test,
+  uniqueEmail,
+} from './fixtures'
 
 for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`${colorScheme} theme`, () => {
@@ -17,6 +24,29 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
         await expectNoA11yViolations(page)
       }
+    })
+
+    test('sign-in, sign-up and password pages', async ({ page }) => {
+      for (const [path, heading] of [
+        ['/signin', 'Sign in'],
+        ['/signup', 'Create your account'],
+        ['/reset-password', 'Reset your password'],
+      ] as const) {
+        await page.goto(path)
+        await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
+        await expectNoA11yViolations(page)
+      }
+    })
+
+    test('the account page and the account menu', async ({ page }) => {
+      await signUpThroughApi(page, uniqueEmail('a11y'))
+      await page.goto('/account')
+      await expect(page.getByRole('heading', { level: 1, name: 'Your account' })).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      await page.getByRole('button', { name: 'Account menu' }).click()
+      await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible()
+      await expectNoA11yViolations(page)
     })
 
     test('a list as visitor and owner, with its dialogs', async ({ page, api }) => {

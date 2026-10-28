@@ -62,7 +62,13 @@ map to 503 `temporarily_unavailable` with `Retry-After`, never to raw 500 text.
 ## Session and account
 
 Authentication flows use **django-allauth headless, browser client**: `/_allauth/browser/v1/…`
-(login, signup, logout, email verification, password reset, session) [R6]. The project adds:
+[R6]. The SPA uses `POST auth/login`, `POST auth/signup`, `DELETE auth/session` (sign out),
+`POST auth/password/request`, `GET`/`POST auth/password/reset` (GET checks a key sent as
+`X-Password-Reset-Key`), `POST auth/email/verify`, `PUT account/email` (resend verification;
+**403 means nothing was sent**, because one went out recently or the address is verified) and
+`POST account/password/change`. **A 401 from sign-out, password reset or verify-while-signed-out
+means the step succeeded and left the browser signed out.** Errors are
+`{status, errors: [{message, code, param}]}`. The project adds:
 
 | Method | Path | Notes |
 |---|---|---|

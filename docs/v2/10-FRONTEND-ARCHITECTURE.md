@@ -20,12 +20,18 @@ competing UI library.
 
 ## Structure (target)
 
+Since task 1.2, `api/` exists as `client.ts` (request, `ApiError` with `code` and allauth
+error parsing, CSRF), `lists.ts` (the V1 calls), `auth.ts` (allauth and `/api/v2/session|me`)
+and `index.ts`. Also in place: `useSession`, `useSignOut`, `PasswordField`, `AuthPanel`,
+`utils/forms.ts`. The other modules below arrive with their roadmap tasks. Generated types
+(`schema.d.ts`) come with the first v2 list endpoints (task 1.3).
+
 ```text
 src/
   api/
     client.ts        request(), ApiError/NetworkError (from V1 api.ts), CSRF + session handling, ETag/If-Match helpers
     schema.d.ts      generated from /api/schema/?version=v2 by openapi-typescript (committed, CI-checked)
-    lists.ts links.ts groups.ts revisions.ts sync.ts members.ts account.ts directory.ts legacy.ts
+    lists.ts auth.ts groups.ts revisions.ts sync.ts members.ts directory.ts
   composables/
     useSession.ts         current user, sign-in state, route guard helper            (new)
     useListPage.ts        extended: permissions, ETag, tiles, reorder, history entry  (V1)
@@ -64,9 +70,15 @@ Caching and staleness (risk 28):
 ## API integration
 
 - **Session and CSRF.** `credentials: 'same-origin'` (V1 used `'omit'` because there were no
-  cookies). `GET /api/v2/session/` on startup sets the `csrftoken` cookie and returns the
-  user. Unsafe requests send `X-CSRFToken`. A 403 whose code is `csrf_failed` refetches the
-  session and retries once.
+  cookies). `GET /api/v2/session/` sets the `csrftoken` cookie and returns the user. The router
+  loads it before pages marked `requiresAuth` or `guestOnly`, and in the background otherwise.
+  Unsafe requests without a bearer token send `X-CSRFToken`. If the cookie isn't there yet,
+  the client calls the session endpoint first. Same-origin `fetch()` keeps sending a real
+  `Origin` header under the app's `no-referrer` policy, which Django checks over HTTPS.
+  Verified in all five e2e browser projects.
+- **allauth responses.** `ApiError` maps allauth's `{errors: [{message, code, param}]}` to
+  field errors. allauth answers **401 when a step succeeded but left you signed out** (sign-out,
+  password reset, verifying while signed out), and `api/auth.ts` treats those as success.
 - **Legacy tokens.** For lists in the device's legacy store, the client adds
   `Authorization: Bearer` on writes to that list only (V1 behaviour). After a successful claim
   the token is deleted from storage.

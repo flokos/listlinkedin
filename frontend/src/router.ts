@@ -1,11 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { trackNavigations } from './composables/useRouteFocus'
+import { currentUser, loadSession } from './composables/useSession'
+import { safeRedirectPath } from './utils/url'
 
 declare module 'vue-router' {
   interface RouteMeta {
     /** Page title; views with dynamic titles (a list's name) set document.title themselves. */
     title?: string
+    /** Signed-out visitors are sent to sign in first, then back here. */
+    requiresAuth?: boolean
+    /** Signed-in visitors skip this page (sign-in, sign-up) and continue to `?next=`. */
+    guestOnly?: boolean
   }
 }
 
@@ -31,6 +37,37 @@ const router = createRouter({
       name: 'about',
       component: () => import('./views/AboutView.vue'),
       meta: { title: 'About & privacy' },
+    },
+    // Accounts. Emailed links carry their key in the fragment (#key=…), never in the path.
+    {
+      path: '/signin',
+      name: 'signin',
+      component: () => import('./views/SignInView.vue'),
+      meta: { title: 'Sign in', guestOnly: true },
+    },
+    {
+      path: '/signup',
+      name: 'signup',
+      component: () => import('./views/SignUpView.vue'),
+      meta: { title: 'Create your account', guestOnly: true },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('./views/ResetPasswordView.vue'),
+      meta: { title: 'Reset your password' },
+    },
+    {
+      path: '/verify-email',
+      name: 'verify-email',
+      component: () => import('./views/VerifyEmailView.vue'),
+      meta: { title: 'Verify your email' },
+    },
+    {
+      path: '/account',
+      name: 'account',
+      component: () => import('./views/AccountView.vue'),
+      meta: { title: 'Your account', requiresAuth: true },
     },
     // Public list URL handed out by the API (`public_url`). nginx serves this app for it.
     {
@@ -68,13 +105,27 @@ const router = createRouter({
   ],
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition // back/forward: restore where the user was
-    if (to.hash && !to.hash.startsWith('#t=')) return { el: to.hash, top: 80 }
+    // Fragments that carry secrets (#t= edit links, #key= account links) aren't anchors.
+    if (to.hash && !/^#(t|key)=/.test(to.hash)) return { el: to.hash, top: 80 }
     if (to.path === from.path) return false // query-only changes (dialogs) keep the scroll
     return { top: 0 }
   },
 })
 
 trackNavigations(router)
+
+// Pages that depend on who is signed in wait for the session check; every other page
+// renders at once and the check finishes in the background.
+router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth && !to.meta.guestOnly) {
+    void loadSession()
+    return
+  }
+  await loadSession()
+  if (to.meta.requiresAuth && !currentUser())
+    return { name: 'signin', query: { next: to.fullPath } }
+  if (to.meta.guestOnly && currentUser()) return safeRedirectPath(to.query.next)
+})
 
 router.afterEach((to, from) => {
   if (to.path === from.path && from.matched.length) return // query/hash only: keep the title

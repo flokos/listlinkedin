@@ -36,6 +36,54 @@ export function apiHelpers(request: APIRequestContext) {
   }
 }
 
+// Accounts. Mailpit (e2e/compose.e2e.yaml) catches every email the stack sends.
+const MAILPIT = 'http://mailpit:8025'
+const ORIGIN = new URL(process.env.E2E_BASE_URL ?? 'https://go.example.test').origin
+export const PASSWORD = 'correct-horse-battery-staple-42'
+
+/** A fresh address per test, so tests never read each other's mail or collide. */
+export function uniqueEmail(label = 'e2e'): string {
+  return `${label}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@example.test`
+}
+
+/** Waits for the newest email to `to` whose subject matches, and returns its text body. */
+export async function emailTo(request: APIRequestContext, to: string, subject: RegExp): Promise<string> {
+  const deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    const search = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:"${to}"` } })
+    const { messages = [] } = (await search.json()) as { messages?: { ID: string; Subject: string }[] }
+    const message = messages.find((m) => subject.test(m.Subject))
+    if (message) {
+      const full = await request.get(`${MAILPIT}/api/v1/message/${message.ID}`)
+      return ((await full.json()) as { Text: string }).Text
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300))
+  }
+  throw new Error(`No email to ${to} with a subject matching ${subject}`)
+}
+
+/** The app link in an email, e.g. `https://…/verify-email#key=…`. */
+export function linkIn(text: string, path: string): string {
+  const match = text.match(new RegExp(`https://\\S+${path}#key=\\S+`))
+  expect(match, text).not.toBeNull()
+  return match![0]
+}
+
+/**
+ * Creates an account through the API and leaves this browser signed in to it: page.request
+ * shares the page's cookies. For tests about signed-in pages rather than sign-up itself.
+ */
+export async function signUpThroughApi(page: Page, email: string, password = PASSWORD) {
+  await page.request.get('/api/v2/session/') // sets the CSRF cookie
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const response = await page.request.post('/_allauth/browser/v1/auth/signup', {
+    data: { email, password },
+    // Browsers send Origin on these requests themselves; Django checks it over HTTPS.
+    headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(200)
+}
+
 /** The title link of a link card (the icon button has a different name). */
 export const cardTitle = (page: Page, title: string) =>
   page.getByRole('link', { name: `${title} (opens in a new tab)`, exact: true })
