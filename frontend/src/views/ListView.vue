@@ -108,9 +108,17 @@ const pending = usePendingReveal()
 watch(
   list,
   (value) => {
-    if (value && pending.take(props.code)) reveal.value = { open: true, mode: 'created' }
+    if (value && pending.isPending(props.code)) reveal.value = { open: true, mode: 'created' }
   },
   { immediate: true },
+)
+// The created-list step counts as done once the user closes it (only possible after
+// confirming they saved the link).
+watch(
+  () => reveal.value.open,
+  (open) => {
+    if (!open && reveal.value.mode === 'created') pending.clear()
+  },
 )
 
 // Inline rename.
@@ -344,25 +352,34 @@ function forgetHere() {
                   aria-label="List options"
                 />
               </template>
-              <v-list density="comfortable" nav min-width="240">
-                <v-list-item :prepend-icon="mdiPencilOutline" title="Rename" @click="startRename" />
+              <v-list role="menu" density="comfortable" nav min-width="240">
                 <v-list-item
+                  role="menuitem"
+                  :prepend-icon="mdiPencilOutline"
+                  title="Rename"
+                  @click="startRename"
+                />
+                <v-list-item
+                  role="menuitem"
                   :prepend-icon="mdiShieldKeyOutline"
                   title="Show edit link"
                   @click="reveal = { open: true, mode: 'view' }"
                 />
                 <v-list-item
+                  role="menuitem"
                   :prepend-icon="mdiKeyChange"
                   title="Replace edit link"
                   @click="rotateOpen = true"
                 />
                 <v-divider class="my-1" />
                 <v-list-item
+                  role="menuitem"
                   :prepend-icon="mdiTrayRemove"
                   title="Forget on this device"
                   @click="forgetHere"
                 />
                 <v-list-item
+                  role="menuitem"
                   :prepend-icon="mdiDeleteOutline"
                   title="Delete list"
                   base-color="error"
@@ -507,7 +524,7 @@ function forgetHere() {
         :title="list.title"
         :public-url="list.public_url"
       />
-      <v-dialog v-model="editOpen" max-width="560">
+      <v-dialog v-model="editOpen" max-width="560" aria-label="Edit link">
         <v-card v-if="editing" class="pa-2" title="Edit link">
           <v-card-text>
             <p class="text-body-small text-medium-emphasis mb-4">

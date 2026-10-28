@@ -37,9 +37,10 @@ const { queue } = useNotify()
       />
       <div class="flex-grow-1 px-4">
         <router-view v-slot="{ Component, route }">
-          <transition name="ll-route" mode="out-in">
-            <component :is="Component" :key="route.path" />
-          </transition>
+          <!-- No <transition>: the previous page is replaced at once and the new one fades in
+               with a CSS animation (.ll-page). Vue transitions wait on animation frames,
+               which WebKit may not run in background tabs, leaving two pages mounted. -->
+          <component :is="Component" :key="route.path" class="ll-page" />
         </router-view>
       </div>
       <AppFooter />

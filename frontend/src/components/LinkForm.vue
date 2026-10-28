@@ -103,6 +103,7 @@ async function onSubmit() {
           type="submit"
           color="primary"
           size="large"
+          :disabled="disabled"
           :loading="busy"
           :prepend-icon="mdiPlus"
           block

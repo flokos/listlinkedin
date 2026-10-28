@@ -52,7 +52,7 @@ function download() {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="560" :persistent="mustAcknowledge">
+  <v-dialog v-model="open" max-width="560" :persistent="mustAcknowledge" :aria-label="heading">
     <v-card class="pa-2">
       <v-card-item>
         <template #prepend>

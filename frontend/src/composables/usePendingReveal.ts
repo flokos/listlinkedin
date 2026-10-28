@@ -1,19 +1,39 @@
-import { shallowRef } from 'vue'
-
 // Hands the "save your edit link" step from the create form to the list page it navigates
-// to. In memory only: after a reload the token is still saved in the browser and the
-// owner can show the edit link again from the list's menu.
-const pending = shallowRef<{ code: string; token: string } | null>(null)
+// to. Only the list code is kept, in sessionStorage, so a reload before the user confirms
+// shows the step again; the token itself is already saved by useOwnedLists.
+
+const KEY = 'll:pending-reveal'
+/** Fallback when sessionStorage is unavailable (private mode in some browsers). */
+let memory: string | null = null
+
+function read(): string | null {
+  try {
+    return sessionStorage.getItem(KEY)
+  } catch {
+    return null
+  }
+}
 
 export function usePendingReveal() {
   return {
-    set: (code: string, token: string) => (pending.value = { code, token }),
-    /** Returns and clears the pending reveal for `code`, if any. */
-    take(code: string) {
-      const value = pending.value
-      if (value?.code !== code) return null
-      pending.value = null
-      return value
+    set(code: string) {
+      try {
+        sessionStorage.setItem(KEY, code)
+      } catch {
+        // Storage unavailable: the step still shows once, just not after a reload.
+      }
+      memory = code
+    },
+    /** Whether the edit link for `code` still has to be acknowledged. */
+    isPending: (code: string) => (read() ?? memory) === code,
+    /** Call once the user confirmed they saved the edit link. */
+    clear() {
+      memory = null
+      try {
+        sessionStorage.removeItem(KEY)
+      } catch {
+        // ignore
+      }
     },
   }
 }

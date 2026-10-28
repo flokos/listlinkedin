@@ -39,9 +39,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     class="ll-nav-drawer"
     temporary
     width="300"
+    :role="open ? 'dialog' : undefined"
+    :aria-modal="open ? 'true' : undefined"
     aria-label="Menu"
-    role="dialog"
-    aria-modal="true"
   >
     <div class="pa-4 pb-2"><AppLogo :size="28" /></div>
     <v-list nav aria-label="Main">

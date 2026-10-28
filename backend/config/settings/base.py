@@ -96,9 +96,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
     "UNAUTHENTICATED_USER": None,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Per client IP. Overridable for load or end-to-end testing; keep the defaults in production.
     "DEFAULT_THROTTLE_RATES": {
-        "list_create": "30/hour",
-        "list_manage": "600/hour",
+        "list_create": os.environ.get("THROTTLE_LIST_CREATE", "30/hour"),
+        "list_manage": os.environ.get("THROTTLE_LIST_MANAGE", "600/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.

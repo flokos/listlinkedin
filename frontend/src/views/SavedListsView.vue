@@ -146,13 +146,15 @@ function forget(item: OwnedList) {
                   :aria-label="`More actions for ${item.title || 'list'}`"
                 />
               </template>
-              <v-list density="compact" nav>
+              <v-list role="menu" density="compact" nav>
                 <v-list-item
+                  role="menuitem"
                   :prepend-icon="mdiContentCopy"
                   title="Copy share link"
                   @click="copy(publicUrl(item), 'Share link')"
                 />
                 <v-list-item
+                  role="menuitem"
                   :prepend-icon="mdiTrayRemove"
                   title="Forget on this device"
                   @click="forget(item)"

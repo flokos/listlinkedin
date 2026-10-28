@@ -1,0 +1,109 @@
+// Shared fixtures and helpers. Specs import { test, expect } from here, not from
+// @playwright/test, so every test fails on unexpected console errors.
+import AxeBuilder from '@axe-core/playwright'
+import { type APIRequestContext, type Browser, expect, type Page, test as base } from '@playwright/test'
+
+export interface CreatedList {
+  id: string
+  public_code: string
+  public_url: string
+  owner_token: string
+  title: string
+}
+
+/** API helpers for fast setup (same origin as the app, through nginx). */
+export function apiHelpers(request: APIRequestContext) {
+  return {
+    async createList(title = 'E2E list'): Promise<CreatedList> {
+      const response = await request.post('/api/v1/lists/', { data: { title } })
+      expect(response.status(), await response.text()).toBe(201)
+      return response.json()
+    },
+    async addLink(list: CreatedList, destination_url: string, title?: string) {
+      const response = await request.post(`/api/v1/lists/${list.public_code}/links/`, {
+        data: { destination_url, title },
+        headers: { Authorization: `Bearer ${list.owner_token}` },
+      })
+      expect(response.status(), await response.text()).toBe(201)
+      return response.json()
+    },
+    async deleteList(list: CreatedList) {
+      const response = await request.delete(`/api/v1/lists/${list.public_code}/`, {
+        headers: { Authorization: `Bearer ${list.owner_token}` },
+      })
+      expect(response.status()).toBe(204)
+    },
+  }
+}
+
+/** The title link of a link card (the icon button has a different name). */
+export const cardTitle = (page: Page, title: string) =>
+  page.getByRole('link', { name: `${title} (opens in a new tab)`, exact: true })
+
+/** All card title links, in display order. */
+export const cardTitles = (page: Page) => page.getByRole('link', { name: /\(opens in a new tab\)$/ })
+
+export const editLinkFor = (list: CreatedList) =>
+  `/l/${list.public_code}/manage#t=${encodeURIComponent(list.owner_token)}`
+
+/** Opens the list as its owner in this page's browser by visiting the private edit link. */
+export async function openAsOwner(page: Page, list: CreatedList) {
+  await page.goto(editLinkFor(list))
+  await expect(page).toHaveURL(new RegExp(`/l/${list.public_code}$`))
+  await expect(page.getByText('Your list', { exact: true })).toBeVisible()
+}
+
+/** Creates a list through the home page form and acknowledges the edit link. */
+export async function createListInUI(page: Page, title: string) {
+  await page.goto('/')
+  await page.getByRole('textbox', { name: 'List name' }).fill(title)
+  await page.getByRole('button', { name: 'Create list' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Your list is ready. Save your edit link' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('checkbox', { name: /saved my edit link/ }).check()
+  await dialog.getByRole('button', { name: 'Go to my list' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
+  return page.url().split('/l/')[1]!
+}
+
+/** A second, independent browser (another device): no shared storage. */
+export async function otherDevice(browser: Browser, baseURL: string | undefined) {
+  const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true })
+  return { context, page: await context.newPage() }
+}
+
+/** Fails on WCAG 2.2 A/AA violations found by axe. */
+export async function expectNoA11yViolations(page: Page, include?: string) {
+  let builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+  if (include) builder = builder.include(include)
+  const { violations } = await builder.analyze()
+  const summary = violations.map(
+    (v) => `${v.id} (${v.impact}): ${v.help}\n  ${v.nodes.map((n) => n.target.join(' ')).join('\n  ')}`,
+  )
+  expect(summary, summary.join('\n')).toEqual([])
+}
+
+// HTTP errors the app handles on purpose show up as console errors in some browsers
+// ("Failed to load resource: … 404"). Anything else is a bug.
+const EXPECTED_CONSOLE = [/status of (400|401|403|404|410|413|429|500|502|503)/, /Failed to load resource/]
+
+export const test = base.extend<{ consoleErrors: string[]; api: ReturnType<typeof apiHelpers> }>({
+  consoleErrors: [
+    async ({ page }, use) => {
+      const errors: string[] = []
+      page.on('console', (message) => {
+        if (message.type() !== 'error') return
+        if (EXPECTED_CONSOLE.some((re) => re.test(message.text()))) return
+        errors.push(message.text())
+      })
+      page.on('pageerror', (error) => errors.push(`Uncaught: ${error.message}`))
+      await use(errors)
+      expect(errors, 'unexpected console errors').toEqual([])
+    },
+    { auto: true },
+  ],
+  api: async ({ request }, use) => use(apiHelpers(request)),
+})
+
+export { expect }
