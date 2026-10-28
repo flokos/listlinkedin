@@ -1,0 +1,72 @@
+# 20: Decisions and open questions
+
+## Decision log
+
+Settled decisions, with where each is justified. Changing one needs a superseding ADR
+(CLAUDE.md).
+
+| # | Decision | Decided by | Reference |
+|---|---|---|---|
+| D1 | V1 stays on `main`; V2 is built on the long-lived `v2` branch; all V2 PRs target `v2` | prompt + planning | [ADR-009](adr/ADR-009-git-v2-integration-branch.md) |
+| D2 | Push `v2` and protect `main` and `v2` with rulesets (admin bypass in PR mode); a CI guard on `v2` against PRs into `main` | **user (2026-10-28)** | [16](16-GIT-WORKFLOW.md) |
+| D3 | **Accounts are required to create lists**; V1 lists stay manageable with their edit link until claimed or expired | **user (2026-10-28)** | [ADR-011](adr/ADR-011-accounts-required-legacy-lists.md) |
+| D4 | Keep `SharedList`/`SharedLink`; no `WebApp` entity | prompt + planning | [ADR-001](adr/ADR-001-preserve-list-and-link.md) |
+| D5 | Modular monolith; pure core only for merge, snapshots and policy | planning | [ADR-002](adr/ADR-002-modular-monolith.md) |
+| D6 | Immutable full JSONB snapshots | prompt preference, confirmed | [ADR-003](adr/ADR-003-immutable-revision-snapshots.md) |
+| D7 | Three-way merge, branch-level baseline, all items decided per apply | planning | [ADR-004](adr/ADR-004-three-way-merge.md) |
+| D8 | Child order preserved, parent additions appended, integer positions with move ops | prompt preference, confirmed | [ADR-005](adr/ADR-005-child-ordering-policy.md) |
+| D9 | Keep V1 codes; codes as columns and `ShortRedirect` for links; `/g/` for groups; EXTERNAL_URL deferred | planning | [ADR-006](adr/ADR-006-url-shortening-strategy.md) |
+| D10 | Custom user in a new `accounts` app; session + CSRF; allauth headless | planning | [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md) |
+| D11 | Metadata via django-tasks + django-tasks-db worker; field provenance; SSRF-safe fetcher | planning | [ADR-008](adr/ADR-008-background-metadata-extraction.md) |
+| D12 | `/api/v2/` with ViewSets; `/api/v1/` kept for the transition | planning | [ADR-010](adr/ADR-010-viewsets-and-api-v2.md) |
+| D13 | Media re-encoded by Pillow, served same-origin | planning | [ADR-012](adr/ADR-012-media-and-images.md) |
+| D14 | Soft-delete links only; hard-delete lists and groups | planning | [ADR-013](adr/ADR-013-soft-delete-links-only.md) |
+| D15 | Django 5.2 LTS through V2 launch; 6.2 LTS afterwards | planning | [ADR-014](adr/ADR-014-django-version.md) |
+| D16 | New lists default to `private`; V1 lists become `unlisted` | planning | [12](12-AUTHORIZATION.md#visibility) |
+| D17 | Slugs are cosmetic (`/l/{code}/{slug}`), never identifiers | planning | [09](09-API-DESIGN.md#urls-and-slugs) |
+| D18 | Group roles never grant list access; hidden lists omitted entirely | prompt + planning | [12](12-AUTHORIZATION.md) |
+| D19 | Revision history visible to editors and owners only | planning | [12](12-AUTHORIZATION.md#list-permission-matrix) |
+| D20 | `public` visibility requires a verified email | planning | [13](13-SECURITY.md) |
+| D21 | One production cutover at release; no dual-running of V1 and V2 on one database | planning | [06](06-MIGRATION-PLAN.md) |
+| D22 | Grid (tiles) by default, with V1's row layout kept as "List" view | planning | [11](11-UI-UX-MIGRATION.md#list-page) |
+| D23 | No Pinia; keep the composable singletons until a stated trigger | planning | [10](10-FRONTEND-ARCHITECTURE.md#state-management) |
+| D24 | Drag-and-drop with vue-draggable-plus plus a mandatory ⋮ Move alternative | planning | [10](10-FRONTEND-ARCHITECTURE.md#drag-and-drop) |
+
+## Open questions
+
+Each has a recommendation, so work isn't blocked. Owners decide before the task named.
+
+| # | Question | Recommendation | Decide before |
+|---|---|---|---|
+| Q1 | Should `public` lists and groups become indexable by search engines (drop `noindex` for them)? | Keep `noindex` for the MVP. Indexing needs server-rendered metadata (the SPA has none) and invites abuse. Revisit after launch | 8.2 |
+| Q2 | Revision retention: keep every revision forever? | Yes for the MVP (bounded by the link cap). Add "keep the last N + daily for 90 days" only if storage grows | after launch |
+| Q3 | Default link cap: stay at 100? | Keep 100 (a setting). Raising it affects snapshot size, preview UX and the merge timing targets. Re-measure first | 2.1 |
+| Q4 | Invitations for people without an account (email invite links)? | Later enhancement. MVP adds existing accounts by email | 1.5 |
+| Q5 | Ownership transfer between accounts? | Later enhancement (owner → existing editor, confirmed by both) | after launch |
+| Q6 | Social login or MFA? | Not in the MVP. allauth supports both, so add them by configuration later | after launch |
+| Q7 | Trash / undo for deleted lists? | Not in the MVP ([ADR-013](adr/ADR-013-soft-delete-links-only.md)). If wanted, a separate `deleted_lists` archive table (snapshot + metadata) avoids soft-delete filters everywhere | after launch |
+| Q8 | Where will V2 be hosted, and does it have an SMTP relay? | Same single-host compose deployment as V1, with any SMTP relay. Needed by 1.2 for production-like testing | 1.2 |
+| Q9 | Is there production V1 data today, and how much? | Plan as if there is (the migration is designed for it). The rehearsal (9.5) measures it | 9.5 |
+| Q10 | Moderation tooling beyond management commands (Django admin, report button)? | Management commands for the MVP. Report button and admin before any broad public launch | 9.1 |
+| Q11 | Per-field merge choices and partial merges? | Deferred. Revisit with real usage data from merge logs | after launch |
+| Q12 | Should a public group show an "N private lists hidden" hint to its *editors*? | Editors see the per-entry notice ([12](12-AUTHORIZATION.md#which-lists-a-group-shows-to-a-viewer)). Never shown to visitors | 4.3 |
+| Q13 | Add a PR template and a short V1 CLAUDE.md to `main`? | Optional V1 docs PR ([16](16-GIT-WORKFLOW.md#optional-pr-template-for-main)). It helps contributors who start from `main` | anytime |
+| Q14 | Upgrade path to Django 6.2 LTS: when? | A dedicated project after V2 is stable, before April 2028 (5.2's end of support) | after launch |
+
+## Final architectural review (prompt Step 12)
+
+| Perspective | Assessment |
+|---|---|
+| Backend maintainability | V1's structure is kept. New apps have clear ownership. A pure core sits where the risk is. Services grow into packages only when needed |
+| Domain correctness | Invariants are numbered and mapped to tests. The merge is fully specified, including 16 added scenarios. Baselines and idempotency are explicit |
+| Database integrity | Invariants are enforced by constraints and triggers where possible: CHECKs for legacy lists, partial uniques, deferrable positions, revision immutability |
+| Frontend maintainability | The same stack and patterns. The largest view gets split. Types are generated from OpenAPI. Two new dependencies |
+| User experience | Product language replaces Git terms. V1 workflows are preserved (create, add, edit, share, copy short URL, view, manage), with tiles and a list view |
+| Security | The threat model covers every prompt item. SSRF is isolated to the worker. Uniform 404s. CSRF is introduced correctly. Media is re-encoded |
+| Performance | Targets are set, query counts are tested, the cap bounds the merge cost. No speculative caching |
+| Infrastructure simplicity | One new service (worker) and one new volume (media). No Redis or Celery |
+| Migration safety | Identifiers are preserved, history is honest, a rehearsal is planned, and the backup-based rollback is stated plainly |
+| Testability | Engine properties, a matrix-driven authorization suite, real concurrency tests, and a V1 regression checklist |
+
+The main residual risk is sync UX complexity. It is mitigated by the decision defaults, the
+explicit sections, and the deferred list.
