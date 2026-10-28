@@ -13,7 +13,7 @@ per version).
 | Format | JSON in and out (V1 parsers and renderers). `multipart/form-data` only on the upload endpoints |
 | Identifiers | Lists by `public_code` (`{code}`), groups by `code`, links by UUID, revisions by `number`, members by user id. UUID `id`s are returned but are never needed in URLs except for links |
 | Authentication | Django session cookie (`sessionid`, `HttpOnly`, `Secure` in production, `SameSite=Lax`) with **CSRF** on unsafe methods (`X-CSRFToken` header from the `csrftoken` cookie [R8]). Legacy lists also accept `Authorization: Bearer <owner token>`, which needs no CSRF because it isn't ambient |
-| Authorization | [12-AUTHORIZATION.md](12-AUTHORIZATION.md). Not viewable → 404. Viewable but forbidden → 403. Account required → 401 |
+| Authorization | [12-AUTHORIZATION.md](12-AUTHORIZATION.md). Not viewable → 404. Viewable but forbidden → 403. Account required → 401 with `WWW-Authenticate: Session` (`Bearer` on endpoints that also accept legacy owner tokens) |
 | Pagination | `PageNumberPagination` shape `{count, next, previous, results}` (V1-compatible). Default 20, max 100. A list's links default to 100 per page, which is the whole list |
 | Ordering and filtering | `?ordering=` on collections where documented. `?q=` and `?tags=a,b` on the directory |
 | Versioning | URL path. `/api/v1/` is frozen and deprecated (`Deprecation` and `Sunset` headers once V2 ships). Breaking changes inside v2 are forbidden after release; additive changes are fine |
@@ -29,10 +29,13 @@ per version).
 {"destination_url": ["This URL is already in the list."], "code": "invalid"}
 ```
 
-Domain code raises framework-free exceptions (`versioning.domain.errors.StalePreview`, …).
-A DRF `EXCEPTION_HANDLER` maps them to status and `code` in one table. Services written in V1
-style that raise DRF exceptions stay valid until touched. Infrastructure errors (DB timeouts,
-lock timeouts) map to 503 `temporarily_unavailable` with `Retry-After`, never to raw 500 text.
+Domain code raises framework-free exceptions that subclass the categories in
+`apps/common/errors.py` (for example `versioning.domain.errors.StalePreview(Conflict)`).
+`config/exceptions.py`, the DRF `EXCEPTION_HANDLER`, maps them to a status through the class
+hierarchy and adds `code` (plus any extra fields, such as `fingerprint`) to every error body
+under `/api/v2/`. V1 bodies keep their exact V1 shape. Services written in V1 style that raise
+DRF exceptions stay valid until touched. Infrastructure errors (DB timeouts, lock timeouts)
+map to 503 `temporarily_unavailable` with `Retry-After`, never to raw 500 text.
 
 | Domain error | HTTP | `code` |
 |---|---|---|
@@ -63,8 +66,9 @@ Authentication flows use **django-allauth headless, browser client**: `/_allauth
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/v2/session/` | Sets the CSRF cookie (`ensure_csrf_cookie`). Returns `{user: {id, email, display_name, email_verified} \| null}` |
-| PATCH | `/api/v2/me/` | `display_name` |
+| GET | `/api/v2/session/` | Sets the CSRF cookie. Returns `{user: {id, email, display_name, email_verified} \| null}` |
+| GET | `/api/v2/me/` | The signed-in user (401 when signed out) |
+| PATCH | `/api/v2/me/` | `display_name` (≤80 characters, trimmed). `email` is read-only here; changing it goes through allauth's verified flow |
 | DELETE | `/api/v2/me/` | Account deletion. Requires `{"confirm": "<email>"}`, and deletes owned lists and groups first ([04](04-DOMAIN-MODEL.md#ownership-rules)) |
 
 ## Lists

@@ -2,3 +2,5 @@
 # Daily at 03:00: delete expired lists (with links and redirects) and prune rate-limit rows.
 # The API already refuses expired lists with 410, so this only reclaims storage.
 0 3 * * * python manage.py cleanup_expired
+# Daily at 03:20: delete expired sign-in sessions (Django keeps them until removed).
+20 3 * * * python manage.py clearsessions

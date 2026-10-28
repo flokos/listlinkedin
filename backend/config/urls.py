@@ -10,6 +10,9 @@ CODE = r"[A-Za-z0-9_-]+"
 
 urlpatterns = [
     path("api/v1/", include("apps.sharing.urls")),
+    path("api/v2/", include("apps.accounts.urls")),
+    # Sign-up, sign-in, email verification, password reset: django-allauth's headless API.
+    path("_allauth/", include("allauth.headless.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),

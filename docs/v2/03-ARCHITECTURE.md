@@ -68,8 +68,8 @@ flowchart TB
 
 Rules:
 
-1. **Domain core modules import no Django or DRF.** These are `versioning/domain/*` and
-   `sharing/policy.py`. They take plain data (dataclasses and dicts) and return plain data or
+1. **Domain core modules import no Django or DRF.** These are `versioning/domain/*`,
+   `sharing/policy.py` and `common/errors.py` (the `DomainError` base classes). They take plain data (dataclasses and dicts) and return plain data or
    raise domain errors. A test walks their AST and fails on forbidden imports (roadmap task
    3.1), which is cheaper than adding an import-linter dependency.
 2. `sharing/domain.py` (V1) reads Django settings for the host denylist. It stays as is. When
@@ -90,7 +90,8 @@ Rules:
 
 ```text
 backend/apps/
-  accounts/     User (AbstractUser, email login), allauth adapter, /api/v2/session|me
+  common/       errors.py: framework-free DomainError classes (not a Django app)
+  accounts/     User (AbstractUser, email login, UUID key), SessionAuthentication, /api/v2/session|me
   sharing/      SharedList, SharedLink, ListMembership
                 domain.py (URL rules, V1) · policy.py (pure permissions) · tokens.py (V1)
                 services/ (lists, links, members, claims, ordering) · selectors.py
@@ -99,7 +100,8 @@ backend/apps/
   groups/       Group, GroupList, GroupMembership · services · selectors · ViewSets
   versioning/   domain/{snapshot,merge,errors}.py (pure) · models · services · selectors · ViewSet actions
   metadata/     fetcher.py (SSRF-safe) · parser.py · images.py (Pillow) · tasks.py · services.py
-backend/config/ settings (auth, sessions, CSRF, TASKS, MEDIA, email), urls (v1 + v2), exception handler
+backend/config/ settings (auth, sessions, CSRF, TASKS, MEDIA, email), urls (v1 + v2 + /_allauth/),
+                exceptions.py (DomainError → HTTP; `code` on /api/v2/ error bodies)
 ```
 
 `sharing/services.py` becomes a package when V2 work makes it grow past one screenful per

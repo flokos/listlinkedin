@@ -73,12 +73,12 @@ production uses any SMTP relay.
 
 | Variable | Used by | Default (dev) |
 |---|---|---|
-| `EMAIL_*`, `DEFAULT_FROM_EMAIL` | api | console backend |
+| `DJANGO_EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | api | console backend in development, SMTP in production (since task 1.1) |
 | `MEDIA_ROOT` | api, worker | `/srv/media` |
-| `DB_STATEMENT_TIMEOUT` | api (20s) / migrate (0) | prod 20s, migrate 0 |
+| `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | worker | `true` (`false` disables fetching, for locked-down deployments) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
-| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)) |
+| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1 |
 
 ## Scheduled jobs
 

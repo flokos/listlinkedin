@@ -41,7 +41,8 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 |---|---|
 | `sharing` | Lists (`SharedList`) and Links (`SharedLink`), list memberships, legacy owner tokens |
 | `shortener` | Short codes, `ShortRedirect`, `/r/{code}` resolution (visibility checked through `sharing` selectors) |
-| `accounts` (planned) | Custom `User`, authentication |
+| `accounts` | Custom `User` (email login, UUID key), session authentication, `/api/v2/session/` and `/api/v2/me/`. Sign-up, sign-in and passwords via django-allauth's headless API under `/_allauth/` |
+| `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
 | `groups` (planned) | `Group`, `GroupList`, `GroupMembership` |
 | `versioning` (planned) | `ListRevision`, `ListBranch`, `BranchExclusion`, `SyncRecord`. Snapshot, diff and merge engine in `versioning/domain/`, which has **no Django imports** |
 | `metadata` (planned) | Safe URL fetching, metadata parsing, image processing (worker tasks) |
