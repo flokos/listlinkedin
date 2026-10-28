@@ -55,7 +55,7 @@ watch([list, status], ([value, state]) => {
   if (title) document.title = `${title} · listlinkedin`
 })
 
-// Back link: to My lists when the user came from there.
+// Back link: to Saved lists when the user came from there.
 const cameFromMyLists = computed(() =>
   String(window.history.state?.back ?? '').startsWith('/lists'),
 )
@@ -200,7 +200,7 @@ async function confirmDeleteList() {
   try {
     await page.removeList()
     notify.success('List deleted')
-    router.replace({ name: 'my-lists' })
+    router.replace({ name: 'saved-lists' })
   } catch (error) {
     notify.error(errorMessage(error))
     throw error
@@ -221,7 +221,7 @@ function forgetHere() {
       class="mb-4 ml-n3"
       @click="router.back()"
     >
-      My lists
+      Saved lists
     </v-btn>
 
     <!-- Loading -->

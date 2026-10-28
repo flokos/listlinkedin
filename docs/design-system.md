@@ -92,7 +92,7 @@ a view only with a reason.
 Shared building blocks in [`frontend/src/components/`](../frontend/src/components/):
 `StatePanel` (every empty and error state), `CopyField`, `ExpiryChip`, `DomainAvatar`,
 `LinkCard`, `LinkForm`, `LinkLimitMeter`, `ConfirmDialog`, `ShareDialog`,
-`EditLinkReveal`, `ClaimTokenDialog`.
+`EditLinkReveal`, `ClaimTokenDialog`, `BackupCard`.
 
 ## Layout and navigation
 

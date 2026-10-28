@@ -81,8 +81,9 @@ const principles = [
         </v-expansion-panel>
         <v-expansion-panel title="I lost my edit link. Can you recover it?">
           <v-expansion-panel-text>
-            No. Without accounts there's no way to prove the list is yours. If this browser still
-            has edit access, open the list and choose “Show edit link” from its menu.
+            Not from us: without accounts there's no way to prove the list is yours. If this browser
+            still has edit access, open the list and choose “Show edit link” from its menu. If you
+            downloaded a backup, restore it on the Saved lists page.
           </v-expansion-panel-text>
         </v-expansion-panel>
         <v-expansion-panel title="Someone else got my edit link. What do I do?">

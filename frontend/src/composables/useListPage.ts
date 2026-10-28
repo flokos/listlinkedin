@@ -51,7 +51,7 @@ export function useListPage(code: Ref<string>) {
       status.value = 'ready'
       loadError.value = undefined
       remember()
-      // Keep the saved entry's title and expiry fresh for the My lists page.
+      // Keep the saved entry's title and expiry fresh for the Saved lists page.
       if (token.value)
         owned.update(code.value, { title: listData.title, expiresAt: listData.expires_at })
     } catch (error) {

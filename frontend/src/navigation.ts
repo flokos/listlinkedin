@@ -14,10 +14,10 @@ export interface NavItem {
 export const mainNav: NavItem[] = [
   { label: 'Home', to: { name: 'home' }, icon: mdiHomeOutline, match: ['home'] },
   {
-    label: 'My lists',
-    to: { name: 'my-lists' },
+    label: 'Saved lists',
+    to: { name: 'saved-lists' },
     icon: mdiFormatListBulletedSquare,
-    match: ['my-lists'],
+    match: ['saved-lists'],
     badge: 'owned-lists',
   },
   { label: 'About', to: { name: 'about' }, icon: mdiInformationOutline, match: ['about'] },

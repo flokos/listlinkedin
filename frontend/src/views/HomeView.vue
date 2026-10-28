@@ -89,14 +89,14 @@ const promises = [
       aria-labelledby="recent-heading"
     >
       <div class="d-flex align-center justify-space-between mb-4">
-        <h2 id="recent-heading" class="text-headline-small">Your lists on this device</h2>
+        <h2 id="recent-heading" class="text-headline-small">Saved on this device</h2>
         <v-btn
-          :to="{ name: 'my-lists' }"
+          :to="{ name: 'saved-lists' }"
           variant="text"
           color="primary"
           :append-icon="mdiArrowRight"
         >
-          All lists
+          All saved lists
         </v-btn>
       </div>
       <v-row>

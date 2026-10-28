@@ -12,6 +12,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ApiError, getList } from '../api'
+import BackupCard from '../components/BackupCard.vue'
 import ClaimTokenDialog from '../components/ClaimTokenDialog.vue'
 import ExpiryChip from '../components/ExpiryChip.vue'
 import StatePanel from '../components/StatePanel.vue'
@@ -60,9 +61,10 @@ function forget(item: OwnedList) {
   <div class="ll-content py-6 py-md-10">
     <div class="d-flex flex-wrap align-end justify-space-between ga-4 mb-2">
       <div>
-        <h1 class="text-headline-large">My lists</h1>
+        <h1 class="text-headline-large">Saved lists</h1>
         <p class="text-body-large text-medium-emphasis ll-reading mt-1">
-          Lists you can edit from this browser. They're remembered on this device only.
+          Lists you can edit from this browser. They're saved on this device only, not in an
+          account. To use them elsewhere, open their edit links there or restore a backup.
         </p>
       </div>
       <div class="d-flex ga-2">
@@ -84,7 +86,7 @@ function forget(item: OwnedList) {
       v-if="!owned.lists.value.length"
       :icon="mdiFormatListBulletedSquare"
       title="No lists on this device yet"
-      text="Create a list, or open one you made elsewhere with its private edit link."
+      text="Create a list, open one you made elsewhere with its edit link, or restore a backup."
       class="mt-8"
     >
       <template #actions>
@@ -161,6 +163,8 @@ function forget(item: OwnedList) {
         </v-card>
       </li>
     </TransitionGroup>
+
+    <BackupCard class="mt-10" />
 
     <ClaimTokenDialog
       v-model="claimOpen"

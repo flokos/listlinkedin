@@ -19,7 +19,7 @@ Visual rules, tokens and component guidance are in
 | `/`                   | Home: create a list, how it works, recent lists on this device                                        |
 | `/l/:code`            | A list. Anyone can view it; owners also get add, edit, delete, rename, share and edit-link management |
 | `/l/:code/manage#t=…` | Private edit link: unlocks editing on this device, then opens the list                                |
-| `/lists`              | Lists this browser can edit                                                                           |
+| `/lists`              | Saved lists: lists this browser can edit, plus backup and restore of their edit links                 |
 | `/about`              | Privacy, limits and FAQ                                                                               |
 | `/design`             | Style guide (development builds only)                                                                 |
 
@@ -32,6 +32,11 @@ The API returns a list's owner token once, when the list is created. The app:
    the URL fragment, which browsers never send to servers, so it stays out of request logs
    and `Referer` headers. Opening the link on another device saves the token there, and
    the app removes it from the address bar immediately.
+
+**Saved lists** (`/lists`) is this browser's index of those tokens. It isn't an account: a
+backup file (`utils/backup.ts`, JSON with every edit link) moves them to another device, and
+restore also accepts the `.txt` saved at creation. Every restored link is checked with the
+API before it is saved.
 
 "Replace edit link" rotates the token. Other devices then get a clear "your edit link was
 replaced" state on their next change.

@@ -14,7 +14,7 @@ import StatePanel from '../components/StatePanel.vue'
     >
       <template #actions>
         <v-btn color="primary" :to="{ name: 'home' }">Go home</v-btn>
-        <v-btn variant="tonal" color="primary" :to="{ name: 'my-lists' }">My lists</v-btn>
+        <v-btn variant="tonal" color="primary" :to="{ name: 'saved-lists' }">Saved lists</v-btn>
       </template>
     </StatePanel>
   </div>

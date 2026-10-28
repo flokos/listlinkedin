@@ -20,9 +20,9 @@ const router = createRouter({
     },
     {
       path: '/lists',
-      name: 'my-lists',
-      component: () => import('./views/MyListsView.vue'),
-      meta: { title: 'My lists' },
+      name: 'saved-lists',
+      component: () => import('./views/SavedListsView.vue'),
+      meta: { title: 'Saved lists' },
     },
     {
       path: '/about',
