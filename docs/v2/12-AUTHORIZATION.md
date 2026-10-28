@@ -122,7 +122,7 @@ existence**.
 |---|---|
 | The actor can't view the resource (including private lists for anonymous or unauthorized users, and nonexistent codes) | **404**, the same body as nonexistent |
 | The actor can view but may not perform the action, and is signed in | **403** |
-| An action needs an account and the actor is anonymous | **401** (`WWW-Authenticate: Bearer`, keeping V1's 401 vs 403 behaviour) |
+| An action needs an account and the actor is anonymous | **401**, keeping V1's 401 vs 403 split. `WWW-Authenticate: Session` on session-only endpoints, `Bearer` where legacy owner tokens are also accepted |
 | A legacy token on a claimed or other list | 403 (V1 semantics: the token doesn't own this list) |
 
 ## Leak analysis

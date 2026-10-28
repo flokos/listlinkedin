@@ -13,7 +13,7 @@ from prior knowledge but **not** verified in this run are listed separately at t
 | R3 | Django download page, supported versions. https://www.djangoproject.com/download/ | live | **Fetched.** Latest 6.1.2; 5.2 LTS 5.2.18, extended support until April 2028; 6.0.9 until April 2027; 6.1 until December 2027; 6.2 LTS planned for April 2027, supported until April 2030 | [ADR-014](adr/ADR-014-django-version.md) |
 | R4 | django-tasks on PyPI. https://pypi.org/project/django-tasks/ | 0.12.0, 2026-02-06 | **Fetched** + PyPI JSON: classifiers Django 4.2–6.0, "Production/Stable"; the database and RQ backends split out at 0.12.0 | [14](14-INFRASTRUCTURE.md#background-worker) |
 | R5 | django-tasks-db. https://github.com/RealOrangeOne/django-tasks-db + PyPI JSON | 0.13.0, 2026-08-28 | **README fetched** (backend `django_tasks_db.DatabaseBackend`, `db_worker`, `prune_db_task_results`); PyPI JSON (Beta, Django 5.2/6.0); **GitHub code search**: `skip_locked` appears in `django_tasks_db/models.py` | [14](14-INFRASTRUCTURE.md#background-worker), [05](05-DATABASE-DESIGN.md#concurrency-controls) |
-| R6 | django-allauth headless (browser vs app clients, session cookies + CSRF). Docs mirror at mintlify.com/pennersr/django-allauth/headless/… + PyPI JSON | 65.21.0, 2026-10-26 | **Search snippets of a docs mirror** (not the official docs site) + PyPI JSON (classifiers Django 4.2–6.1, "Production/Stable"). Verify settings names in task 1.1 | [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md), [09](09-API-DESIGN.md#session-and-account) |
+| R6 | django-allauth headless (browser vs app clients, session cookies + CSRF). Docs mirror at mintlify.com/pennersr/django-allauth/headless/… + PyPI JSON | 65.21.0, 2026-10-26 | **Search snippets of a docs mirror** (not the official docs site) + PyPI JSON (classifiers Django 4.2–6.1, "Production/Stable"). Setting names and CSRF behaviour then **verified against the installed 65.21.0 source** in task 1.1 (below) | [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md), [09](09-API-DESIGN.md#session-and-account) |
 | R7 | DRF permissions guide. https://www.django-rest-framework.org/api-guide/permissions/ | live | **Fetched.** Object permissions run in `get_object()`; they are not applied to list or create views; custom views must call `check_object_permissions` | [12](12-AUTHORIZATION.md#implementation-notes) |
 | R8 | DRF authentication guide, SessionAuthentication. https://www.django-rest-framework.org/api-guide/authentication/ | live | **Fetched.** CSRF is enforced only for authenticated session requests; login views must always use CSRF | [09](09-API-DESIGN.md#conventions), [13](13-SECURITY.md) |
 | R9 | PostgreSQL 17, "Explicit Locking". https://www.postgresql.org/docs/17/explicit-locking.html | v17 docs | **Fetched.** Row-lock conflict table; locks held until the end of the transaction; consistent lock order as the deadlock defence; session vs transaction advisory locks | [05](05-DATABASE-DESIGN.md#concurrency-controls) |
@@ -52,6 +52,14 @@ Local verification (not web sources):
 - GitHub API after task 0.3 (2026-10-28): RepositoryRole id 5 is `admin` (GraphQL
   `bypassActors.repositoryRoleName`), `GET /apps/github-actions` returns id 15368, and the
   rules enforced per branch match the plan ([16](16-GIT-WORKFLOW.md#enforcement-status)).
+- django-allauth 65.21.0 source, read in the V2 image during task 1.1 (2026-10-28):
+  `ACCOUNT_LOGIN_METHODS`, `ACCOUNT_SIGNUP_FIELDS`, `ACCOUNT_USER_MODEL_USERNAME_FIELD`,
+  `ACCOUNT_EMAIL_VERIFICATION`, `ACCOUNT_PREVENT_ENUMERATION`, `HEADLESS_ONLY`,
+  `HEADLESS_CLIENTS`, `HEADLESS_FRONTEND_URLS` (keys `account_confirm_email`,
+  `account_reset_password`, `account_reset_password_from_key`, `account_signup`) and
+  `ALLAUTH_TRUSTED_PROXY_COUNT` (rightmost-hop `X-Forwarded-For`) exist. Browser-client views
+  are CSRF-protected and set the CSRF cookie themselves; app-client views are CSRF-exempt,
+  which is why only the browser client is enabled.
 - GitHub's Mermaid renderer (2026-10-28, checked in a browser on the rendered pages): all 13
   diagrams in `docs/v2` render, after fixing an edge label with parentheses (03) and
   semicolons in sequence messages (07).
@@ -65,7 +73,6 @@ Local verification (not web sources):
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Vuetify 4 navigation drawer props `rail`, `permanent`, `temporary` (the docs page could not be fetched) | [11 Groups](11-UI-UX-MIGRATION.md#groups-workspace) | task 4.3 |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
-| allauth headless setting names (login by email, verification modes, rate limits, enumeration prevention) | [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md) | task 1.1, against the official docs |
 
 ## Research areas covered (prompt Part 16)
 

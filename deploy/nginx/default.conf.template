@@ -64,8 +64,8 @@ server {
     # allow 192.168.0.0/16;
     # deny all;
 
-    # API, short-URL redirects and the health check go to Django.
-    location ~ ^/(api|r)/|^/healthz$ {
+    # API, short-URL redirects, account endpoints (allauth) and the health check go to Django.
+    location ~ ^/(api|r|_allauth)/|^/healthz$ {
         proxy_pass http://api:8000;
         proxy_set_header Host $host;
         # Overwrite rather than append: clients cannot inject fake hops, so the API

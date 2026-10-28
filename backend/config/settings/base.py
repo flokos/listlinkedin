@@ -26,8 +26,15 @@ if _public.scheme not in ("http", "https") or not _public.hostname:
     )
 
 INSTALLED_APPS = [
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
+    "django.contrib.sessions",
     "rest_framework",
     "drf_spectacular",
+    "allauth",
+    "allauth.account",
+    "allauth.headless",
+    "apps.accounts",
     "apps.sharing",
     "apps.shortener",
 ]
@@ -37,7 +44,13 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "config.middleware.request_size_limit",
     "config.middleware.noindex",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # DRF views are exempt; DRF's SessionAuthentication enforces CSRF itself for signed-in
+    # requests, so the V1 bearer-token API is unaffected.
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -67,6 +80,62 @@ USE_TZ = True
 TIME_ZONE = "UTC"
 USE_I18N = False
 
+# Accounts. A custom user from the first auth migration on (docs/v2/adr/ADR-007).
+AUTH_USER_MODEL = "accounts.User"
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": f"django.contrib.auth.password_validation.{name}"}
+    for name in (
+        "UserAttributeSimilarityValidator",
+        "MinimumLengthValidator",
+        "CommonPasswordValidator",
+        "NumericPasswordValidator",
+    )
+]
+
+# The SPA is served from the same origin as the API, so the session cookie stays
+# first-party. The CSRF cookie must be readable by the SPA (sent back as X-CSRFToken).
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_TRUSTED_ORIGINS = [f"{_public.scheme}://{_public.netloc}"]
+
+# django-allauth in headless mode: JSON endpoints under /_allauth/browser/v1/ for the SPA,
+# no server-rendered pages. Emails link to the SPA's routes.
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_UNIQUE_EMAIL = True
+# Signing in doesn't need a verified address; making things public will (docs/v2/13).
+ACCOUNT_EMAIL_VERIFICATION = "optional"
+ACCOUNT_PREVENT_ENUMERATION = True
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[listlinkedin] "
+HEADLESS_ONLY = True
+HEADLESS_CLIENTS = ("browser",)  # session cookies + CSRF; no token-based app client
+HEADLESS_FRONTEND_URLS = {
+    "account_confirm_email": f"{PUBLIC_BASE_URL}/verify-email/{{key}}",
+    "account_reset_password": f"{PUBLIC_BASE_URL}/reset-password",
+    "account_reset_password_from_key": f"{PUBLIC_BASE_URL}/reset-password/{{key}}",
+    "account_signup": f"{PUBLIC_BASE_URL}/signup",
+}
+
+# Outgoing mail (verification, password reset). Development prints it to the console;
+# production defaults to SMTP (config/settings/production.py).
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+# `or`: compose passes unset values as empty strings.
+DEFAULT_FROM_EMAIL = (
+    os.environ.get("DEFAULT_FROM_EMAIL") or f"listlinkedin <no-reply@{_public.hostname}>"
+)
+
 # Requests carry at most a title and a URL; reject anything much larger.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024
 
@@ -91,15 +160,18 @@ SECURE_REFERRER_POLICY = "no-referrer"  # list/short URLs are capabilities; neve
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    # No user accounts: ownership is checked per list (apps.sharing.permissions).
+    # Every view declares its own: owner tokens per list in v1 (apps.sharing.permissions),
+    # session login in v2 (apps.accounts.authentication).
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],
-    "UNAUTHENTICATED_USER": None,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Maps domain errors to HTTP; adds a machine `code` to /api/v2/ error bodies.
+    "EXCEPTION_HANDLER": "config.exceptions.exception_handler",
     # Per client IP. Overridable for load or end-to-end testing; keep the defaults in production.
     "DEFAULT_THROTTLE_RATES": {
         "list_create": os.environ.get("THROTTLE_LIST_CREATE", "30/hour"),
         "list_manage": os.environ.get("THROTTLE_LIST_MANAGE", "600/hour"),
+        "account": os.environ.get("THROTTLE_ACCOUNT", "300/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.

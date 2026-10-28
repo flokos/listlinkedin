@@ -2,26 +2,36 @@
 # Requires a `.env` file (see `.env.example`) and a TLS certificate in TLS_CERT_DIR.
 # nginx is the only published service: it serves the Vue app and proxies the API, which is
 # reachable only on the compose network.
+x-app-env: &app-env
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?set DJANGO_ALLOWED_HOSTS}
+  DJANGO_NUM_PROXIES: ${DJANGO_NUM_PROXIES:-1}
+  POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+  POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
+  BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
+  WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}  # Gunicorn workers
+  THROTTLE_LIST_CREATE: ${THROTTLE_LIST_CREATE:-30/hour}  # per client IP
+  THROTTLE_LIST_MANAGE: ${THROTTLE_LIST_MANAGE:-600/hour}
+  THROTTLE_ACCOUNT: ${THROTTLE_ACCOUNT:-300/hour}
+  # Outgoing mail: account verification and password-reset links.
+  EMAIL_HOST: ${EMAIL_HOST:-localhost}
+  EMAIL_PORT: ${EMAIL_PORT:-587}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+
 x-app: &app
   build:
     context: ./backend
     target: prod
   image: listlinkedin:prod
-  environment:
-    DJANGO_SETTINGS_MODULE: config.settings.production
-    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY}
-    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?set DJANGO_ALLOWED_HOSTS}
-    DJANGO_NUM_PROXIES: ${DJANGO_NUM_PROXIES:-1}
-    POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
-    POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
-    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-    POSTGRES_HOST: db
-    POSTGRES_PORT: "5432"
-    PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
-    BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
-    WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}  # Gunicorn workers
-    THROTTLE_LIST_CREATE: ${THROTTLE_LIST_CREATE:-30/hour}  # per client IP
-    THROTTLE_LIST_MANAGE: ${THROTTLE_LIST_MANAGE:-600/hour}
+  environment: *app-env
 
 services:
   db:
@@ -41,6 +51,9 @@ services:
 
   migrate:
     <<: *app
+    environment:
+      <<: *app-env
+      DB_STATEMENT_TIMEOUT: "0"  # no 20 s cap for long data migrations (api keeps it)
     command: sh -c "python manage.py migrate --noinput && python manage.py createcachetable"
     depends_on:
       db:
