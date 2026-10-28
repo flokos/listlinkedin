@@ -1,7 +1,7 @@
 # Development stack. Works from a clean checkout; values can be overridden in `.env`.
 x-app: &app
   build:
-    context: .
+    context: ./backend
     target: dev
   image: listlinkedin:dev
   environment:
@@ -16,7 +16,7 @@ x-app: &app
     PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
     BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
   volumes:
-    - .:/app  # live code reload
+    - ./backend:/app  # live code reload
 
 services:
   db:

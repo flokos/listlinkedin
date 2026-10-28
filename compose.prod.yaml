@@ -3,7 +3,7 @@
 # nginx is the only published service; the API is reachable only on the compose network.
 x-app: &app
   build:
-    context: .
+    context: ./backend
     target: prod
   image: listlinkedin:prod
   environment:

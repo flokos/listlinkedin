@@ -37,7 +37,7 @@ jobs:
 
       - name: Production image builds and passes deploy checks
         run: |
-          docker build --target prod -t listlinkedin:prod .
+          docker build --target prod -t listlinkedin:prod backend
           docker run --rm \
             -e DJANGO_SECRET_KEY="$(openssl rand -base64 48)" \
             -e DJANGO_ALLOWED_HOSTS=go.example.test \

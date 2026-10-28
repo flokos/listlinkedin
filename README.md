@@ -34,22 +34,26 @@ optional (copy `.env.example` to override values).
 A modular monolith with two Django apps and an explicit boundary:
 
 ```text
-config/                 settings (base / development / production), urls, wsgi, middleware
-apps/sharing/           owns lists and links
-  models.py             SharedList, SharedLink
-  domain.py             business rules: 30-day lifetime, 100-link cap, URL normalization
-  tokens.py             owner token generation, SHA-256 hashing, constant-time verify
-  services.py           all writes (transactions + row locks)
-  selectors.py          reads (404 vs 410 decision, links annotated with short code)
-  permissions.py        bearer-token auth, per-list owner permission, write throttle
-  serializers.py, views.py, urls.py
-  management/commands/cleanup_expired.py
-apps/shortener/         owns short codes and redirect mappings
-  generators.py         secrets-based 16-char Base64URL codes
-  models.py             ShortRedirect
-  services.py           collision-safe code insertion, redirect creation and resolution
-  views.py              GET /r/{code}
-tests/integration/      full HTTP workflow against PostgreSQL
+backend/                Django API (its own Docker build context)
+  config/               settings (base / development / production), urls, wsgi, middleware
+  apps/sharing/         owns lists and links
+    models.py             SharedList, SharedLink
+    domain.py             business rules: 30-day lifetime, 100-link cap, URL normalization
+    tokens.py             owner token generation, SHA-256 hashing, constant-time verify
+    services.py           all writes (transactions + row locks)
+    selectors.py          reads (404 vs 410 decision, links annotated with short code)
+    permissions.py        bearer-token auth, per-list owner permission, write throttle
+    serializers.py, views.py, urls.py
+    management/commands/cleanup_expired.py
+  apps/shortener/       owns short codes and redirect mappings
+    generators.py         secrets-based 16-char Base64URL codes
+    models.py             ShortRedirect
+    services.py           collision-safe code insertion, redirect creation and resolution
+    views.py              GET /r/{code}
+  tests/integration/    full HTTP workflow against PostgreSQL
+  Dockerfile, pyproject.toml, uv.lock, docker/crontab
+frontend/               Vue app (not started yet)
+deploy/                 nginx proxy config and production smoke test
 compose.yaml            development stack  ·  compose.prod.yaml  production stack
 ```
 
@@ -65,7 +69,7 @@ Docker services:
 | `db` | `postgres:17`, named volume `pgdata`, `pg_isready` health check |
 | `migrate` | One-shot `manage.py migrate`. Starts only once `db` is healthy |
 | `api` | Django (dev: `runserver` with bind-mounted code and auto-reload; prod: Gunicorn). Health check every 30 s against `/healthz`, which includes a database round-trip. Shown in `docker compose ps`. Compose only marks an unhealthy container; it doesn't restart it. |
-| `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`docker/crontab`](docker/crontab): `cleanup_expired` daily at 03:00 UTC. No host cron, Celery or Redis. |
+| `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`backend/docker/crontab`](backend/docker/crontab): `cleanup_expired` daily at 03:00 UTC. No host cron, Celery or Redis. |
 
 `api` and `cleanup` start only after `migrate` has **completed successfully**, so nothing
 talks to PostgreSQL before it is ready and migrated.
@@ -101,7 +105,7 @@ them with `uv sync --locked` straight into the container's system Python. After 
 dependencies, regenerate the lock inside a container and rebuild:
 
 ```bash
-docker run --rm -v "$PWD":/app -w /app ghcr.io/astral-sh/uv:0.9.5-python3.13-bookworm-slim uv lock
+docker run --rm -v "$PWD/backend":/app -w /app ghcr.io/astral-sh/uv:0.9.5-python3.13-bookworm-slim uv lock
 docker compose up --build -d
 ```
 
@@ -118,7 +122,7 @@ docker compose run --rm api pytest
 Tests run against a real PostgreSQL test database (created automatically by pytest-django)
 and cover lists, links, ownership, the shortener (including simulated code collisions),
 expiration, cleanup, a real multi-threaded race for the 100-link limit, and an end-to-end
-workflow in `tests/integration/`.
+workflow in `backend/tests/integration/`.
 
 **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request
 and every push to `main`, and can be started by hand from the Actions tab. It uses the same
@@ -243,7 +247,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X DELETE \
   instant, the list, its links and its short URLs return `410 Gone`, even before cleanup.
   The check is repeated under the row lock during writes.
 * The `cleanup` service uses [supercronic](https://github.com/aptible/supercronic) to run
-  `cleanup_expired` daily at 03:00 UTC, as set in [`docker/crontab`](docker/crontab). Edit
+  `cleanup_expired` daily at 03:00 UTC, as set in [`backend/docker/crontab`](backend/docker/crontab). Edit
   that file to change the schedule, then restart with `docker compose up -d`. The command
   deletes expired lists in batches of 500 using short transactions, cascading to links and
   redirects, prunes expired rate-limit entries, and reports the counts in
