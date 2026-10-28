@@ -114,12 +114,18 @@ ACCOUNT_PREVENT_ENUMERATION = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[listlinkedin] "
 HEADLESS_ONLY = True
 HEADLESS_CLIENTS = ("browser",)  # session cookies + CSRF; no token-based app client
+# Keys go in the URL fragment, which browsers never send to servers, so they stay out of
+# nginx logs (as V1's edit links do). The SPA reads the key and removes it from the address bar.
 HEADLESS_FRONTEND_URLS = {
-    "account_confirm_email": f"{PUBLIC_BASE_URL}/verify-email/{{key}}",
+    "account_confirm_email": f"{PUBLIC_BASE_URL}/verify-email#key={{key}}",
     "account_reset_password": f"{PUBLIC_BASE_URL}/reset-password",
-    "account_reset_password_from_key": f"{PUBLIC_BASE_URL}/reset-password/{{key}}",
+    "account_reset_password_from_key": f"{PUBLIC_BASE_URL}/reset-password#key={{key}}",
     "account_signup": f"{PUBLIC_BASE_URL}/signup",
 }
+# allauth's own rate limits (failed sign-ins, sign-ups, reset requests) stay on. The
+# end-to-end suite turns them off for its throwaway stack, where every browser shares one IP.
+if os.environ.get("AUTH_RATE_LIMITS", "on") == "off":
+    ACCOUNT_RATE_LIMITS = False
 
 # Outgoing mail (verification, password reset). Development prints it to the console;
 # production defaults to SMTP (config/settings/production.py).

@@ -1,6 +1,6 @@
 // The site menu, defined once and rendered by the app bar, the mobile drawer and the footer.
 import { mdiFormatListBulletedSquare, mdiHomeOutline, mdiInformationOutline } from '@mdi/js'
-import type { RouteLocationRaw } from 'vue-router'
+import type { RouteLocationNormalizedLoaded, RouteLocationRaw } from 'vue-router'
 
 export interface NavItem {
   label: string
@@ -25,3 +25,11 @@ export const mainNav: NavItem[] = [
 
 /** Secondary links that leave the app (opened in a new tab). */
 export const externalNav = [{ label: 'API docs', href: '/api/docs/' }]
+
+const ACCOUNT_PAGES = ['home', 'signin', 'signup', 'reset-password', 'verify-email']
+
+/** The sign-in page, coming back to `from` afterwards unless that is an account page. */
+export function signInRoute(from: RouteLocationNormalizedLoaded): RouteLocationRaw {
+  if (ACCOUNT_PAGES.includes(String(from.name))) return { name: 'signin' }
+  return { name: 'signin', query: { next: from.fullPath } }
+}

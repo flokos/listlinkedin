@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { mdiDotsVertical, mdiMenu, mdiOpenInNew, mdiPlus } from '@mdi/js'
+import {
+  mdiAccountCircleOutline,
+  mdiDotsVertical,
+  mdiLogin,
+  mdiLogout,
+  mdiMenu,
+  mdiOpenInNew,
+  mdiPlus,
+} from '@mdi/js'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDisplay } from 'vuetify'
 
 import { useOwnedLists } from '../composables/useOwnedLists'
-import { externalNav, mainNav, type NavItem } from '../navigation'
+import { useSession } from '../composables/useSession'
+import { useSignOut } from '../composables/useSignOut'
+import { externalNav, mainNav, signInRoute, type NavItem } from '../navigation'
 import AppLogo from './AppLogo.vue'
 import ThemeMenu from './ThemeMenu.vue'
 
@@ -13,7 +24,10 @@ defineEmits<{ 'toggle-drawer': [] }>()
 const route = useRoute()
 const { mdAndUp } = useDisplay()
 const { count } = useOwnedLists()
+const { user, ready } = useSession()
+const signOut = useSignOut()
 const isActive = (item: NavItem) => item.match.includes(String(route.name))
+const signIn = computed(() => signInRoute(route))
 const isDev = import.meta.env.DEV
 </script>
 
@@ -79,6 +93,37 @@ const isDev = import.meta.env.DEV
         class="mr-1"
       />
       <ThemeMenu />
+      <v-menu v-if="user" location="bottom end">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            :icon="mdiAccountCircleOutline"
+            variant="text"
+            aria-label="Account menu"
+          />
+        </template>
+        <v-list role="menu" density="compact" nav min-width="240">
+          <v-list-subheader class="ll-account-name">
+            {{ user.display_name || user.email }}
+          </v-list-subheader>
+          <v-list-item
+            role="menuitem"
+            :to="{ name: 'account' }"
+            :prepend-icon="mdiAccountCircleOutline"
+            title="Your account"
+          />
+          <v-list-item
+            role="menuitem"
+            :prepend-icon="mdiLogout"
+            title="Sign out"
+            @click="signOut"
+          />
+        </v-list>
+      </v-menu>
+      <template v-else-if="ready">
+        <v-btn v-if="mdAndUp" :to="signIn" variant="text">Sign in</v-btn>
+        <v-btn v-else :to="signIn" :icon="mdiLogin" variant="text" aria-label="Sign in" />
+      </template>
       <v-menu>
         <template #activator="{ props }">
           <v-btn v-bind="props" :icon="mdiDotsVertical" variant="text" aria-label="More" />
@@ -113,5 +158,8 @@ const isDev = import.meta.env.DEV
 }
 .ll-header__brand {
   border-radius: 8px;
+}
+.ll-account-name {
+  overflow-wrap: anywhere;
 }
 </style>

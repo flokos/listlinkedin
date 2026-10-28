@@ -71,7 +71,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 ## Commands (Docker only: no virtualenv, no host Python or Node)
 
 ```bash
-docker compose up --build -d                                   # dev stack
+docker compose up --build -d                                   # dev stack (mail it sends: http://localhost:8025)
 docker compose run --rm api pytest                             # backend tests (PostgreSQL)
 docker compose run --rm --no-deps api sh -c "ruff check . && ruff format --check ."
 docker compose run --rm api python manage.py makemigrations --check --dry-run

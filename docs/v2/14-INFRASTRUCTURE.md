@@ -16,7 +16,7 @@ the host.
 | `cleanup` (supercronic) | ✓ | crontab additions ([below](#scheduled-jobs)) | scheduled maintenance |
 | `nginx` (prod) | ✓ | `/media/` location (read-only volume), `/_allauth/` proxied, upload locations with a larger body limit | static, media and TLS |
 | `frontend` (dev) | ✓ | Vite proxy also forwards `/_allauth/` and `/media/` | dev parity |
-| `mailpit` (dev and e2e only, optional) | — | catches outgoing mail locally, so e2e can complete sign-up and password reset | email flows can't be tested otherwise. Not used in production |
+| `mailpit` (dev and e2e only) | — | since task 1.2: in `compose.yaml` (read mail at http://localhost:8025) and in `e2e/compose.e2e.yaml` (tests open emailed links) | email flows can't be tested otherwise. 14 MB image. Not used in production |
 
 New volume: `media` (prod: a named volume or host path, included in backups).
 
@@ -66,8 +66,10 @@ the deployment README in task 7.1.
 
 V2 sends email: verification, password reset and collaborator notices. Configuration is
 `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` and
-`DEFAULT_FROM_EMAIL`. Dev uses Django's console backend (or Mailpit), e2e uses Mailpit, and
-production uses any SMTP relay.
+`DEFAULT_FROM_EMAIL`. Dev and e2e send to Mailpit. Production uses any SMTP relay. Outside
+compose, Django's console backend is the base-settings default. The e2e stack also sets
+`AUTH_RATE_LIMITS=off`, because every browser there shares one client IP. Production keeps
+allauth's limits.
 
 ## Environment variables (new)
 

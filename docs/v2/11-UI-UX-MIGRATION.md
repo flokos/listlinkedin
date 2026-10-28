@@ -32,7 +32,7 @@ vocabulary stays out of the UI.
 | `/l/:code/settings` | — (owner menu) | **New** | Visibility, people, copy permissions, expiry, tags, image, delete |
 | `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
 | `/explore` | — | **New** | Public directory: search, tags, sort |
-| `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** | Kept minimal (prompt 8.8) |
+| `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** (task 1.2) | Kept minimal (prompt 8.8). Emailed links are `/verify-email#key=…` and `/reset-password#key=…`. The key travels in the fragment and is removed from the address bar on arrival |
 | `/about` | About and privacy | **Modified** | New retention and privacy text; accounts explained |
 | `/design` | Style guide (dev) | **Extended** | Tiles, diff cards, decision controls |
 | 404 | Not found | Kept | |
@@ -193,11 +193,13 @@ people on the list.
 
 ## Account screens
 
-Sign in (email, password, "Forgot password?"), Sign up (display name, email, password with
-Django's validators shown inline), Verify email (check-your-inbox, resend), Reset password
-(request and set). Account: display name, email (change via verification), password change,
-**Delete account** (type-to-confirm, lists owned → deleted, with a count). No social login, no
-MFA in the MVP. allauth supports both later
+Sign in (email, password, "Forgot your password?"), Sign up (optional display name, email,
+password with Django's validators shown inline), Verify email (opens the emailed link and
+offers to resend it), Reset password (request, then choose a new one). Account: display name,
+email with its verification status and a resend button, password change, sign out (task 1.2).
+**Delete account** (type-to-confirm, lists owned → deleted, with a count) comes with task 1.7.
+Changing the email address is a later enhancement. Sign-in and sign-up honour a validated
+`?next=` path. No social login, no MFA in the MVP. allauth supports both later
 ([02](02-PRODUCT-REQUIREMENTS.md#accounts-and-access-51-56-88)).
 
 ## Responsive behaviour

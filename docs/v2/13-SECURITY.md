@@ -117,6 +117,12 @@ guessed by someone who already has the image. Moving private images behind an au
 - Session cookie: `Secure` (production), `HttpOnly`, `SameSite=Lax`, two-week age, rotated on
   login (Django). The CSRF cookie is readable by JavaScript (needed by the SPA), `Secure`, and
   `CSRF_TRUSTED_ORIGINS = [PUBLIC_BASE_URL]`.
+- Email verification and password-reset keys travel in the URL **fragment**
+  (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
+  nginx logs, as V1's edit-link tokens do. The SPA removes them from the address bar on
+  arrival. Reset keys work once.
+- `?next=` after sign-in accepts only same-site paths (`safeRedirectPath`). It rejects `//host`,
+  `/\host`, other schemes, and control characters that browsers strip into `//host`.
 - Production keeps HSTS, the SSL redirect and the proxy header from V1. `check --deploy
   --fail-level WARNING` stays in CI, without the W003 silence.
 - The nginx CSP for the SPA is unchanged (`default-src 'self'; img-src 'self' data:; …`).

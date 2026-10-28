@@ -73,6 +73,7 @@ Docker services:
 | `api` | Django (dev: `runserver` with bind-mounted code and auto-reload; prod: Gunicorn). Health check every 30 s against `/healthz`, which includes a database round-trip. Shown in `docker compose ps`. Compose only marks an unhealthy container; it doesn't restart it. |
 | `frontend` | Development only: Vite dev server on port 5173 with bind-mounted sources and hot reload. Proxies `/api/` and `/r/` to `api`, so the app sees one origin as it does behind nginx. In production the built app is served by `nginx` instead. |
 | `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`backend/docker/crontab`](backend/docker/crontab): `cleanup_expired` daily at 03:00 UTC. No host cron, Celery or Redis. |
+| `mailpit` | Development only (V2 accounts): catches the mail the app sends, so nothing leaves your machine. Read it at http://localhost:8025. |
 
 `api` and `cleanup` start only after `migrate` has **completed successfully**, so nothing
 talks to PostgreSQL before it is ready and migrated.

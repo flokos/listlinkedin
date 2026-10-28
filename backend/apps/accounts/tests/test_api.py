@@ -1,5 +1,8 @@
 """Sign-up and sign-in through allauth's headless API, and the /api/v2/ session endpoints."""
 
+import re
+from urllib.parse import unquote
+
 import pytest
 from django.conf import settings
 from django.core import mail
@@ -49,7 +52,12 @@ def test_sign_up_signs_in_and_sends_a_verification_link_to_the_spa(client):
     assert me["email"] == "ada@example.com"
     assert me["email_verified"] is False
     assert len(mail.outbox) == 1
-    assert f"{settings.PUBLIC_BASE_URL}/verify-email/" in mail.outbox[0].body
+
+    # The link carries the key in the fragment, percent-encoded, as the SPA reads it.
+    key = key_from_link(mail.outbox[0].body, "/verify-email")
+    verified = post_json(client, f"{AUTH}/email/verify", {"key": key})
+    assert verified.status_code == 200, verified.content
+    assert session_user(client)["email_verified"] is True
 
 
 @pytest.mark.django_db
@@ -73,7 +81,16 @@ def test_password_reset_requests_do_not_reveal_whether_an_account_exists(client,
 
     assert known.status_code == unknown.status_code == 200
     reset = next(m for m in mail.outbox if user.email in m.to)
-    assert f"{settings.PUBLIC_BASE_URL}/reset-password/" in reset.body
+    key = key_from_link(reset.body, "/reset-password")
+    check = client.get(f"{AUTH}/password/reset", HTTP_X_PASSWORD_RESET_KEY=key)
+    assert check.status_code == 200, check.content
+
+
+def key_from_link(body: str, path: str) -> str:
+    """The key from an emailed SPA link like {PUBLIC_BASE_URL}{path}#key=..., decoded."""
+    match = re.search(rf"{re.escape(settings.PUBLIC_BASE_URL + path)}#key=(\S+)", body)
+    assert match, body
+    return unquote(match.group(1))
 
 
 @pytest.mark.django_db

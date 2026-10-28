@@ -140,7 +140,9 @@ the phone projects run the journeys marked ★.
 6. History: edit, restore version 2 → a new version is created and the restored links come
    back with the same short URLs.
 7. Access: a viewer can't see edit controls, and a forced API write returns 403.
-8. Auth flows: sign up, verify, sign out, reset password.
+8. Auth flows: sign up, verify, sign out, reset password (`e2e/tests/auth.spec.ts`, since task
+   1.2). These run in all five projects, because cookies, CSRF and `Origin` handling are where
+   engines differ. Emails are read from Mailpit's API.
 9. States (mocked like V1's `states.spec.ts`): stale preview 409, merge failure 500, 412 on
    edit, offline.
 10. a11y: axe on every new page (V1 `a11y.spec.ts` extended). Keyboard spec extended to tiles,

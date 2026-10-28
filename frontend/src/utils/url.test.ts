@@ -1,6 +1,52 @@
 import { describe, expect, it } from 'vitest'
 
-import { avatarFor, displayHost, displayUrl, validateUrl, withScheme } from './url'
+import {
+  avatarFor,
+  displayHost,
+  displayUrl,
+  safeRedirectPath,
+  takeHashParam,
+  validateUrl,
+  withScheme,
+} from './url'
+
+describe('safeRedirectPath', () => {
+  it('keeps paths on this site', () => {
+    expect(safeRedirectPath('/account')).toBe('/account')
+    expect(safeRedirectPath('/l/CODE?dialog=share#links')).toBe('/l/CODE?dialog=share#links')
+  })
+
+  it('refuses anything that could leave the site', () => {
+    for (const value of [
+      '//evil.example',
+      '/\\evil.example',
+      '/\t/evil.example',
+      'https://evil.example',
+      'javascript:alert(1)',
+      'account',
+      '',
+      undefined,
+      ['/account'],
+    ]) {
+      expect(safeRedirectPath(value), String(value)).toBe('/')
+    }
+    expect(safeRedirectPath('//evil.example', '/account')).toBe('/account')
+  })
+})
+
+describe('takeHashParam', () => {
+  it('reads a decoded fragment value and clears the fragment', () => {
+    history.replaceState(null, '', '/verify-email?x=1#key=MQ%3Aabc%3Adef')
+    expect(takeHashParam('key')).toBe('MQ:abc:def')
+    expect(window.location.hash).toBe('')
+    expect(window.location.pathname + window.location.search).toBe('/verify-email?x=1')
+  })
+
+  it('returns null when the fragment has no such value', () => {
+    history.replaceState(null, '', '/reset-password')
+    expect(takeHashParam('key')).toBeNull()
+  })
+})
 
 describe('withScheme', () => {
   it('adds https to bare hosts and leaves schemes alone', () => {
