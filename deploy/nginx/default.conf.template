@@ -101,5 +101,10 @@ server {
         location /assets/ {
             try_files $uri =404;
         }
+
+        # nginx's MIME table has no entry for web app manifests.
+        location = /manifest.webmanifest {
+            default_type application/manifest+json;
+        }
     }
 }

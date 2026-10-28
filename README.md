@@ -121,6 +121,12 @@ docker compose up --build -d frontend
 docker compose exec frontend npm run type-check
 ```
 
+Frontend checks (all run in CI): `docker compose exec frontend npm run lint`, `… npm run test`,
+`… npm run check:contrast`. See [frontend/README.md](frontend/README.md). The UI's design
+system (purple palette, tokens, components and accessibility rules) is documented in
+[docs/design-system.md](docs/design-system.md), and the dev server renders a style guide at
+http://localhost:5173/design.
+
 > Dev containers run as the image's root user so files created through the bind mount
 > (e.g. new migrations) belong to you under rootless Docker. With classic (rootful) Docker,
 > add `--user "$(id -u):$(id -g)"` to `docker compose run`/`exec` commands that write files.

@@ -1,0 +1,10 @@
+{
+  "name": "listlinkedin",
+  "short_name": "listlinkedin",
+  "description": "Temporary link lists for teams. Collect links, share one URL.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF8FD",
+  "theme_color": "#6927C8",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

@@ -45,6 +45,12 @@ jobs:
             -e POSTGRES_DB=ci -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_HOST=unused \
             listlinkedin:prod python manage.py check --deploy --fail-level WARNING
 
+      - name: Frontend lint, format, unit tests and contrast check
+        run: |
+          docker build --target dev -t listlinkedin-frontend:dev frontend
+          docker run --rm listlinkedin-frontend:dev sh -c \
+            "npm run lint && npm run format:check && npm run test && npm run check:contrast"
+
       - name: Frontend type-check and production build
         run: docker build --target build frontend
 
