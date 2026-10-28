@@ -11,3 +11,5 @@ deploy/acme/
 # Frontend
 node_modules/
 frontend/dist/
+# Playwright MCP output (screenshots, snapshots)
+.playwright-mcp/

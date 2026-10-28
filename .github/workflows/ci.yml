@@ -45,6 +45,9 @@ jobs:
             -e POSTGRES_DB=ci -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_HOST=unused \
             listlinkedin:prod python manage.py check --deploy --fail-level WARNING
 
+      - name: Frontend type-check and production build
+        run: docker build --target build frontend
+
       - name: Show service logs on failure
         if: failure()
         run: docker compose logs --no-color
@@ -54,7 +57,7 @@ jobs:
         run: docker compose down -v
 
   proxy:
-    # Full production stack behind nginx with a throwaway certificate: HTTPS redirect,
+    # Full production stack behind nginx with a throwaway certificate: the Vue app, HTTPS redirect,
     # unknown-host refusal, body limits, header-spoofing resistance, unpublished API port.
     runs-on: ubuntu-24.04
     timeout-minutes: 15

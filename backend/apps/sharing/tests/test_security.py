@@ -208,7 +208,7 @@ def test_owner_can_rotate_token_and_old_one_is_revoked(api_client, owned_list):
     ["http://localhost:8000/r/AAAAAAAAAAAAAAAA", "http://LOCALHOST./l/x", "http://a.localhost/"],
 )
 def test_links_to_this_service_are_rejected(api_client, owned_list, url):
-    # PUBLIC_BASE_URL is http://localhost:8000 in development: loops and chains are refused.
+    # PUBLIC_BASE_URL is http://localhost:5173 in development: loops and chains are refused.
     shared_list, token = owned_list
     response = api_client.post(
         f"/api/v1/lists/{shared_list.public_code}/links/",
