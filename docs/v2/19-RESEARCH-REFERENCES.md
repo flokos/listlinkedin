@@ -34,7 +34,7 @@ from prior knowledge but **not** verified in this run are listed separately at t
 | R24 | PyPI JSON API | accessed 2026-10-28 | **Registry data**: Pillow 13.0.0 (2026-10-16), httpx 0.28.1 (2024-12-06, "Beta"), djangorestframework 3.18.3 (2026-10-06, Django 5.2–6.1), drf-spectacular 0.30.0 (2026-07-06) | [13](13-SECURITY.md#media), [14](14-INFRASTRUCTURE.md) |
 | R25 | GitHub Docs, "Events that trigger workflows" (`pull_request`). https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows | live | **Fetched.** `GITHUB_SHA` is the PR merge commit (`refs/pull/N/merge`); no runs while the PR has a merge conflict; `branches` filters match the base. That the workflow *file* comes from the merge commit is implied by the `pull_request_target` contrast, not stated outright | [16](16-GIT-WORKFLOW.md#preventing-prs-into-main) |
 | R26 | GitHub REST API, repository rules. https://docs.github.com/en/rest/repos/rules | API 2022-11-28 | **Fetched.** Create-ruleset body; `bypass_mode` `always` / `pull_request` / `exempt`; rule parameter shapes; `GET /rules/branches/{branch}` | [16 Rulesets](16-GIT-WORKFLOW.md#rulesets) |
-| R27 | GitHub Docs, "Available rules for rulesets" / "About rulesets" | live | **Search snippet** says rulesets are available for public repositories on GitHub Free. A fetched "About rulesets" page mentioned Team/Enterprise generically. **Resolved empirically**: the API call in task 0.3 either succeeds or fails, and the result is reported | [16](16-GIT-WORKFLOW.md) |
+| R27 | GitHub Docs, "Available rules for rulesets" / "About rulesets" | live | **Search snippet** says rulesets are available for public repositories on GitHub Free. A fetched "About rulesets" page mentioned Team/Enterprise generically. **Resolved empirically** on 2026-10-28: both rulesets were created and are enforced on this public repository ([16](16-GIT-WORKFLOW.md#enforcement-status)) | [16](16-GIT-WORKFLOW.md) |
 | R28 | GitHub Docs, "Creating a pull request template" (GHE 2.7, 2.9, 3.0 versions) | older doc versions | **Search snippets.** Templates must be on the default branch to be used | [16](16-GIT-WORKFLOW.md#preventing-prs-into-main) |
 | R29 | GitHub CLI 2.102.0 (2026-09-30), `gh pr create --help` | local | **Local tool output.** Without `--base`, gh uses the `branch.<name>.gh-merge-base` git config, else the default branch | [16](16-GIT-WORKFLOW.md#daily-v2-work), [CLAUDE.md](../../CLAUDE.md) |
 | R30 | Python SSRF-protection libraries: drawbridge, ssrfguard, httpx-secure (last push 2025-08-16), Champion (Advocate fork), ressrf (created 2026-05-09) | various | **Search results only.** Maintenance not verified, so a dependency is not adopted | [13](13-SECURITY.md#ssrf-safe-fetcher) |
@@ -49,6 +49,12 @@ Local verification (not web sources):
   with conditions cannot be deferred"; `Field.db_default` exists ([05](05-DATABASE-DESIGN.md)).
 - Git and GitHub state: `git` and `gh api` (repository public, ADMIN permission, no protection,
   no rulesets).
+- GitHub API after task 0.3 (2026-10-28): RepositoryRole id 5 is `admin` (GraphQL
+  `bypassActors.repositoryRoleName`), `GET /apps/github-actions` returns id 15368, and the
+  rules enforced per branch match the plan ([16](16-GIT-WORKFLOW.md#enforcement-status)).
+- GitHub's Mermaid renderer (2026-10-28, checked in a browser on the rendered pages): all 13
+  diagrams in `docs/v2` render, after fixing an edge label with parentheses (03) and
+  semicolons in sequence messages (07).
 
 ## Not verified in this run (prior knowledge, verify during implementation)
 
@@ -59,7 +65,6 @@ Local verification (not web sources):
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Vuetify 4 navigation drawer props `rail`, `permanent`, `temporary` (the docs page could not be fetched) | [11 Groups](11-UI-UX-MIGRATION.md#groups-workspace) | task 4.3 |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
-| GitHub: RepositoryRole `actor_id` 5 = Admin; GitHub Actions `integration_id` 15368 | [16 Rulesets](16-GIT-WORKFLOW.md#rulesets) | task 0.3 (UI check after creation) |
 | allauth headless setting names (login by email, verification modes, rate limits, enumeration prevention) | [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md) | task 1.1, against the official docs |
 
 ## Research areas covered (prompt Part 16)
