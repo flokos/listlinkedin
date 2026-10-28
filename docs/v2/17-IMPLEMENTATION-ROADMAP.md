@@ -71,12 +71,11 @@ other task depends on it. It is backend-only and leaves the V1 UI and API workin
 ## Phase 0: Repository and baseline
 
 **Goal:** a safe `v2` branch, a verified V1 baseline, and complete planning documentation.
-**Status:** 0.1 and 0.2 were done by the planning run (2026-10-28). Confirm 0.3 with the
-commands in [16](16-GIT-WORKFLOW.md#rulesets).
+**Status:** complete (2026-10-28).
 
 - [x] **0.1** Create `v2` from `main` at `fb5f901`. Inspect Git state ([01](01-V1-AUDIT.md#repository-and-git)).
 - [x] **0.2** V1 audit, test baseline (129 backend tests, frontend checks green), `docs/v2/`, `CLAUDE.md`, ADRs.
-- [ ] **0.3** Push `v2`; CI guard in `ci.yml` (target check + `v2` push trigger); rulesets on `main` and `v2` ([16](16-GIT-WORKFLOW.md)). Tick this box once `gh api …/rules/branches/v2` shows the rules.
+- [x] **0.3** Push `v2` (`95cb878`); CI guard in `ci.yml` (target check + `v2` push trigger); rulesets on `main` and `v2`. Verified 2026-10-28: rulesets 26061515 (`main`) and 26061516 (`v2`) are enforced, and CI run 40736258527 on `v2` passed `checks`, `proxy` and `e2e` ([16](16-GIT-WORKFLOW.md#enforcement-status)).
 
 ---
 

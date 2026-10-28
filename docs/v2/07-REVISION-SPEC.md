@@ -82,14 +82,14 @@ sequenceDiagram
   participant R as versioning.services
   participant DB as PostgreSQL
   V->>S: update_link(list, link_id, changes, actor)
-  S->>DB: BEGIN; SELECT … FROM sharing_sharedlist WHERE id=… FOR UPDATE
+  S->>DB: BEGIN, then SELECT … FROM sharing_sharedlist WHERE id=… FOR UPDATE
   S->>S: re-check expiry + authorization (policy)
   S->>DB: UPDATE sharing_sharedlink …
   S->>R: record_revision(list, kind="edited", actor)
   R->>DB: SELECT snapshot FROM listrevision WHERE list=… AND number=head
-  R->>R: build snapshot from live rows; compare with head
+  R->>R: build snapshot from live rows, compare with head
   alt content changed
-    R->>DB: INSERT listrevision(number=head+1, …); UPDATE sharedlist SET head_revision=head+1
+    R->>DB: INSERT listrevision(number=head+1, …), then UPDATE sharedlist SET head_revision=head+1
   else no-op
     R-->>S: no revision
   end

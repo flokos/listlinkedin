@@ -24,7 +24,7 @@ flowchart LR
   api -->|uploads| media
   worker --> db
   worker -->|fetched icons| media
-  worker -->|HTTP(S) via SSRF-safe fetcher| internet((Internet sites))
+  worker -->|HTTP and HTTPS via the SSRF-safe fetcher| internet((Internet sites))
   cleanup --> db
   api -->|SMTP| mail((Mail relay))
 ```

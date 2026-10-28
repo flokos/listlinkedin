@@ -137,6 +137,24 @@ gh api repos/flokos/listlinkedin/rules/branches/v2 --jq '.[].type'
 Manual equivalent: *Settings → Rules → Rulesets → New branch ruleset*, with the same target,
 rules and bypass as above.
 
+### Enforcement status
+
+Verified on 2026-10-28, right after `v2` was first pushed (`95cb878`). This records one point
+in time. Re-run the commands above whenever in doubt.
+
+| Ruleset | Id | Target | Rules returned by `GET /rules/branches/{branch}` |
+|---|---|---|---|
+| main (Version 1) | 26061515 | `refs/heads/main` | `deletion`, `non_fast_forward`, `pull_request` (0 approvals), `required_status_checks` (`checks`, integration 15368) |
+| v2 (Version 2 integration) | 26061516 | `refs/heads/v2` | the same four |
+
+- GraphQL `bypassActors` reports `repositoryRoleName: admin` with `bypassMode: PULL_REQUEST`,
+  which confirms that `actor_id` 5 is the Admin role.
+- `GET /apps/github-actions` returns id 15368, so only GitHub Actions can satisfy the
+  required `checks` context.
+- The default branch is still `main`. Other branches (`test/e2e`) have no rules.
+- The push to `v2` ran CI (run 40736258527): `checks`, `proxy` and `e2e` passed. The guard step
+  was skipped, as intended, because it runs only on pull requests.
+
 ## V1 fixes and porting to V2
 
 1. Fix on `main`: `git switch -c bugfix/v1-<topic> origin/main` → PR into `main` → merge.
