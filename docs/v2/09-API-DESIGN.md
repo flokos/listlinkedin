@@ -164,6 +164,21 @@ fetched site name, else the host. `metadata_status` is one of `pending`, `ready`
 | GET | `/api/v2/lists/{code}/revisions/{number}/` | same | `{…summary fields, snapshot, diff_from_previous}` (snapshot rendered with link labels) |
 | POST | `/api/v2/lists/{code}/restore/` | editor, legacy | `{"revision": N}`. `If-Match` **required**. 200 `{revision: new head, changed}` |
 
+Since task 3.3:
+
+- The history is paginated (20 per page) and carries the list's `ETag`. `author` is
+  `{display_name}`, `"Deleted account"` as the name of an account being deleted or erased
+  ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)), `"edit link"` for a V1 edit
+  link, or `null` for a `migrated` baseline. Viewers, strangers and anonymous callers get
+  403/401 (404 for lists they can't see at all).
+- `diff_from_previous` is `{list: {field: {before, after}}, links: [{id, url, title, changes,
+  position_before, position_after, fields}]}`; `changes` is a subset of `added`, `removed`,
+  `modified` and `moved`, and `fields` holds `{before, after}` per changed field. Links are
+  in the revision's order, removed ones last. Revision 1 has an empty diff.
+- Restore without `If-Match` is 428 `precondition_required`; with a stale one 412. Restoring
+  content equal to the head writes nothing (`changed: false`). Its rate limit is `restore`
+  (120/h, `THROTTLE_RESTORE`).
+
 ## Fork, branch and sync
 
 > **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): only `POST /api/v2/lists/{code}/fork/` is built in V2. The branch, detach and sync endpoints below, and `origin.kind = "branch"` with its `sync` field in the list detail, are kept as the design.

@@ -158,6 +158,12 @@ the API presents it as "Deleted account".
 5. `record_revision(kind="restored", restored_from=N)`. If the content equals head, it's a
    no-op and returns 200 with `"changed": false`.
 
+Since task 3.3 this is `sharing/services/restore.py`. Within one transaction: tombstone the
+live links not in N; park the URLs of live links whose URL changes (`restore:{id}`), because
+the unique (list, URL) index on live links is checked row by row and two links may swap URLs;
+then revive and update every link of N in its order (the position constraint is deferred to
+commit). A restore whose target equals the head returns before writing anything.
+
 Restoring never deletes or alters revisions after N. History only grows (R5). Restoring a
 list's content doesn't touch its branch baseline; see
 [08 scenario 19](08-SYNCHRONIZATION-SPEC.md#scenario-catalogue).

@@ -196,6 +196,8 @@ REST_FRAMEWORK = {
         "member_add": os.environ.get("THROTTLE_MEMBER_ADD", "60/hour"),
         # Per user: each upload is decoded and re-encoded, which costs CPU and disk.
         "upload": os.environ.get("THROTTLE_UPLOAD", "120/hour"),
+        # Per user or edit link: a restore rewrites a whole list (docs/v2/13-SECURITY.md).
+        "restore": os.environ.get("THROTTLE_RESTORE", "120/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.

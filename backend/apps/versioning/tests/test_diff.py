@@ -41,3 +41,28 @@ def test_list_field_changes_are_named():
     before = snap("a")
     after = snapshot.build(title="New name", description="Notes", links=before["links"])
     assert counts(before, after)["list"] == ["title", "description"]
+
+
+def test_compare_lists_every_change_with_before_and_after():
+    before = snap("a", "b", "c")
+    after = snapshot.build(
+        title="New",
+        description="",
+        links=[
+            {"id": "c", "url": "https://example.com/c", "title": "C"},
+            {"id": "a", "url": "https://example.com/a2", "title": "A"},
+            {"id": "d", "url": "https://example.com/d", "title": "D"},
+        ],
+    )
+    result = diff.compare(before, after)
+    assert result["list"] == {"title": {"before": "Tools", "after": "New"}}
+    by_id = {change["id"]: change for change in result["links"]}
+    assert by_id["d"]["changes"] == ["added"] and by_id["d"]["position_after"] == 2
+    assert by_id["b"]["changes"] == ["removed"] and by_id["b"]["position_after"] is None
+    assert by_id["a"]["changes"][0] == "modified"
+    # [a, c] kept as [c, a]: exactly one of them had to move (which one is a tie).
+    assert sum("moved" in by_id.get(i, {"changes": []})["changes"] for i in "ac") == 1
+    assert by_id["a"]["fields"] == {
+        "url": {"before": "https://example.com/a", "after": "https://example.com/a2"}
+    }
+    assert [c["id"] for c in result["links"]][-2:] == ["d", "b"]  # new order, removed last
