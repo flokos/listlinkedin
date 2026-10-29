@@ -1,4 +1,4 @@
-import { expect, signUpThroughApi, test, uniqueEmail } from './fixtures'
+import { cardTitle, expect, signUpThroughApi, test, uniqueEmail } from './fixtures'
 
 test.skip(({ isMobile }) => isMobile, 'keyboard navigation is a desktop concern')
 
@@ -23,6 +23,6 @@ test('create a list and add a link with the keyboard only', async ({ page }) => 
   await tabUntil(page, () => url.evaluate((el) => el === document.activeElement), 40)
   await page.keyboard.type('example.org/keyboard')
   await page.keyboard.press('Enter')
-  await expect(page.getByText('example.org/keyboard', { exact: true })).toBeVisible()
+  await expect(cardTitle(page, 'example.org')).toBeVisible() // untitled: named by its host
   await expect(url).toBeFocused() // ready for the next link
 })

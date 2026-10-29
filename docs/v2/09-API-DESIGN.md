@@ -134,7 +134,8 @@ their stored order with `description`, `position` and `source_link_id`. Delete k
 tombstone, and its short URL answers 404. Create takes an optional `position` (clamped)
 and `Idempotency-Key` (a retry answers 200 with the first link). PATCH can't change
 `position`: that is the reorder endpoint (2.2). `icon_url` (the uploaded icon) is there since
-2.3; `display` and `metadata_status` follow in 2.4 and 7.3. The V1 API keeps its representation and newest-first order, and
+2.3, and `display` since 2.4 (until 7.3 fills `metadata`, it holds the user's values and the host);
+`metadata_status` follows in 7.3. The V1 API keeps its representation and newest-first order, and
 deletes as tombstones too.
 
 Link representation (V1 fields kept, new fields added):
@@ -149,7 +150,10 @@ Link representation (V1 fields kept, new fields added):
 ```
 
 `display` applies the precedence rule user > fetched > fallback, so clients don't reimplement
-it. `metadata_status` is one of `pending`, `ready`, `unavailable` or `disabled`.
+it: `title` = title, else the fetched title, else the host (lowercase, no `www.`, punycode kept);
+`description` = description, else the fetched one, else null; `icon_url` = the uploaded icon,
+else the fetched one, else null (the client then draws the letter avatar); `site_name` = the
+fetched site name, else the host. `metadata_status` is one of `pending`, `ready`, `unavailable` or `disabled`.
 
 ## Revisions and restore
 

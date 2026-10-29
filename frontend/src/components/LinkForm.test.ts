@@ -26,7 +26,24 @@ describe('LinkForm', () => {
     expect(submit).toHaveBeenCalledWith({
       destination_url: 'https://example.com/post',
       title: 'A post',
+      description: null,
     })
+  })
+
+  it('submits a trimmed description and refuses one over the limit', async () => {
+    const { wrapper, url, submit } = mountForm()
+    const description = wrapper.find('textarea')
+    await url.setValue('https://example.com/')
+    await description.setValue('x'.repeat(1001))
+    await wrapper.find('form').trigger('submit')
+    await vi.waitFor(() =>
+      expect(wrapper.text()).toContain('Descriptions can be at most 1000 characters.'),
+    )
+    expect(submit).not.toHaveBeenCalled()
+    await description.setValue('  Worth reading.  ')
+    await wrapper.find('form').trigger('submit')
+    await vi.waitFor(() => expect(submit).toHaveBeenCalled())
+    expect(submit.mock.calls[0]![0]).toMatchObject({ description: 'Worth reading.' })
   })
 
   it('blocks invalid links before calling the server', async () => {

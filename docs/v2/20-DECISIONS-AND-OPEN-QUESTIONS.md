@@ -54,6 +54,7 @@ Each has a recommendation, so work isn't blocked. Owners decide before the task 
 | Q13 | Add a PR template and a short V1 CLAUDE.md to `main`? | Optional V1 docs PR ([16](16-GIT-WORKFLOW.md#optional-pr-template-for-main)). It helps contributors who start from `main` | anytime |
 | Q14 | Upgrade path to Django 6.2 LTS: when? | A dedicated project after V2 is stable, before April 2028 (5.2's end of support) | after launch |
 | Q15 | Synchronization: what model, if any? Keep the reviewed three-way merge of [08](08-SYNCHRONIZATION-SPEC.md), simplify it, or drop synced copies | Decide with the product owner; record it in a new ADR before resuming phase 6 | resuming phase 6 |
+| Q16 | Link pictures: should a link's picture be a pre-generated thumbnail of its page, or else a ready-made image for well-known sites or kinds of link (for example email links)? | **Postponed by the user (2026-10-29) until the rest of the app is done.** Open points then: page thumbnails need a page renderer (headless browser or a third-party service), which [02](02-PRODUCT-REQUIREMENTS.md#metadata-9) currently defers and which would run inside the SSRF-safe worker; ready-made images need a curated set and matching rules; email links would first need a new link type, since links are http/https only today. Any image still goes through the media pipeline ([ADR-012](adr/ADR-012-media-and-images.md)) | after V2 is complete |
 
 ## Final architectural review (prompt Step 12)
 

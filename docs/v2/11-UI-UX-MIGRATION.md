@@ -102,6 +102,12 @@ lists you search for) → reorder in the sidebar → share the group link.
   collapsible. The fetched title, description and icon appear as suggestions after save;
   user-typed values always win.
 
+Since task 2.4: tiles (with the site's name under the link's name), the list view, the
+remembered choice, **Details**, the ⋮ menu without the Move items (2.5), and the sort menu
+(Custom order, Newest, A–Z). Visitors get the ⋮ menu too, without Edit and Delete. Not yet:
+the mobile **Add link** button and the collapsible desktop card (the inline card is shown on
+every viewport, as in V1); it is scheduled with 2.5.
+
 ## Groups workspace
 
 ```text

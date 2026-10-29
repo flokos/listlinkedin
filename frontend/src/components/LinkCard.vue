@@ -1,31 +1,34 @@
 <script setup lang="ts">
-import {
-  mdiContentCopy,
-  mdiDeleteOutline,
-  mdiDotsVertical,
-  mdiOpenInNew,
-  mdiPencilOutline,
-} from '@mdi/js'
+// A link as a row (list view): denser than a tile, with the full description and URL.
+import { mdiContentCopy, mdiOpenInNew } from '@mdi/js'
 import { computed } from 'vue'
 
 import type { SharedLink } from '../api'
 import { useClipboard } from '../composables/useClipboard'
 import { displayHost, displayUrl } from '../utils/url'
 import { timeAgo } from '../utils/time'
-import DomainAvatar from './DomainAvatar.vue'
+import LinkIcon from './LinkIcon.vue'
+import LinkMenu from './LinkMenu.vue'
 
-const props = defineProps<{ link: SharedLink; owner: boolean }>()
-const emit = defineEmits<{ edit: []; delete: [] }>()
+const props = defineProps<{ link: SharedLink; canEdit: boolean }>()
+const emit = defineEmits<{ details: []; edit: []; delete: [] }>()
 const { copy } = useClipboard()
 
 /** Visitors go through the short link, which always resolves to the current destination. */
 const href = computed(() => props.link.short_url ?? props.link.destination_url)
-const heading = computed(() => props.link.title || displayHost(props.link.destination_url))
+const heading = computed(
+  () => props.link.display?.title ?? (props.link.title || displayHost(props.link.destination_url)),
+)
+const description = computed(() => props.link.display?.description ?? props.link.description)
 </script>
 
 <template>
   <article class="ll-link-card d-flex align-center ga-3 ga-sm-4 pa-3 pa-sm-4">
-    <DomainAvatar :url="link.destination_url" />
+    <LinkIcon
+      :url="link.destination_url"
+      :icon-url="link.display?.icon_url ?? link.icon_url"
+      :size="40"
+    />
     <div class="flex-grow-1 ll-link-card__body">
       <a
         :href="href"
@@ -42,7 +45,10 @@ const heading = computed(() => props.link.title || displayHost(props.link.destin
       >
         {{ displayUrl(link.destination_url) }}
       </p>
-      <p v-if="owner" class="text-label-small text-medium-emphasis ma-0 mt-1">
+      <p v-if="description" class="ll-link-card__description text-body-medium ma-0 mt-1">
+        {{ description }}
+      </p>
+      <p v-if="canEdit" class="text-label-small text-medium-emphasis ma-0 mt-1">
         Added {{ timeAgo(link.created_at) }}
       </p>
     </div>
@@ -65,32 +71,15 @@ const heading = computed(() => props.link.title || displayHost(props.link.destin
         :aria-label="`Open ${heading} in a new tab`"
         class="d-none d-sm-inline-flex"
       />
-      <v-menu v-if="owner" location="bottom end">
-        <template #activator="{ props: menu }">
-          <v-btn
-            v-bind="menu"
-            :icon="mdiDotsVertical"
-            variant="text"
-            size="small"
-            :aria-label="`More actions for ${heading}`"
-          />
-        </template>
-        <v-list role="menu" density="compact" nav>
-          <v-list-item
-            role="menuitem"
-            :prepend-icon="mdiPencilOutline"
-            title="Edit"
-            @click="emit('edit')"
-          />
-          <v-list-item
-            role="menuitem"
-            :prepend-icon="mdiDeleteOutline"
-            title="Delete"
-            base-color="error"
-            @click="emit('delete')"
-          />
-        </v-list>
-      </v-menu>
+      <LinkMenu
+        :heading="heading"
+        :href="href"
+        :short-url="link.short_url"
+        :can-edit="canEdit"
+        @details="emit('details')"
+        @edit="emit('edit')"
+        @delete="emit('delete')"
+      />
     </div>
   </article>
 </template>
@@ -123,5 +112,9 @@ const heading = computed(() => props.link.title || displayHost(props.link.destin
 .ll-link-card__title:hover {
   color: rgb(var(--v-theme-primary));
   text-decoration: underline;
+}
+.ll-link-card__description {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 </style>

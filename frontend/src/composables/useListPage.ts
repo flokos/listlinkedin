@@ -120,6 +120,25 @@ export function useListPage(code: Ref<string>) {
     return link
   }
 
+  /** Uploads (`file`) or removes (`null`) a link's own icon. Needs an account. */
+  async function setLinkIcon(id: string, file: File | null) {
+    let link: SharedLink
+    if (file) {
+      link = await act(() => api.uploadLinkIcon(code.value, id, file))
+    } else {
+      await act(() => api.removeLinkIcon(code.value, id))
+      const current = links.value.find((l) => l.id === id)!
+      // The fetched icon, if any, shows again: reload the link's server view.
+      link = (await api.listLinks(code.value, token.value)).results.find((l) => l.id === id) ?? {
+        ...current,
+        icon_url: null,
+      }
+    }
+    links.value = links.value.map((l) => (l.id === id ? link : l))
+    remember()
+    return link
+  }
+
   async function removeLink(id: string) {
     await act((t) => api.removeLink(code.value, id, t))
     links.value = links.value.filter((l) => l.id !== id)
@@ -188,6 +207,7 @@ export function useListPage(code: Ref<string>) {
     rename,
     addLink,
     editLink,
+    setLinkIcon,
     removeLink,
     rotate,
     claim,

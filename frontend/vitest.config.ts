@@ -7,6 +7,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
+      setupFiles: ['./src/test-setup.ts'],
       include: ['src/**/*.test.ts'],
       // Vuetify ships CSS imports inside its ESM; let Vite transform it for component tests.
       server: { deps: { inline: ['vuetify'] } },

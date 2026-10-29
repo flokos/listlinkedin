@@ -9,7 +9,11 @@ test('visitors see the list but no owner controls', async ({ page, api }) => {
   await expect(page.getByText('Add a link')).toBeHidden()
   await expect(page.getByRole('button', { name: 'List options' })).toBeHidden()
   await expect(page.getByRole('button', { name: 'Rename list' })).toBeHidden()
-  await expect(page.getByRole('button', { name: /More actions for/ })).toBeHidden()
+  // Visitors get the link's menu (open, copy, details), without editing.
+  await page.getByRole('button', { name: 'More actions for First link' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Details' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Edit' })).toBeHidden()
+  await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeHidden()
 })
 
 test('the edit link unlocks editing and never stays in the address bar', async ({ page, api }) => {
