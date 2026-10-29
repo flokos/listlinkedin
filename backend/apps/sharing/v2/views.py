@@ -35,6 +35,8 @@ from .serializers import (
     MemberAddSerializer,
     MemberRoleSerializer,
     MemberSerializer,
+    MoveToListSerializer,
+    ReorderSerializer,
 )
 
 IDEMPOTENCY_KEY = OpenApiParameter(
@@ -67,6 +69,7 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     destroy=extend_schema(parameters=[CODE]),
     rotate_token=extend_schema(parameters=[CODE]),
     claim=extend_schema(parameters=[CODE]),
+    reorder=extend_schema(parameters=[CODE]),
 )
 class ListViewSet(viewsets.ViewSet):
     # The owner-token authenticator comes first so 401 answers name the Bearer scheme it
@@ -177,6 +180,26 @@ class ListViewSet(viewsets.ViewSet):
         # The token is retired now; describe the list as the new owner sees it.
         return self._detail(selectors.Principal(user=principal.user), code)
 
+    @extend_schema(
+        request=ReorderSerializer, responses={200: LinkDetailSerializer(many=True), **ERRORS}
+    )
+    @action(detail=True, methods=["post"])
+    def reorder(self, request, code=None):
+        """Move one link to a new place. Applied to the current order under the list's lock, so
+        concurrent moves never overwrite each other. Answers with the links in their new order."""
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        serializer = ReorderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        link_services.move_link(
+            principal,
+            shared_list.pk,
+            serializer.validated_data["link"],
+            serializer.validated_data["to_index"],
+        )
+        links = selectors.links_with_short_codes(shared_list)
+        return Response(LinkDetailSerializer(links, many=True).data)
+
     def _detail(self, principal, code: str, status_code: int = 200) -> Response:
         shared_list, access = selectors.get_list_for(principal, code)
         data = ListDetailSerializer(shared_list, context={"access": {shared_list.pk: access}}).data
@@ -251,6 +274,23 @@ class LinkViewSet(viewsets.ViewSet):
         shared_list, _ = selectors.get_list_for(principal, code)
         link_services.delete_link(principal, shared_list.pk, link_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        parameters=[CODE, LINK_ID],
+        request=MoveToListSerializer,
+        responses={201: LinkDetailSerializer, **ERRORS},
+    )
+    def move_to_list(self, request, code=None, link_id=None):
+        """Move a link to the end of another list you can edit. It is copied there with a new
+        short URL and deleted here (its old short URL answers 404)."""
+        principal = principal_of(request)
+        source, _ = selectors.get_list_for(principal, code)
+        serializer = MoveToListSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target, _ = selectors.get_list_for(principal, serializer.validated_data["list"])
+        copy = link_services.move_link_to_list(principal, source.pk, link_id, target.pk)
+        data = LinkDetailSerializer(selectors.get_link(target, copy.pk)).data
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 USER_ID = OpenApiParameter("user_id", uuid.UUID, OpenApiParameter.PATH)

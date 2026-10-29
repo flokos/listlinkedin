@@ -124,8 +124,8 @@ null for ordinary lists. `parent` is null when the viewer can't view the parent.
 | POST | `/api/v2/lists/{code}/links/` | editor, legacy | `{destination_url, title?, description?, position?}` → appended unless `position` is given. Creates the short URL and enqueues metadata |
 | PATCH | `/api/v2/lists/{code}/links/{id}/` | editor, legacy | `title`, `description`, `destination_url`. The `id` and short URL are preserved (K1) |
 | DELETE | `/api/v2/lists/{code}/links/{id}/` | editor, legacy | 204. Tombstone |
-| POST | `/api/v2/lists/{code}/reorder/` | editor, legacy | **Move** semantics: `{"link": "<uuid>", "to_index": 3}` (clamped, 0-based among live links). Moving to the same index is a no-op. Concurrent moves serialize under the lock, so none is lost |
-| POST | `/api/v2/lists/{code}/links/{id}/move-to-list/` | editor of both lists | `{"list": "<target code>"}`. Copy + tombstone (K4). The new link gets a new short URL |
+| POST | `/api/v2/lists/{code}/reorder/` | editor, legacy | **Move** semantics: `{"link": "<uuid>", "to_index": 3}` (clamped, 0-based among live links). Moving to the same index is a no-op. Concurrent moves serialize under the lock, so none is lost. 200 → the live links in their new order. A deleted or foreign link → 404 |
+| POST | `/api/v2/lists/{code}/links/{id}/move-to-list/` | editor of both lists | `{"list": "<target code>"}`. Copy + tombstone (K4), appended to the target. The new link gets a new short URL; the old one answers 404. 201 → the new link. A target you can't see → 404, can't edit → 403; the same list, a full target or a duplicate URL there → 400 and nothing changes. Both lists are locked in ascending id order |
 | PUT, DELETE | `/api/v2/lists/{code}/links/{id}/icon/` | editor (account) | multipart icon ≤2 MB, re-encoded to 128×128. Versioned |
 | POST | `/api/v2/lists/{code}/links/{id}/refresh-metadata/` | editor | 202. At most once per hour per link |
 

@@ -10,11 +10,17 @@ links = LinkViewSet.as_view({"get": "list", "post": "create"})
 link = LinkViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
 members = MemberViewSet.as_view({"get": "list", "post": "create"})
 member = MemberViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
+move_link = LinkViewSet.as_view({"post": "move_to_list"})
 
 urlpatterns = [
     *router.urls,
     path("lists/<str:code>/links/", links, name="v2-link-list"),
     path("lists/<str:code>/links/<uuid:link_id>/", link, name="v2-link-detail"),
+    path(
+        "lists/<str:code>/links/<uuid:link_id>/move-to-list/",
+        move_link,
+        name="v2-link-move-to-list",
+    ),
     path("lists/<str:code>/members/", members, name="v2-member-list"),
     path("lists/<str:code>/members/<uuid:user_id>/", member, name="v2-member-detail"),
 ]
