@@ -235,3 +235,8 @@ def live_content(shared_list: SharedList) -> dict:
             for link in links
         ],
     }
+
+
+def head_revision_of(shared_list: SharedList) -> int:
+    """The list's current head revision, e.g. after a write the caller's copy predates."""
+    return SharedList.objects.values_list("head_revision", flat=True).get(pk=shared_list.pk)

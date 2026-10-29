@@ -65,9 +65,13 @@ Rules:
 
 Since task 3.1 the schema is implemented in `versioning/domain/snapshot.py` (`build`,
 `validate`, `upcast` with the `UPCASTERS` registry, `same_content`) and the writer in
-`versioning/services.py` (`record_revision(locked_list, kind=…, user=…)`). Task 3.2 calls it
-from every mutation; until then only the `migrated` baselines exist, and lists created in
-between have `head_revision = 0`: their first recorded revision gets number 1.
+`versioning/services.py` (`record_revision(locked_list, kind=…, user=…)`). Since task 3.2 it
+is called, under the list lock and in the same transaction, by every content write: list
+creation (`created`, v2 and V1), title and description, adding, editing, deleting and moving
+links (v2 and the V1 edit-link path, which records no author), move to another list (one
+revision in each), and uploading or removing a link icon. Settings, the list image, claims
+and fetched metadata never call it. `versioning.0005` gave lists created between 3.1 and 3.2
+their `migrated` baseline.
 
 ## Numbering
 

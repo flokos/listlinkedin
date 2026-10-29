@@ -13,6 +13,8 @@ from django.db import IntegrityError, transaction
 
 from apps.common import errors
 from apps.shortener.services import create_with_unique_code
+from apps.versioning.models import RevisionKind
+from apps.versioning.services import record_revision
 
 from .. import tokens
 from ..domain import slug_for
@@ -28,6 +30,7 @@ SETTINGS_FIELDS = ("visibility", "allow_fork", "allow_branch", "expires_at")
 VERIFY_EMAIL_TO_PUBLISH = "Verify your email address to make lists public."
 
 
+@transaction.atomic
 def create_list(
     principal: Principal,
     *,
@@ -73,6 +76,8 @@ def create_list(
         if _violated_constraint(exc) != CREATION_KEY_CONSTRAINT:
             raise
         return _created_with(creation_key, user), False
+    # Revision 1, in the creating transaction (docs/v2/07-REVISION-SPEC.md#numbering).
+    record_revision(_relock(shared_list), kind=RevisionKind.CREATED, user=user)
     logger.info("Created list %s", shared_list.id)
     return shared_list, True
 
@@ -91,12 +96,18 @@ def _violated_constraint(exc: IntegrityError) -> str | None:
 
 
 @transaction.atomic
-def update_list(principal: Principal, list_id: UUID, changes: dict) -> SharedList:
-    """Apply validated changes. Content (title, description) needs edit rights; settings
-    (visibility, fork/branch permission, expiry) need the owner."""
+def update_list(
+    principal: Principal, list_id: UUID, changes: dict, *, expected_head: int | None = None
+) -> SharedList:
+    """Apply validated changes. Content (title, description) needs edit rights and is
+    versioned; settings (visibility, fork/branch permission, expiry) need the owner and
+    aren't. `expected_head` (the request's If-Match) applies to content changes only."""
     locked, actor, facts = _lock(principal, list_id, with_email="visibility" in changes)
-    if any(f in changes for f in CONTENT_FIELDS) and not can(actor, Action.EDIT, facts):
+    content = any(f in changes for f in CONTENT_FIELDS)
+    if content and not can(actor, Action.EDIT, facts):
         raise denied(principal, "You can't change this list.")
+    if content:
+        check_head(locked, expected_head)
     if any(f in changes for f in SETTINGS_FIELDS) and not can(actor, Action.SETTINGS, facts):
         raise denied(principal, "Only the list's owner can change its settings.")
     if "visibility" in changes and not can_set_visibility(
@@ -113,6 +124,8 @@ def update_list(principal: Principal, list_id: UUID, changes: dict) -> SharedLis
         fields.append("slug")
     if fields:
         locked.save(update_fields=[*fields, "updated_at"])
+    if content:
+        record_revision(locked, kind=RevisionKind.EDITED, user=principal.user)
     return locked
 
 
@@ -178,6 +191,20 @@ def claim_list(principal: Principal, list_id: UUID) -> SharedList:
     locked.save(update_fields=["owner", "owner_token_hash", "updated_at"])
     logger.info("List %s claimed by user %s", locked.id, principal.user.pk)
     return locked
+
+
+def check_head(locked: SharedList, expected_head: int | None) -> None:
+    """The If-Match precondition: the client's change was based on revision `expected_head`.
+    Checked under the lock, so a write that landed in between is always noticed."""
+    if expected_head is not None and expected_head != locked.head_revision:
+        raise errors.RevisionMismatch(
+            "This list changed since you loaded it. Reload to see the latest version.",
+            head_revision=locked.head_revision,
+        )
+
+
+def _relock(shared_list: SharedList) -> SharedList:
+    return SharedList.objects.select_for_update(of=("self",)).get(pk=shared_list.pk)
 
 
 def denied(principal: Principal, message: str) -> errors.DomainError:

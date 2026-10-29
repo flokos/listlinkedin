@@ -29,6 +29,9 @@ class ListDetailSerializer(serializers.ModelSerializer):
     owner = serializers.SerializerMethodField()
     legacy = serializers.BooleanField(source="is_legacy")
     link_count = serializers.IntegerField()
+    head_revision = serializers.IntegerField(
+        help_text='The latest revision\'s number; also the ETag, as "r{head_revision}".'
+    )
     image_url = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
@@ -51,6 +54,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "expires_at",
+            "head_revision",
             "link_count",
             "my_role",
             "permissions",

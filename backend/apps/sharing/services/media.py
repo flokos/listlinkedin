@@ -13,12 +13,14 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.metadata import images
+from apps.versioning.models import RevisionKind
+from apps.versioning.services import record_revision
 
 from ..models import SharedLink, SharedList
 from ..policy import Action, can
 from ..selectors import Principal
 from .links import get_live_link
-from .lists import _lock, denied
+from .lists import _lock, check_head, denied
 
 CANNOT_UPLOAD = "Only the list's editors and owner can change its images."
 
@@ -34,15 +36,24 @@ def set_list_image(principal: Principal, list_id: UUID, data: bytes | None) -> S
 
 
 def set_link_icon(
-    principal: Principal, list_id: UUID, link_id: UUID, data: bytes | None
+    principal: Principal,
+    list_id: UUID,
+    link_id: UUID,
+    data: bytes | None,
+    *,
+    expected_head: int | None = None,
 ) -> SharedLink:
     """Replace a live link's uploaded icon, or remove it (None). A fetched icon, if any, is
-    kept apart (`metadata`) and shows again once the uploaded one is removed."""
+    kept apart (`metadata`) and shows again once the uploaded one is removed. The uploaded
+    icon is content, so this is versioned (the list image is a setting and isn't)."""
     path = _store(principal, list_id, link_id, data, images.ICON)
     with transaction.atomic():
-        link = get_live_link(_lock_for_upload(principal, list_id), link_id)
+        locked = _lock_for_upload(principal, list_id)
+        check_head(locked, expected_head)
+        link = get_live_link(locked, link_id)
         link.icon = path
         link.save(update_fields=["icon", "updated_at"])
+        record_revision(locked, kind=RevisionKind.EDITED, user=principal.user)
     return link
 
 

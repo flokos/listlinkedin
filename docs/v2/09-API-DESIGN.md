@@ -221,7 +221,13 @@ V1 limits. Since task 2.3:
 
 ## Concurrency preconditions
 
-- `ETag: "r{head_revision}"` is sent on list detail and links collections.
+- `ETag: "r{head_revision}"` is sent on list detail and links collections, and on the
+  responses of content writes (the new head), since task 3.2. `head_revision` is also in the
+  list representation. A 412 body carries the current `head_revision`.
+- Comparison is strong: `If-Match: "r12"` or `*`; a weak (`W/…`) or foreign value never
+  matches (412). On a list PATCH it applies only when content fields (title, description)
+  are changed: settings aren't versioned, so a stale ETag doesn't block them. On
+  move-to-list it is the source list's.
 - `If-Match` is **required** on restore and sync. It is optional on PATCH/POST/DELETE of
   content: the UI sends it when it shows a form based on a loaded state, and a 412 makes the UI
   reload and re-show the form with the user's input kept.

@@ -141,6 +141,8 @@ export interface ListDetail {
   created_at: string
   updated_at: string
   expires_at: string | null
+  /** The latest revision's number; the list's ETag is `"r{head_revision}"`. */
+  head_revision: number
   link_count: number
   my_role: ListRole | null
   permissions: string[]
