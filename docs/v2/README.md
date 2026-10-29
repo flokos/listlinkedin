@@ -7,8 +7,9 @@ by the root [README.md](../../README.md) and [docs/](../).
 
 Version 2 turns the anonymous, 30-day link lists of V1 into a collaborative platform. People
 have accounts. Lists can be private, unlisted or public, and can be permanent. Groups collect
-lists into a workspace with a sidebar. Every list keeps an immutable revision history. Copies
-can stay in sync with their source through a three-way merge the user reviews. Links show as
+lists into a workspace with a sidebar. Every list keeps an immutable revision history. Lists
+can be copied. Copies that stay in sync with their source through a reviewed three-way merge
+are designed but **postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)). Links show as
 application tiles with fetched metadata. A public directory makes lists discoverable. **A List
 contains Links** stays the core of the model.
 
@@ -33,7 +34,7 @@ contains Links** stays the core of the model.
 | 05 | [Database design](05-DATABASE-DESIGN.md) | Schema, ER diagram, constraints, indexes, deletion, transactions |
 | 06 | [Migration plan](06-MIGRATION-PLAN.md) | V1 → V2 schema and data migration, ownership transition, rollout, rollback |
 | 07 | [Revision spec](07-REVISION-SPEC.md) | Snapshot schema, numbering, mutation rules, restore, concurrency |
-| 08 | [Synchronization spec](08-SYNCHRONIZATION-SPEC.md) | Branch/fork, three-way diff, decisions, baselines, every scenario |
+| 08 | [Synchronization spec](08-SYNCHRONIZATION-SPEC.md) | Branch/fork, three-way diff, decisions, baselines, every scenario. **Postponed** except forks (ADR-015) |
 | 09 | [API design](09-API-DESIGN.md) | `/api/v2/` endpoints, payloads, errors, preconditions, idempotency |
 | 10 | [Frontend architecture](10-FRONTEND-ARCHITECTURE.md) | Current structure, reuse, new modules, state, API integration |
 | 11 | [UI/UX migration](11-UI-UX-MIGRATION.md) | Screens, journeys, responsive layout, merge preview UX, states, a11y |
@@ -75,7 +76,7 @@ diagrams folder.
 | Claim | Turning a legacy list into an account-owned list by proving the token | |
 | Revision | Immutable, numbered full snapshot of a List's content | `versioning.ListRevision` |
 | Fork | An independent copy with no sync relationship ("Make a copy") | |
-| Branch | A copy that can pull changes from its parent ("Make a synced copy") | `versioning.ListBranch` |
+| Branch | A copy that can pull changes from its parent ("Make a synced copy"). Postponed (ADR-015) | `versioning.ListBranch` |
 | Parent / child | Source list / synced copy of a branch | |
 | Source link | The parent Link a child Link was copied from (`source_link_id`) | |
 | Base / baseline | The parent revision the child last synchronized against | `ListBranch.base_revision` |
@@ -115,6 +116,7 @@ These are the decisions everything else builds on. The details are in the linked
     mutation's transaction. ([ADR-003](adr/ADR-003-immutable-revision-snapshots.md))
 12. **Three-way merge** with a branch-level baseline, ACCEPT / KEEP_LOCAL / EXCLUDE decisions,
     a preview fingerprint and idempotent apply. ([ADR-004](adr/ADR-004-three-way-merge.md))
+    **Postponed with all of synchronization; forks stay.** ([ADR-015](adr/ADR-015-postpone-synchronization.md))
 13. **Groups never grant access to lists.** Lists a viewer can't see are omitted.
     ([12-AUTHORIZATION.md](12-AUTHORIZATION.md))
 14. **Metadata extraction runs in a PostgreSQL-backed worker** (django-tasks + django-tasks-db),

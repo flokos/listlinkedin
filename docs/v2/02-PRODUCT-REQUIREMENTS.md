@@ -14,7 +14,7 @@ item, add it here.
 V2 turns anonymous 30-day link lists into a collaborative platform for organizing, sharing and
 synchronizing collections of links. People sign up, own lists, choose who sees them, arrange
 lists into group workspaces, keep a version history, make copies that stay in sync with their
-source, and discover public collections. **A List contains Links** stays the core concept.
+source (**postponed**, [ADR-015](adr/ADR-015-postpone-synchronization.md)), and discover public collections. **A List contains Links** stays the core concept.
 
 ## Preserved V1 capabilities [4.1, 8.1]
 
@@ -43,7 +43,7 @@ source, and discover public collections. **A List contains Links** stays the cor
 | Account management (display name, password, email change, delete account) | MVP | |
 | Users own many lists and groups | MVP | `owner_id` |
 | Roles OWNER / EDITOR / VIEWER on lists and groups | MVP | [12](12-AUTHORIZATION.md) |
-| Permission rules: view, create, edit, delete, share, manage members, change visibility, fork, branch, synchronize, restore revisions | MVP | Full matrix in [12](12-AUTHORIZATION.md#list-permission-matrix) |
+| Permission rules: view, create, edit, delete, share, manage members, change visibility, fork, branch, synchronize, restore revisions | MVP (branch and synchronize: **Postponed**, [ADR-015](adr/ADR-015-postpone-synchronization.md)) | Full matrix in [12](12-AUTHORIZATION.md#list-permission-matrix) |
 | Collaborator "invitations" | MVP: add an existing account by email. **Later**: email invitations for people without an account | Q4 |
 | Access-denied, authentication-required and anonymous-sharing screens | MVP | [11](11-UI-UX-MIGRATION.md#ui-states) |
 | Migration from creator management links to accounts (claim) | MVP | [06](06-MIGRATION-PLAN.md#ownership-transition) |
@@ -59,7 +59,7 @@ source, and discover public collections. **A List contains Links** stays the cor
 | Visibility PRIVATE / UNLISTED / PUBLIC with the stated semantics | MVP | default `private`; V1 → `unlisted` |
 | Slug strategy (uniqueness, changes, collisions, reserved names, short URLs) | MVP | Cosmetic, non-unique slugs; the code stays the identifier ([09](09-API-DESIGN.md#urls-and-slugs)) |
 | Member of several groups; can exist without a group | MVP | `GroupList` |
-| Parent, child, many children, nested | MVP | Branches ([08](08-SYNCHRONIZATION-SPEC.md)) |
+| Parent, child, many children, nested | **Postponed** | Branches ([08](08-SYNCHRONIZATION-SPEC.md)), [ADR-015](adr/ADR-015-postpone-synchronization.md) |
 | Optional expiry; permanent lists never expire | MVP | |
 | Tags | MVP | Used by the directory |
 | Trash / undo for deleted lists | Later | Q7 |
@@ -70,7 +70,7 @@ source, and discover public collections. **A List contains Links** stays the cor
 |---|---|---|
 | `url`, `title`, `description`, `icon`, `position`, `source_link_id`, `metadata`, `metadata_fetched_at`, timestamps, `deleted_at` | MVP | [05](05-DATABASE-DESIGN.md) |
 | Changing a URL never creates a new Link; the short URL follows the current value | MVP | Invariant K1 |
-| Branch origin tracking through `source_link_id`, which survives the parent row's deletion | MVP | No FK |
+| Branch origin tracking through `source_link_id`, which survives the parent row's deletion | MVP | No FK. Recorded on forks; sync use postponed ([ADR-015](adr/ADR-015-postpone-synchronization.md)) |
 | Explicit order with drag-and-drop, consistent under concurrency | MVP | Move ops under the lock ([ADR-005](adr/ADR-005-child-ordering-policy.md)) |
 | Tiles: 128×128 icon, name, optional description, ⋮ menu (open, edit, remove, reorder, move) | MVP | [11](11-UI-UX-MIGRATION.md#list-page) |
 | Grid, list or switchable view | MVP | Switchable; grid default |
@@ -103,18 +103,22 @@ source, and discover public collections. **A List contains Links** stays the cor
 
 ## Branching and synchronization [5.8, 5.9, 6, 8.4, 8.5]
 
+> **Synchronization is postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): it needs more thinking. Only forks
+> ("Make a copy") remain in the V2 release. The rows below keep their original class for
+> reference; **Postponed** overrides it.
+
 | Requirement | Class | Notes |
 |---|---|---|
-| Fork (independent copy) and branch (synced copy), both ordinary lists | MVP | |
-| One direct parent; many children; no cycles; nested allowed; sync only with the immediate parent; child survives parent deletion | MVP | B1–B6 |
-| Atomic, consistent branch creation | MVP | |
-| Three-way diff, conflict detection, field-level merge, the 20 prompt scenarios (+16 added) | MVP | [08](08-SYNCHRONIZATION-SPEC.md#scenario-catalogue) |
-| ACCEPT / KEEP_LOCAL / EXCLUDE with defined semantics for additions, edits and deletions | MVP | |
-| Persistent, source-keyed exclusions; removable | MVP | |
-| Child order preserved; parent additions appended; parent-only reorders not synced (documented) | MVP | |
-| Preview without writes, with stable change ids | MVP | |
-| Apply: authorized, verified, rejects stale plans, atomic, idempotent, advances the baseline | MVP | |
-| Branching UI and merge preview UI (original, parent and child values, no raw JSON) | MVP | [11](11-UI-UX-MIGRATION.md#merge-preview-get-updates) |
+| Fork (independent copy) and branch (synced copy), both ordinary lists | MVP for forks; branches **Postponed** | |
+| One direct parent; many children; no cycles; nested allowed; sync only with the immediate parent; child survives parent deletion | **Postponed** (was MVP) | B1–B6 |
+| Atomic, consistent branch creation | **Postponed** (was MVP); forks: MVP | |
+| Three-way diff, conflict detection, field-level merge, the 20 prompt scenarios (+16 added) | **Postponed** (was MVP) | [08](08-SYNCHRONIZATION-SPEC.md#scenario-catalogue) |
+| ACCEPT / KEEP_LOCAL / EXCLUDE with defined semantics for additions, edits and deletions | **Postponed** (was MVP) | |
+| Persistent, source-keyed exclusions; removable | **Postponed** (was MVP) | |
+| Child order preserved; parent additions appended; parent-only reorders not synced (documented) | **Postponed** (was MVP) | |
+| Preview without writes, with stable change ids | **Postponed** (was MVP) | |
+| Apply: authorized, verified, rejects stale plans, atomic, idempotent, advances the baseline | **Postponed** (was MVP) | |
+| Branching UI and merge preview UI (original, parent and child values, no raw JSON) | **Postponed** (was MVP); "Make a copy" UI: MVP | [11](11-UI-UX-MIGRATION.md#merge-preview-get-updates) |
 | Per-field choices; partial merges; sync notifications | Later | Q11 |
 | Multi-parent merge, re-parenting, parent-order sync, syncing list title and settings, pushing to the parent, automatic sync | **Deferred** | Prompt 1.3 YAGNI and 6 "not Git" |
 

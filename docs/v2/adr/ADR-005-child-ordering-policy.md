@@ -1,6 +1,8 @@
 # ADR-005: Integer positions, move operations, child order preserved
 
-- Status: Accepted (2026-10-28, V2 planning)
+- Status: Accepted (2026-10-28, V2 planning). Positions and move operations are built in
+  phase 2. The child-order rules for synchronization are postponed with it
+  ([ADR-015](ADR-015-postpone-synchronization.md)).
 - Related: [05-DATABASE-DESIGN.md](../05-DATABASE-DESIGN.md), [08 Ordering](../08-SYNCHRONIZATION-SPEC.md#ordering)
 
 ## Context

@@ -5,6 +5,9 @@ sorted by priority. P1 risks have a dedicated test suite *and* a design control.
 watched, not engineered against. Rows 1–30 are the prompt's list (Part 19) under its original
 numbers. Rows 31–35 were added by this planning.
 
+> Risks 11–15 and 35 concern synchronization. They are **dormant** while it is postponed
+> ([ADR-015](adr/ADR-015-postpone-synchronization.md)) and come back when it is resumed.
+
 ## P1: critical
 
 | # | Risk | L | I | Mitigation | Validation |

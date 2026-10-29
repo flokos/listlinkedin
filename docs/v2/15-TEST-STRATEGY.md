@@ -26,7 +26,7 @@ Test data uses plain builder functions in `conftest.py` (V1 style). There is no 
 
 ## Unit tests (pure domain)
 
-- **Merge engine:** one table-driven test per row of the
+- **Merge engine** (postponed with synchronization, [ADR-015](adr/ADR-015-postpone-synchronization.md)): one table-driven test per row of the
   [scenario catalogue](08-SYNCHRONIZATION-SPEC.md#scenario-catalogue) (36 rows). Each states
   BASE, PARENT, CHILD, exclusions, the expected items, defaults, allowed decisions, and the
   result after each decision.
@@ -98,6 +98,8 @@ no parent fields.
 
 ## Synchronization acceptance tests
 
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): these run once synchronization is resumed.
+
 - All 36 catalogue scenarios at engine level (above).
 - Integration or API level for the risky subset: 1, 2, 3 (short URL preserved), 8, 9, 10, 11
   (revival with the same short code), 14 (adopt), 15–17, 18, 19, 22, 23, 24, 28, 31, 32, 33.
@@ -128,8 +130,8 @@ the phone projects run the journeys marked ★.
 
 1. ★ The prompt's flow: create account → create list → add links (tiles show fetched titles,
    using a fixture site served inside the e2e network) → create group → add list → make a
-   synced copy (second user) → modify the parent → see "updates" → review, resolve a conflict →
-   apply → verify the child.
+   copy (second user). *Postponed with synchronization:* modify the parent → see "updates" →
+   review, resolve a conflict → apply → verify the child.
 2. ★ Legacy owner: seed a legacy list (through `POST /api/v1/lists/`, which the e2e stack
    keeps open with `LEGACY_LIST_CREATION=on`; production answers 410) → open the edit link → sign in → add to account → token gone
    from storage → V1 short URL still redirects.
@@ -145,8 +147,8 @@ the phone projects run the journeys marked ★.
 8. Auth flows: sign up, verify, sign out, reset password (`e2e/tests/auth.spec.ts`, since task
    1.2). These run in all five projects, because cookies, CSRF and `Origin` handling are where
    engines differ. Emails are read from Mailpit's API.
-9. States (mocked like V1's `states.spec.ts`): stale preview 409, merge failure 500, 412 on
-   edit, offline.
+9. States (mocked like V1's `states.spec.ts`): 412 on edit, offline. *Postponed:* stale preview
+   409, merge failure 500.
 10. a11y: axe on every new page (V1 `a11y.spec.ts` extended). Keyboard spec extended to tiles,
     ⋮ menus and decisions.
 

@@ -166,6 +166,8 @@ confirmations), and `django.contrib.sessions` adds `django_session`.
 
 ### `versioning_*` (new)
 
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): only `versioning_listrevision` is created in V2. `versioning_listbranch`, `versioning_branchexclusion` and `versioning_syncrecord` are not created until synchronization is resumed. Their design is kept below. The `merged` and `branched` revision kinds stay in the CHECK, reserved.
+
 | Table | Columns | Constraints and indexes |
 |---|---|---|
 | `versioning_listrevision` | `id`, `shared_list_id` FK CASCADE, `number` int, `schema_version` smallint, `kind` varchar(16) CHECK in (`created`,`edited`,`restored`,`merged`,`branched`,`forked`,`migrated`), `snapshot` jsonb, `summary` jsonb, `restored_from` int NULL, `created_by_id` FK SET NULL, `created_at` | UNIQUE (`shared_list_id`, `number`); CHECK `number >= 1`; trigger `versioning_revision_immutable` raises on UPDATE |

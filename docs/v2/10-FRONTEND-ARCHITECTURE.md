@@ -110,8 +110,9 @@ reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes
 New components: `LinkTile`, `LinkGrid`, `ViewToggle`, `MoveMenuItems`, `LiveRegion`,
 `VisibilitySelect`, `MembersPanel`, `ListSettingsDialog`, `ImageUploadField`, `MetadataStatus`,
 `GroupSidebar`, `GroupWorkspaceLayout`, `ListPickerDialog`, `HistoryTimeline`, `RevisionDiff`,
-`SyncStatusChip`, `ProvenanceBanner`, `CopyListDialog` (fork vs synced copy), `ChangeCard`,
-`FieldCompare`, `DecisionGroup`, `ExclusionsPanel`, `AuthForm` variants, `TagInput`, `TagChips`.
+`ProvenanceBanner`, `CopyListDialog` (fork only in V2), `AuthForm` variants, `TagInput`, `TagChips`.
+Postponed with synchronization ([ADR-015](adr/ADR-015-postpone-synchronization.md)): `SyncStatusChip`,
+`ChangeCard`, `FieldCompare`, `DecisionGroup`, `ExclusionsPanel`, `api/sync.ts`, `useSyncPreview`.
 
 ## Drag and drop
 

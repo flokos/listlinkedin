@@ -98,13 +98,13 @@ sequenceDiagram
 
 | Operation | Revision? | Kind |
 |---|---|---|
-| Create list, fork, branch | always (number 1) | `created` / `forked` / `branched` |
+| Create list, fork, branch (branch postponed) | always (number 1) | `created` / `forked` / `branched` (reserved) |
 | Change title or description | if the value changed | `edited` |
 | Add, edit or delete a link | if content changed | `edited` |
 | Move or reorder a link | if order changed (moving to the same index is a no-op) | `edited` |
 | Move a link to another list | one in each list | `edited` |
 | Restore revision N | if the restored content differs from head | `restored` (`restored_from = N`) |
-| Apply sync | if the child's content changed | `merged` |
+| Apply sync (postponed, [ADR-015](adr/ADR-015-postpone-synchronization.md)) | if the child's content changed | `merged` (reserved) |
 | Change visibility, members, tags, image, expiry, slug, `allow_*` | **never** | |
 | Fetched metadata arrives or is refreshed | **never** | |
 | Claim a legacy list | never | |

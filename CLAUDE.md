@@ -44,7 +44,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 | `accounts` | Custom `User` (email login, UUID key), session authentication, `/api/v2/session/` and `/api/v2/me/`. Sign-up, sign-in and passwords via django-allauth's headless API under `/_allauth/` |
 | `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
 | `groups` (planned) | `Group`, `GroupList`, `GroupMembership` |
-| `versioning` (planned) | `ListRevision`, `ListBranch`, `BranchExclusion`, `SyncRecord`. Snapshot, diff and merge engine in `versioning/domain/`, which has **no Django imports** |
+| `versioning` (planned) | `ListRevision`, snapshots and diffs in `versioning/domain/`, which has **no Django imports**. `ListBranch`, `BranchExclusion`, `SyncRecord` and the merge engine are **postponed** ([ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md)) |
 | `metadata` (planned) | Safe URL fetching, metadata parsing, image processing (worker tasks) |
 
 - DRF ViewSets handle HTTP only. Services own transactions and row locks. Selectors own reads.
@@ -62,7 +62,8 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 3. Every content change writes exactly one immutable revision in the same transaction. A no-op
    writes none. A restore writes a new revision. History is never rewritten.
 4. Synchronization never modifies the parent and never applies a parent change without an
-   explicit decision. Merges are previewed, fingerprinted, idempotent and atomic.
+   explicit decision. Merges are previewed, fingerprinted, idempotent and atomic. (Applies
+   once synchronization is resumed; it is postponed by ADR-015.)
 5. A Group never grants access to its Lists. Lists the viewer may not see are omitted entirely.
 6. Fetched metadata never overwrites user-entered fields. User URLs are fetched only through
    the SSRF-safe fetcher.
@@ -94,5 +95,8 @@ bash e2e/run.sh                                                # Playwright, pro
 - Don't add Redis, Celery, RabbitMQ, Kafka, Elasticsearch, extra databases or services without
   an accepted ADR ([14-INFRASTRUCTURE.md](docs/v2/14-INFRASTRUCTURE.md)).
 - Don't fetch user-supplied URLs outside `metadata`'s fetcher. Never put tokens in URLs or logs.
+- Don't build synchronization (synced copies, sync preview or apply, the merge engine, branch
+  tables) while [ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md) stands. Forks
+  ("Make a copy") are in scope. Keep the existing design docs and `allow_branch` as they are.
 - Don't implement multi-parent merges, parent-order sync or re-parenting of branches. These
   are deferred on purpose ([08](docs/v2/08-SYNCHRONIZATION-SPEC.md)).

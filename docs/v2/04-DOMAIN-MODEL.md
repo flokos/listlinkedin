@@ -128,6 +128,8 @@ lists in it.
 
 ### ListRevision, ListBranch, BranchExclusion, SyncRecord
 
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): `ListBranch`, `BranchExclusion` and `SyncRecord` (and the merge services and the B-invariants below) are not built in V2. `ListRevision` is. The model is kept as the design.
+
 See [07](07-REVISION-SPEC.md) and [08](08-SYNCHRONIZATION-SPEC.md). In short:
 
 - A revision is immutable and is the authoritative history of a list's content.

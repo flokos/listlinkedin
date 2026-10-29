@@ -20,7 +20,7 @@ Nygard/MADR layout.
 | [001](ADR-001-preserve-list-and-link.md) | Preserve List and Link (`SharedList`/`SharedLink`) | Accepted |
 | [002](ADR-002-modular-monolith.md) | Modular monolith with a small pure domain core | Accepted |
 | [003](ADR-003-immutable-revision-snapshots.md) | Immutable full revision snapshots in PostgreSQL JSONB | Accepted |
-| [004](ADR-004-three-way-merge.md) | Three-way merge with a branch-level baseline | Accepted |
+| [004](ADR-004-three-way-merge.md) | Three-way merge with a branch-level baseline | Accepted; implementation postponed by 015 |
 | [005](ADR-005-child-ordering-policy.md) | Integer positions, move operations, child order preserved | Accepted |
 | [006](ADR-006-url-shortening-strategy.md) | URL shortening: keep V1 codes, no polymorphic ShortURL, no external targets | Accepted |
 | [007](ADR-007-authentication-and-ownership-migration.md) | Custom user, session auth with allauth headless, claim-based ownership migration | Accepted |
@@ -31,3 +31,4 @@ Nygard/MADR layout.
 | [012](ADR-012-media-and-images.md) | Media: Pillow re-encoding, same-origin serving | Accepted |
 | [013](ADR-013-soft-delete-links-only.md) | Soft-delete Links only; hard-delete Lists and Groups | Accepted |
 | [014](ADR-014-django-version.md) | Stay on Django 5.2 LTS for V2; move to 6.2 LTS afterwards | Accepted |
+| [015](ADR-015-postpone-synchronization.md) | Postpone list synchronization (synced copies and merges) | Accepted |

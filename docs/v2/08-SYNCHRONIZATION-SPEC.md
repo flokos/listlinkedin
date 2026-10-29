@@ -1,5 +1,7 @@
 # 08: Synchronization specification
 
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): synchronization (branches, sync status, preview, apply, exclusions, detach) is not part of the V2 release. This spec stays the design baseline, unchanged; revisit it before resuming. Forks ("Make a copy", below) are still built in phase 5.
+
 Branching and synchronization are the highest-risk part of V2. This document is normative.
 The implementation (`versioning/domain/merge.py` plus `versioning/services.py`) must behave
 exactly as written here. Where behaviour is unclear, fix the document first.

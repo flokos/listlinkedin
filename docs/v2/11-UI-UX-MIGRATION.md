@@ -28,7 +28,7 @@ vocabulary stays out of the UI.
 | `/l/:code/:slug?` | List page (rows) | **Extended** | Tile grid (default) or list view toggle, add link, ⋮ tile menus, provenance banner, sync chip |
 | `/l/:code/manage#t=` | Edit-link claim | **Kept** (legacy) | Saves the token to the device, then offers "Add to my account" if signed in |
 | `/l/:code/history` | — | **New** | Version timeline, diff, restore |
-| `/l/:code/sync` | — | **New** | Review updates (merge preview) |
+| `/l/:code/sync` | — | **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)) | Review updates (merge preview) |
 | `/l/:code/settings` | — (owner menu) | **New** | Visibility, people, copy permissions, expiry, tags, image, delete |
 | `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
 | `/explore` | — | **New** | Public directory: search, tags, sort |
@@ -138,6 +138,8 @@ people on the list.
 
 ## Copy, synced copy and history
 
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): V2 builds "Make a copy" only. The synced-copy card, the sync chip, the provenance banner's update count and **Stop syncing** are kept as the design.
+
 - **⋮ → Make a copy…** opens `CopyListDialog` with two clear cards. "Copy: an independent
   list. Changes to *Team tools* won't reach it." "Synced copy: your own version that can get
   updates from *Team tools* when you choose. Your changes are never overwritten without your
@@ -152,6 +154,8 @@ people on the list.
   Nothing is lost."
 
 ## Merge preview ("Get updates")
+
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): this screen (`/l/:code/sync`) is not built in V2. Kept as the design.
 
 ```text
 ┌ Updates from Team tools ──────────────────────────────────────────────┐

@@ -129,8 +129,8 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
 | Group workspace (group + 30 visible lists) | < 200 ms, ≤ 5 queries |
 | `/r/{code}` redirect | < 50 ms, 1–2 queries |
 | Directory search (100k public lists) | < 300 ms |
-| Sync preview (100 links) | < 200 ms (3 snapshot reads + an in-memory plan) |
-| Sync apply (100 links) | < 500 ms |
+| Sync preview (100 links), postponed (ADR-015) | < 200 ms (3 snapshot reads + an in-memory plan) |
+| Sync apply (100 links), postponed (ADR-015) | < 500 ms |
 | Metadata fetch | asynchronous. 90 % of fetches finish within 15 s of creation |
 
 N+1 prevention: annotated querysets (V1's short-code subquery pattern), `select_related` and

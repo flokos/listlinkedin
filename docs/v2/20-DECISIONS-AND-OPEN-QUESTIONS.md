@@ -31,6 +31,7 @@ Settled decisions, with where each is justified. Changing one needs a supersedin
 | D22 | Grid (tiles) by default, with V1's row layout kept as "List" view | planning | [11](11-UI-UX-MIGRATION.md#list-page) |
 | D23 | No Pinia; keep the composable singletons until a stated trigger | planning | [10](10-FRONTEND-ARCHITECTURE.md#state-management) |
 | D24 | Drag-and-drop with vue-draggable-plus plus a mandatory ⋮ Move alternative | planning | [10](10-FRONTEND-ARCHITECTURE.md#drag-and-drop) |
+| D25 | **Synchronization is postponed**: no synced copies, merges or sync UI in the V2 release; forks stay; the design is kept | **user (2026-10-29)** | [ADR-015](adr/ADR-015-postpone-synchronization.md) |
 
 ## Open questions
 
@@ -52,6 +53,7 @@ Each has a recommendation, so work isn't blocked. Owners decide before the task 
 | Q12 | Should a public group show an "N private lists hidden" hint to its *editors*? | Editors see the per-entry notice ([12](12-AUTHORIZATION.md#which-lists-a-group-shows-to-a-viewer)). Never shown to visitors | 4.3 |
 | Q13 | Add a PR template and a short V1 CLAUDE.md to `main`? | Optional V1 docs PR ([16](16-GIT-WORKFLOW.md#optional-pr-template-for-main)). It helps contributors who start from `main` | anytime |
 | Q14 | Upgrade path to Django 6.2 LTS: when? | A dedicated project after V2 is stable, before April 2028 (5.2's end of support) | after launch |
+| Q15 | Synchronization: what model, if any? Keep the reviewed three-way merge of [08](08-SYNCHRONIZATION-SPEC.md), simplify it, or drop synced copies | Decide with the product owner; record it in a new ADR before resuming phase 6 | resuming phase 6 |
 
 ## Final architectural review (prompt Step 12)
 
