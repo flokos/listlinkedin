@@ -1,6 +1,10 @@
 from django.conf import settings
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
+from apps.metadata import images
 
 from ..domain import MAX_DESCRIPTION_LENGTH
 from ..models import MEMBER_ROLE_CHOICES, ListMembership, SharedList
@@ -25,6 +29,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
     owner = serializers.SerializerMethodField()
     legacy = serializers.BooleanField(source="is_legacy")
     link_count = serializers.IntegerField()
+    image_url = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
 
@@ -37,6 +42,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
             "url",
             "title",
             "description",
+            "image_url",
             "visibility",
             "allow_fork",
             "allow_branch",
@@ -56,6 +62,9 @@ class ListDetailSerializer(serializers.ModelSerializer):
 
     def get_url(self, shared_list: SharedList) -> str:
         return f"{settings.PUBLIC_BASE_URL}/l/{shared_list.public_code}/{shared_list.slug}"
+
+    def get_image_url(self, shared_list: SharedList) -> str | None:
+        return images.url_for(shared_list.image)
 
     def get_owner(self, shared_list: SharedList) -> dict | None:
         """Shown on public lists and to members; email addresses are never shown."""
@@ -143,8 +152,9 @@ class MemberRoleSerializer(serializers.Serializer):
 
 
 class LinkDetailSerializer(LinkSerializer):
-    """A link on /api/v2/: V1's fields plus `description`, its `position` among the live
-    links (0-based) and `source_link_id` (the link it was copied from, if any)."""
+    """A link on /api/v2/: V1's fields plus `description`, the uploaded icon's `icon_url`,
+    its `position` among the live links (0-based) and `source_link_id` (the link it was
+    copied from, if any)."""
 
     description = serializers.CharField(
         max_length=MAX_DESCRIPTION_LENGTH, allow_null=True, allow_blank=True, required=False
@@ -156,9 +166,22 @@ class LinkDetailSerializer(LinkSerializer):
         "Can't be changed here afterwards.",
     )
 
+    icon_url = serializers.SerializerMethodField(
+        help_text="The uploaded icon (128×128 WebP), set with PUT …/icon/."
+    )
+
     class Meta(LinkSerializer.Meta):
-        fields = [*LinkSerializer.Meta.fields, "description", "position", "source_link_id"]
+        fields = [
+            *LinkSerializer.Meta.fields,
+            "description",
+            "icon_url",
+            "position",
+            "source_link_id",
+        ]
         read_only_fields = [*LinkSerializer.Meta.read_only_fields, "source_link_id"]
+
+    def get_icon_url(self, link) -> str | None:
+        return images.url_for(link.icon)
 
     def validate_description(self, value: str | None) -> str | None:
         return (value or "").strip() or None  # one representation of "no description"
@@ -178,3 +201,15 @@ class ReorderSerializer(serializers.Serializer):
 
 class MoveToListSerializer(serializers.Serializer):
     list = serializers.CharField(max_length=32, help_text="The target list's code.")
+
+
+@extend_schema_field(OpenApiTypes.BINARY)  # a file part; drf-spectacular would say "uri"
+class UploadedFileField(serializers.FileField):
+    pass
+
+
+class ImageUploadSerializer(serializers.Serializer):
+    file = UploadedFileField(
+        help_text="PNG, JPEG, WebP or GIF, at most 2 MB. Re-encoded to WebP and shrunk to fit "
+        "(128×128 for link icons, 512×512 for list images)."
+    )

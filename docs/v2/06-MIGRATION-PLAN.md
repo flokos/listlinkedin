@@ -37,6 +37,7 @@ in development. Production rollback is covered [below](#rollback).
 | 2 | `sharing.0003_link_fields` (task 2.1): link fields (`description`, `icon`, `position`, `deleted_at`, `source_link_id`, `metadata`, `metadata_fetched_at`, `creation_key`) | schema | yes | |
 | 2 | `sharing.0004_backfill_link_positions`: backfill `position` per list, `ORDER BY created_at DESC, id DESC` → `0..n-1` | data (batched per list) | no-op reverse | Keeps today's on-screen order (newest first) as the initial manual order |
 | 2 | `sharing.0005_link_constraints`: replace the unique (list, URL) constraint with a partial unique index on live links. Add a deferrable unique (list, position), the tombstone CHECK and the live-source unique index | schema | yes | Existing data satisfies all of them (no deleted links exist yet) |
+| 2 | `sharing.0006_list_image` (task 2.3): nullable `image` (a media path) on lists | schema | yes | Media files live on the `media` volume, outside the database; unapplying drops only the references |
 | 3 | `versioning`: `ListRevision`, the immutability trigger | schema | yes | |
 | 3 | Baseline revisions: for every list, `number = 1`, `kind = 'migrated'`, snapshot of the current state; `head_revision = 1` | data (batched, 500 lists per transaction) | reverse deletes `migrated` revisions | [Revision initialization](#revision-initialization) |
 | 4 | `groups` tables | schema | yes | |

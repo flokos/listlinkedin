@@ -41,6 +41,8 @@ class SharedList(models.Model):
     owner_token_hash = models.CharField(max_length=64, null=True, blank=True, editable=False)  # noqa: DJ001
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
+    # A media path (apps.metadata.images), relative to MEDIA_ROOT. NULL: no image.
+    image = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (spec: nullable)
     # Cosmetic URL suffix derived from the title (/l/{code}/{slug}); never an identifier.
     slug = models.CharField(max_length=80, blank=True, default="")
     visibility = models.CharField(
@@ -94,7 +96,8 @@ class SharedLink(models.Model):
     destination_url = models.TextField()
     title = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (spec: nullable)
     description = models.TextField(null=True, blank=True)  # noqa: DJ001 (spec: nullable)
-    icon = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (media, task 2.3)
+    # The uploaded icon's media path. A fetched icon lives in `metadata`, never here.
+    icon = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (spec: nullable)
     # 0-based order among the list's live links (K3). NULL exactly when the link is deleted.
     position = models.IntegerField(null=True, blank=True)
     # Tombstone: the row, its id and its short code survive deletion (docs/v2/adr/ADR-013).

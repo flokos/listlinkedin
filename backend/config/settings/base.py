@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.headless",
     "apps.accounts",
+    "apps.metadata",
     "apps.sharing",
     "apps.shortener",
 ]
@@ -144,6 +145,14 @@ DEFAULT_FROM_EMAIL = (
 
 # Requests carry at most a title and a URL; reject anything much larger.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024
+# The image upload routes (config.middleware.UPLOAD_PATH) take one file of up to 2 MB, plus
+# room for the multipart framing. nginx allows 3 MB on the same routes.
+UPLOAD_REQUEST_MAX_SIZE = 2 * 1024 * 1024 + 64 * 1024
+
+# Uploaded images, re-encoded (apps.metadata.images). nginx serves MEDIA_URL from this
+# directory in production; Django serves it only in development (DEBUG).
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", "/srv/media")
+MEDIA_URL = "/media/"
 
 # Backs rate limiting. A PostgreSQL table, so counters are shared by every worker and
 # instance without adding Redis. Created by `manage.py createcachetable` (migrate service).
@@ -184,6 +193,8 @@ REST_FRAMEWORK = {
         "account": os.environ.get("THROTTLE_ACCOUNT", "300/hour"),
         # Per user: adding people by email can probe which addresses have accounts.
         "member_add": os.environ.get("THROTTLE_MEMBER_ADD", "60/hour"),
+        # Per user: each upload is decoded and re-encoded, which costs CPU and disk.
+        "upload": os.environ.get("THROTTLE_UPLOAD", "120/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.

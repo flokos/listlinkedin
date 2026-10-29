@@ -88,7 +88,7 @@ means the step succeeded and left the browser signed out.** Errors are
 | DELETE | `/api/v2/lists/{code}/` | owner, legacy token | 204. Hard delete |
 | POST | `/api/v2/lists/{code}/claim/` | signed in + `Authorization: Bearer <token>` | Makes the caller owner and retires the token (atomic). 200 → detail |
 | POST | `/api/v2/lists/{code}/rotate-token/` | legacy token | `{owner_token}` (V1 behaviour) |
-| PUT, DELETE | `/api/v2/lists/{code}/image/` | editor | multipart `file` ≤2 MB → re-encoded ([ADR-012](adr/ADR-012-media-and-images.md)) |
+| PUT, DELETE | `/api/v2/lists/{code}/image/` | editor, owner (an account: not the edit link) | multipart `file` ≤2 MB → re-encoded to fit 512×512 ([ADR-012](adr/ADR-012-media-and-images.md)). PUT 200 → detail with `image_url`; DELETE 204 |
 | GET, POST | `/api/v2/lists/{code}/members/` | owner (editors may read; viewers 403). Session only | POST `{email, role}` with role `editor` or `viewer` → 201. The owner needs a verified email (403 `email_unverified`), and so does the added account: unknown and unverified addresses get the same 400 on `email`. Rate limit `member_add` |
 | PATCH, DELETE | `/api/v2/lists/{code}/members/{user_id}/` | owner; members can DELETE themselves (leave) | PATCH `{role}` → 200. DELETE → 204. The owner can't leave (403) |
 
@@ -107,7 +107,7 @@ List detail:
   "owner": {"display_name": "Theo"}, "legacy": false,
   "created_at": "…", "updated_at": "…", "expires_at": null,
   "head_revision": 14, "link_count": 12,
-  "my_role": "owner", "permissions": ["view", "view_history", "edit", "settings", "view_members", "members", "delete", "fork", "branch"],
+  "my_role": "owner", "permissions": ["view", "view_history", "edit", "upload", "settings", "view_members", "members", "delete", "fork", "branch"],
   "origin": {"kind": "branch", "parent": {"code": "…", "title": "Team tools"}, "sync": {"state": "updates_available", "behind": true}}
 }
 ```
@@ -126,15 +126,15 @@ null for ordinary lists. `parent` is null when the viewer can't view the parent.
 | DELETE | `/api/v2/lists/{code}/links/{id}/` | editor, legacy | 204. Tombstone |
 | POST | `/api/v2/lists/{code}/reorder/` | editor, legacy | **Move** semantics: `{"link": "<uuid>", "to_index": 3}` (clamped, 0-based among live links). Moving to the same index is a no-op. Concurrent moves serialize under the lock, so none is lost. 200 → the live links in their new order. A deleted or foreign link → 404 |
 | POST | `/api/v2/lists/{code}/links/{id}/move-to-list/` | editor of both lists | `{"list": "<target code>"}`. Copy + tombstone (K4), appended to the target. The new link gets a new short URL; the old one answers 404. 201 → the new link. A target you can't see → 404, can't edit → 403; the same list, a full target or a duplicate URL there → 400 and nothing changes. Both lists are locked in ascending id order |
-| PUT, DELETE | `/api/v2/lists/{code}/links/{id}/icon/` | editor (account) | multipart icon ≤2 MB, re-encoded to 128×128. Versioned |
+| PUT, DELETE | `/api/v2/lists/{code}/links/{id}/icon/` | editor, owner (an account) | multipart `file` ≤2 MB, re-encoded to fit 128×128. PUT 200 → the link with `icon_url`; DELETE 204. A deleted link → 404. Versioned (from 3.2) |
 | POST | `/api/v2/lists/{code}/links/{id}/refresh-metadata/` | editor | 202. At most once per hour per link |
 
 Since task 2.1 the links list, create, update and delete endpoints return live links in
 their stored order with `description`, `position` and `source_link_id`. Delete keeps a
 tombstone, and its short URL answers 404. Create takes an optional `position` (clamped)
 and `Idempotency-Key` (a retry answers 200 with the first link). PATCH can't change
-`position`: that is the reorder endpoint (2.2). `icon_url`, `display` and `metadata_status`
-follow in 2.3, 2.4 and 7.3. The V1 API keeps its representation and newest-first order, and
+`position`: that is the reorder endpoint (2.2). `icon_url` (the uploaded icon) is there since
+2.3; `display` and `metadata_status` follow in 2.4 and 7.3. The V1 API keeps its representation and newest-first order, and
 deletes as tombstones too.
 
 Link representation (V1 fields kept, new fields added):
@@ -201,8 +201,18 @@ Search inside a list stays client-side (≤100 links, V1 behaviour).
 ## Uploads
 
 Upload endpoints are the only ones above the 16 KB request limit. The request-size middleware
-gets a per-route allowance (2 MB), and nginx gets a matching `location` with
-`client_max_body_size 3m`. Everything else keeps the V1 limits.
+gets a per-route allowance (2 MB plus 64 KB of multipart framing, `UPLOAD_REQUEST_MAX_SIZE`),
+and nginx gets a matching `location` with `client_max_body_size 3m`. Everything else keeps the
+V1 limits. Since task 2.3:
+
+- The body is `multipart/form-data` with one part, `file`. Other content types answer 415.
+- The file is identified by its content (PNG, JPEG, WebP or GIF; never SVG), whatever its name
+  or type say. Anything else, or a file over 2 MB or 16 megapixels, answers 400 with a message
+  on `file`, and nothing is stored.
+- Uploading needs an editor or owner **account** (the policy's `upload` action). An edit link
+  gets 403. The rate limit is `upload` (120/h per user, `THROTTLE_UPLOAD`).
+- `image_url` and `icon_url` are same-origin paths such as `/media/icons/2b/2b9e….webp`.
+  The names are content hashes, so a changed image gets a new URL and caches never go stale.
 
 ## Concurrency preconditions
 

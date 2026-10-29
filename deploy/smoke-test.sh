@@ -106,6 +106,38 @@ check "oversized body rejected by nginx" 413 \
     "$(head -c 40000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X POST \
         "$https/api/v1/lists/" -H 'Content-Type: application/json' --data-binary @-)"
 
+# Media (docs/v2/13-SECURITY.md#media): the api container (non-root) writes the volume and
+# nginx serves it read-only, as inert files.
+media_path=$(compose exec -T api python manage.py shell -c '
+import io
+from PIL import Image
+from apps.metadata import images
+out = io.BytesIO()
+Image.new("RGB", (300, 200), (20, 120, 220)).save(out, format="PNG")
+print(images.store(images.process(out.getvalue(), images.ICON), images.ICON))' | tail -n 1)
+media_headers=$(curl_ -sI "$https/media/$media_path" | tr -d '\r' | tr 'A-Z' 'a-z')
+check "media is served by nginx" "http/2 200" "$(head -n 1 <<<"$media_headers" | sed 's/ *$//')"
+check "media has an image type" "content-type: image/webp" "$(grep '^content-type' <<<"$media_headers")"
+check "media is never sniffed" "x-content-type-options: nosniff" \
+    "$(grep '^x-content-type-options' <<<"$media_headers")"
+check "media has a sandbox CSP" "content-security-policy: default-src 'none'; sandbox" \
+    "$(grep '^content-security-policy' <<<"$media_headers")"
+check "media is cached immutably" "cache-control: public, max-age=31536000, immutable" \
+    "$(grep '^cache-control' <<<"$media_headers")"
+missing_headers=$(curl_ -sI "$https/media/icons/00/missing.webp" | tr -d '\r' | tr 'A-Z' 'a-z')
+check "missing media is a 404" 404 "$(awk 'NR==1 {print $2}' <<<"$missing_headers")"
+check "a media 404 is not cached" "" "$(grep '^cache-control' <<<"$missing_headers" || true)"
+check "media directories are not listed" 403 \
+    "$(curl_ -o /dev/null -w '%{http_code}' "$https/media/icons/")"
+
+# Upload routes take bodies up to 3 MB at nginx (Django: 2 MB per file); others don't.
+check "a 1 MB upload reaches the API" 404 \
+    "$(head -c 1000000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X PUT \
+        "$https/api/v2/lists/NoSuchList000000/image/" -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @-)"
+check "an oversized upload is rejected by nginx" 413 \
+    "$(head -c 4000000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X PUT \
+        "$https/api/v2/lists/NoSuchList000000/image/" -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @-)"
+
 # 1 creation was attempted above; the limit is 30/hour per client and is checked before the
 # 410. A fresh spoofed X-Forwarded-For on every request must not reset it: nginx overwrites
 # the header.

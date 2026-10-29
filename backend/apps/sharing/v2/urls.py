@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from .views import LinkViewSet, ListViewSet, MemberViewSet
+from .views import LinkIconViewSet, LinkViewSet, ListImageViewSet, ListViewSet, MemberViewSet
 
 router = SimpleRouter()
 router.register("lists", ListViewSet, basename="v2-list")
@@ -11,6 +11,9 @@ link = LinkViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
 members = MemberViewSet.as_view({"get": "list", "post": "create"})
 member = MemberViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
 move_link = LinkViewSet.as_view({"post": "move_to_list"})
+# Upload routes: config.middleware.UPLOAD_PATH and nginx allow them larger bodies.
+list_image = ListImageViewSet.as_view({"put": "update", "delete": "destroy"})
+link_icon = LinkIconViewSet.as_view({"put": "update", "delete": "destroy"})
 
 urlpatterns = [
     *router.urls,
@@ -21,6 +24,8 @@ urlpatterns = [
         move_link,
         name="v2-link-move-to-list",
     ),
+    path("lists/<str:code>/image/", list_image, name="v2-list-image"),
+    path("lists/<str:code>/links/<uuid:link_id>/icon/", link_icon, name="v2-link-icon"),
     path("lists/<str:code>/members/", members, name="v2-member-list"),
     path("lists/<str:code>/members/<uuid:user_id>/", member, name="v2-member-detail"),
 ]

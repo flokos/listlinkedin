@@ -202,3 +202,12 @@ def get_link(shared_list: SharedList, link_id) -> SharedLink:
     if link is None:
         raise NotFound()
     return link
+
+
+def media_in_use() -> set[str]:
+    """Every media path a list or link refers to, for `cleanup_media`. Tombstoned links count:
+    restoring one brings its icon back. (Revision snapshots join this set with task 3.1, and
+    fetched icons with 7.3.)"""
+    images = SharedList.objects.exclude(image=None).values_list("image", flat=True)
+    icons = SharedLink.objects.exclude(icon=None).values_list("icon", flat=True)
+    return {*images, *icons}

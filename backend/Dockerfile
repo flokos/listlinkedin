@@ -45,7 +45,10 @@ FROM base AS prod
 RUN --mount=from=ghcr.io/astral-sh/uv:0.9.5,source=/uv,target=/bin/uv \
     --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-install-project --no-dev
-RUN useradd --system --uid 10001 --create-home app
+RUN useradd --system --uid 10001 --create-home app \
+    # The media volume's mount point. A new named volume copies this ownership, so the
+    # non-root app user can write uploads to it.
+    && mkdir -p /srv/media && chown app:app /srv/media
 COPY . .
 USER app
 ENV DJANGO_SETTINGS_MODULE=config.settings.production

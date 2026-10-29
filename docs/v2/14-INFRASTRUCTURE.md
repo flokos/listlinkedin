@@ -13,12 +13,15 @@ the host.
 | `migrate` (one-shot) | ✓ | runs with the statement timeout lifted ([06](06-MIGRATION-PLAN.md#schema-and-data-migrations-by-phase)) | migrations before anything starts (V1 pattern) |
 | `api` (Gunicorn / runserver) | ✓ | mounts the `media` volume read-write. New settings (auth, sessions, CSRF, email, TASKS) | HTTP |
 | **`worker`** | — | **new**: the same image, `python manage.py db_worker` (django-tasks-db), `depends_on: migrate`, `restart: unless-stopped`, media read-write | metadata fetching and image processing. These are slow, external and failure-prone, and must not tie up the 3 sync Gunicorn workers |
-| `cleanup` (supercronic) | ✓ | crontab additions ([below](#scheduled-jobs)) | scheduled maintenance |
+| `cleanup` (supercronic) | ✓ | crontab additions ([below](#scheduled-jobs)); mounts `media` read-write (since 2.3) | scheduled maintenance |
 | `nginx` (prod) | ✓ | `/media/` location (read-only volume), `/_allauth/` proxied, upload locations with a larger body limit | static, media and TLS |
 | `frontend` (dev) | ✓ | Vite proxy also forwards `/_allauth/` and `/media/` | dev parity |
 | `mailpit` (dev and e2e only) | — | since task 1.2: in `compose.yaml` (read mail at http://localhost:8025) and in `e2e/compose.e2e.yaml` (tests open emailed links) | email flows can't be tested otherwise. 14 MB image. Not used in production |
 
-New volume: `media` (prod: a named volume or host path, included in backups).
+New volume: `media` (prod: a named volume or host path, included in backups). Since task 2.3
+it is mounted at `/srv/media` in `api` and `cleanup` (read-write) and in `nginx` (read-only). The
+prod image creates `/srv/media` owned by the non-root `app` user, so a new named volume is
+writable. A host path needs `chown 10001` instead.
 
 ### Considered and not added
 
@@ -77,11 +80,11 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 |---|---|---|
 | `DJANGO_EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | api | console backend in development, SMTP in production (since task 1.1) |
 | `LEGACY_LIST_CREATION` | api | `off`: `POST /api/v1/lists/` answers 410. `on` only in backend tests and the e2e stack, which still seed legacy lists (since task 1.4; removed in 9.6) |
-| `MEDIA_ROOT` | api, worker | `/srv/media` |
+| `MEDIA_ROOT` | api, cleanup, worker | `/srv/media` (since task 2.3) |
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | worker | `true` (`false` disables fetching, for locked-down deployments) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
-| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5 |
+| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3 |
 
 ## Scheduled jobs
 
@@ -92,7 +95,7 @@ These run under supercronic from `backend/docker/crontab`.
 | daily 03:00 | `cleanup_expired`: expired lists (sets `parent_deleted_at` on their branches first), throttle cache | V1, extended |
 | daily 03:20 | `clearsessions` | V2 |
 | daily 03:30 | `prune_db_task_results` (keep 7 days) | V2 |
-| weekly Sun 04:00 | `cleanup_media`: delete files referenced by no row and no revision snapshot, older than 7 days | V2 |
+| weekly Sun 04:00 | `cleanup_media`: delete files referenced by no row and no revision snapshot, older than 7 days | 2.3 (rows: list images, link icons including tombstones; snapshots join in 3.1, fetched icons in 7.3) |
 
 ## Backups
 

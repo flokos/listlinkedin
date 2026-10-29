@@ -10,6 +10,7 @@ dependencies = [
     "drf-spectacular>=0.28",
     "gunicorn>=23",
     "idna>=3.7",  # IDNA2008/UTS46 host encoding, as browsers do (the stdlib codec is IDNA2003)
+    "pillow>=13.0,<14",  # media: every uploaded or fetched image is re-encoded (ADR-012)
     "psycopg[binary]>=3.2",
 ]
 

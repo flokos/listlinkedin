@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
@@ -30,3 +32,6 @@ urlpatterns = [
     ),
     re_path(rf"^r/(?P<code>{CODE})/?$", ShortRedirectView.as_view(), name="short-redirect"),
 ]
+
+# Development only (a no-op unless DEBUG): in production nginx serves /media/ itself.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

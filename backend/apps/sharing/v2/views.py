@@ -15,10 +15,12 @@ from drf_spectacular.utils import (
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from apps.accounts.authentication import SessionAuthentication
 from apps.common import errors
+from apps.metadata.images import MAX_UPLOAD_BYTES
 
 from .. import selectors
 from ..permissions import WriteRateThrottle
@@ -26,9 +28,11 @@ from ..policy import Role
 from ..serializers import OwnerTokenSerializer
 from ..services import links as link_services
 from ..services import lists as services
+from ..services import media as media_services
 from ..services import members as member_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
+    ImageUploadSerializer,
     LinkDetailSerializer,
     ListDetailSerializer,
     ListWriteSerializer,
@@ -46,6 +50,7 @@ IDEMPOTENCY_KEY = OpenApiParameter(
     required=False,
     description="A UUID per user action. Retrying with the same key returns the same resource.",
 )
+NOT_AN_IMAGE = OpenApiResponse(description="Not an accepted image, or over 2 MB.")
 ERRORS = {
     401: OpenApiResponse(description="Sign-in (or the list's owner token) required."),
     403: OpenApiResponse(description="Not allowed for this user."),
@@ -291,6 +296,75 @@ class LinkViewSet(viewsets.ViewSet):
         copy = link_services.move_link_to_list(principal, source.pk, link_id, target.pk)
         data = LinkDetailSerializer(selectors.get_link(target, copy.pk)).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+
+class ImageUploadViewSet(viewsets.ViewSet):
+    """Uploads: one multipart `file`, re-encoded (docs/v2/adr/ADR-012). Editors and owners
+    only (an account is needed: an edit link can't upload). Own rate limit, `upload`."""
+
+    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    permission_classes = []
+    parser_classes = [MultiPartParser]
+    throttle_classes = [WriteRateThrottle]
+    throttle_scope = "upload"
+
+    @staticmethod
+    def _file(request) -> bytes:
+        serializer = ImageUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data["file"]
+        # One byte past the limit is enough for the pipeline to refuse it.
+        return upload.read(MAX_UPLOAD_BYTES + 1)
+
+
+@extend_schema_view(
+    update=extend_schema(
+        parameters=[CODE],
+        request={"multipart/form-data": ImageUploadSerializer},
+        responses={200: ListDetailSerializer, 400: NOT_AN_IMAGE, **ERRORS},
+    ),
+    destroy=extend_schema(parameters=[CODE], responses={204: None, **ERRORS}),
+)
+class ListImageViewSet(ImageUploadViewSet):
+    """/api/v2/lists/{code}/image/: the list's image, shrunk to fit 512×512."""
+
+    def update(self, request, code=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        media_services.set_list_image(principal, shared_list.pk, self._file(request))
+        shared_list, access = selectors.get_list_for(principal, code)
+        data = ListDetailSerializer(shared_list, context={"access": {shared_list.pk: access}}).data
+        return Response(data)
+
+    def destroy(self, request, code=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        media_services.set_list_image(principal, shared_list.pk, None)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema_view(
+    update=extend_schema(
+        parameters=[CODE, LINK_ID],
+        request={"multipart/form-data": ImageUploadSerializer},
+        responses={200: LinkDetailSerializer, 400: NOT_AN_IMAGE, **ERRORS},
+    ),
+    destroy=extend_schema(parameters=[CODE, LINK_ID], responses={204: None, **ERRORS}),
+)
+class LinkIconViewSet(ImageUploadViewSet):
+    """/api/v2/lists/{code}/links/{id}/icon/: a link's own icon, shrunk to fit 128×128."""
+
+    def update(self, request, code=None, link_id=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        media_services.set_link_icon(principal, shared_list.pk, link_id, self._file(request))
+        return Response(LinkDetailSerializer(selectors.get_link(shared_list, link_id)).data)
+
+    def destroy(self, request, code=None, link_id=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        media_services.set_link_icon(principal, shared_list.pk, link_id, None)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 USER_ID = OpenApiParameter("user_id", uuid.UUID, OpenApiParameter.PATH)
