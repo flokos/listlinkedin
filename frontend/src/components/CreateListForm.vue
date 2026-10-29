@@ -2,10 +2,12 @@
 import { mdiArrowRight } from '@mdi/js'
 import { ref } from 'vue'
 
-import { ApiError, createList, type CreatedList, errorMessage, LIMITS } from '../api'
+import { ApiError, createAccountList, errorMessage, LIMITS, type ListDetail } from '../api'
 
 defineProps<{ autofocus?: boolean }>()
-const emit = defineEmits<{ created: [list: CreatedList] }>()
+const emit = defineEmits<{ created: [list: ListDetail] }>()
+// One key per attempt: a retried request (flaky network) returns the same list.
+let attemptKey = crypto.randomUUID()
 
 const title = ref('')
 const error = ref<string[]>([])
@@ -34,8 +36,9 @@ async function onSubmit() {
   busy.value = true
   error.value = []
   try {
-    emit('created', await createList(value))
+    emit('created', await createAccountList({ title: value }, attemptKey))
     title.value = ''
+    attemptKey = crypto.randomUUID()
   } catch (e) {
     if (e instanceof ApiError && e.status === 429) {
       const wait = e.retryAfter ?? 60
@@ -80,7 +83,7 @@ async function onSubmit() {
       </v-btn>
     </div>
     <p class="text-body-small text-medium-emphasis mt-2">
-      Free, no sign-up. Lists expire after 30 days.
+      Lists are private until you share them, and they don't expire unless you choose to.
     </p>
   </v-form>
 </template>

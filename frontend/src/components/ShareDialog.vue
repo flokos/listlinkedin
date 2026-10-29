@@ -3,12 +3,38 @@ import { mdiExportVariant, mdiEyeOutline } from '@mdi/js'
 import QRCode from 'qrcode'
 import { ref, watch } from 'vue'
 
+import type { Visibility } from '../api'
+
 import { useShare } from '../composables/useShare'
 import { mauve, violet } from '../design/tokens'
 import CopyField from './CopyField.vue'
 
 const open = defineModel<boolean>({ required: true })
-const props = defineProps<{ title: string; url: string }>()
+const props = defineProps<{
+  title: string
+  url: string
+  visibility: Visibility
+  /** The owner may change who can see the list. */
+  canChange?: boolean
+  /** Making a list public needs a verified email address. */
+  emailVerified?: boolean
+}>()
+const emit = defineEmits<{ 'change-visibility': [visibility: Visibility] }>()
+
+const options: { value: Visibility; label: string; hint: string }[] = [
+  {
+    value: 'private',
+    label: 'Only people you add',
+    hint: 'Nobody else can open it, even with the link.',
+  },
+  { value: 'unlisted', label: 'Anyone with the link', hint: "It isn't listed anywhere." },
+  { value: 'public', label: 'Public', hint: 'Anyone can find it.' },
+]
+const describe: Record<Visibility, string> = {
+  private: 'Only people you add can open this link.',
+  unlisted: 'Anyone with this link can view the list, but not change it.',
+  public: 'Anyone can view this list, but not change it.',
+}
 
 const qr = ref<string>()
 const { canShare, share } = useShare()
@@ -37,6 +63,34 @@ watch(
         <v-card-subtitle class="text-wrap">{{ title }}</v-card-subtitle>
       </v-card-item>
       <v-card-text class="pt-4">
+        <v-radio-group
+          v-if="canChange"
+          :model-value="visibility"
+          label="Who can see this list"
+          class="mb-2"
+          hide-details
+          @update:model-value="(value) => value && emit('change-visibility', value as Visibility)"
+        >
+          <v-radio
+            v-for="option in options"
+            :key="option.value"
+            :value="option.value"
+            :disabled="option.value === 'public' && !emailVerified && visibility !== 'public'"
+          >
+            <template #label>
+              <span>
+                {{ option.label }}
+                <span class="d-block text-body-small text-medium-emphasis">
+                  {{
+                    option.value === 'public' && !emailVerified
+                      ? 'Verify your email address on your account page to publish lists.'
+                      : option.hint
+                  }}
+                </span>
+              </span>
+            </template>
+          </v-radio>
+        </v-radio-group>
         <CopyField label="Share link" :value="url" what="Share link" />
         <div class="ll-qr mx-auto my-4">
           <img v-if="qr" :src="qr" :alt="`QR code for ${url}`" width="220" height="220" />
@@ -44,7 +98,7 @@ watch(
         </div>
         <p class="d-flex align-center ga-2 text-body-small text-medium-emphasis justify-center">
           <v-icon :icon="mdiEyeOutline" size="18" />
-          Anyone with this link can view the list, but not change it.
+          {{ describe[visibility] }}
         </p>
       </v-card-text>
       <v-card-actions>

@@ -10,33 +10,26 @@ import {
 } from '@mdi/js'
 import { useRoute, useRouter } from 'vue-router'
 
-import type { CreatedList } from '../api'
+import type { ListDetail } from '../api'
 import CreateListForm from '../components/CreateListForm.vue'
 import ExpiryChip from '../components/ExpiryChip.vue'
 import { useOwnedLists } from '../composables/useOwnedLists'
-import { usePendingReveal } from '../composables/usePendingReveal'
+import { useSession } from '../composables/useSession'
 
 const route = useRoute()
 const router = useRouter()
 const owned = useOwnedLists()
-const pending = usePendingReveal()
+const { isSignedIn, ready } = useSession()
 
-function onCreated(list: CreatedList) {
-  owned.save({
-    code: list.public_code,
-    token: list.owner_token,
-    title: list.title,
-    expiresAt: list.expires_at ?? '',
-  })
-  pending.set(list.public_code)
-  router.push({ name: 'list', params: { code: list.public_code } })
+function onCreated(list: ListDetail) {
+  router.push({ name: 'list', params: { code: list.code, slug: list.slug } })
 }
 
 const steps = [
   {
     icon: mdiViewListOutline,
     title: 'Create a list',
-    text: 'Give it a name. No account, no email, nothing to install.',
+    text: 'Give it a name. Signing up takes a minute, with just an email address.',
   },
   {
     icon: mdiLinkVariantPlus,
@@ -46,14 +39,14 @@ const steps = [
   {
     icon: mdiShareVariantOutline,
     title: 'Share it',
-    text: 'Send the view link or QR code to your team. Only you can edit.',
+    text: 'Keep it private, share the link, or make it public. You decide who can edit.',
   },
 ]
 
 const promises = [
-  { icon: mdiAccountOffOutline, text: 'No sign-up' },
-  { icon: mdiShieldKeyOutline, text: 'Private edit link' },
-  { icon: mdiTimerSandEmpty, text: 'Gone after 30 days' },
+  { icon: mdiAccountOffOutline, text: 'Private by default' },
+  { icon: mdiShieldKeyOutline, text: 'You choose who sees it' },
+  { icon: mdiTimerSandEmpty, text: 'Kept as long as you like' },
 ]
 </script>
 
@@ -61,17 +54,29 @@ const promises = [
   <div>
     <section class="ll-hero ll-hero-wash mx-n4 px-4">
       <div class="ll-content py-12 py-md-16">
-        <p class="text-label-large text-primary mb-3">Temporary link lists for teams</p>
+        <p class="text-label-large text-primary mb-3">Link lists for teams</p>
         <h1 class="text-display-small ll-hero__title mb-4">
           Collect links. Share one URL.
           <span class="ll-hero__accent">Done in seconds.</span>
         </h1>
         <p class="text-body-large text-medium-emphasis ll-reading mb-8">
-          Make a list of interesting links for your next team bonding, share it with a single link,
-          and let it disappear on its own after 30 days.
+          Make a list of interesting links for your team, then share it with a single link, keep it
+          private, or publish it.
         </p>
         <div id="create" class="ll-hero__form">
-          <CreateListForm :autofocus="route.hash === '#create'" @created="onCreated" />
+          <CreateListForm
+            v-if="isSignedIn"
+            :autofocus="route.hash === '#create'"
+            @created="onCreated"
+          />
+          <div v-else-if="ready" class="d-flex flex-wrap ga-3">
+            <v-btn color="primary" size="x-large" :to="{ name: 'signup' }"
+              >Create a free account</v-btn
+            >
+            <v-btn variant="tonal" color="primary" size="x-large" :to="{ name: 'signin' }"
+              >Sign in</v-btn
+            >
+          </div>
         </div>
         <ul class="ll-promises d-flex flex-wrap ga-2 mt-6 pa-0" aria-label="Highlights">
           <li v-for="item in promises" :key="item.text">
@@ -136,21 +141,22 @@ const promises = [
       <v-expansion-panels variant="accordion" rounded="xl" class="ll-faq">
         <v-expansion-panel title="Who can see my list?">
           <v-expansion-panel-text>
-            Anyone you give the share link to. List addresses are long random codes that can't be
-            guessed, and search engines are asked not to index them.
+            You choose: only the people you add, anyone with the share link, or everyone. List
+            addresses are long random codes that can't be guessed, and search engines are asked not
+            to index them.
           </v-expansion-panel-text>
         </v-expansion-panel>
         <v-expansion-panel title="How do I edit it later, or from another device?">
           <v-expansion-panel-text>
-            When you create a list you get a private edit link. This browser remembers it, and
-            opening it anywhere else unlocks editing there too. Keep it safe: there's no account to
-            recover it from.
+            Sign in on any device. Your lists are in your account. Have an edit link from a list
+            made before accounts existed? Open it and choose "Add to my account".
           </v-expansion-panel-text>
         </v-expansion-panel>
-        <v-expansion-panel title="What happens after 30 days?">
+        <v-expansion-panel title="Do lists expire?">
           <v-expansion-panel-text>
-            The list and all its short links stop working, and the data is deleted within a day. You
-            can delete a list sooner from its menu.
+            Only if you give them an end date. Lists made before accounts existed still expire 30
+            days after they were made, unless you add them to your account and keep them. You can
+            delete a list any time from its menu.
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>

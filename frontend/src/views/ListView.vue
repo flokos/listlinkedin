@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   mdiAlertCircleOutline,
+  mdiAccountArrowLeftOutline,
   mdiArrowLeft,
   mdiCalendarRemoveOutline,
   mdiCheck,
@@ -22,7 +23,7 @@ import {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { errorMessage, LIMITS, type SharedLink } from '../api'
+import { errorMessage, LIMITS, type SharedLink, type Visibility } from '../api'
 import ClaimTokenDialog from '../components/ClaimTokenDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import EditLinkReveal from '../components/EditLinkReveal.vue'
@@ -35,6 +36,7 @@ import StatePanel from '../components/StatePanel.vue'
 import { useListPage } from '../composables/useListPage'
 import { useNotify } from '../composables/useNotify'
 import { usePendingReveal } from '../composables/usePendingReveal'
+import { useSession } from '../composables/useSession'
 import { formatDate } from '../utils/time'
 
 const props = defineProps<{ code: string }>()
@@ -43,6 +45,7 @@ const router = useRouter()
 const notify = useNotify()
 const page = useListPage(toRef(props, 'code'))
 const { list, links, status, isOwner, ownerRevoked, token } = page
+const session = useSession()
 
 // Title follows the list's name.
 watch([list, status], ([value, state]) => {
@@ -55,7 +58,7 @@ watch([list, status], ([value, state]) => {
   if (title) document.title = `${title} · listlinkedin`
 })
 
-// Back link: to Saved lists when the user came from there.
+// Back link: to My lists when the user came from there.
 const cameFromMyLists = computed(() =>
   String(window.history.state?.back ?? '').startsWith('/lists'),
 )
@@ -214,6 +217,35 @@ async function confirmDeleteList() {
     throw error
   }
 }
+// Adding a legacy list to the account. Its expiry stays unless the owner chooses otherwise.
+const permanentOpen = ref(false)
+async function claimHere() {
+  if (!session.isSignedIn.value) {
+    router.push({ name: 'signin', query: { next: route.fullPath } })
+    return
+  }
+  try {
+    await page.claim()
+    notify.success('Added to your account. Its edit link no longer works.')
+    if (list.value?.expires_at) permanentOpen.value = true
+  } catch (error) {
+    notify.error(errorMessage(error))
+  }
+}
+async function keepPermanently() {
+  await page.change({ expires_at: null })
+  notify.success('This list no longer expires')
+}
+
+async function setVisibility(visibility: Visibility) {
+  try {
+    await page.change({ visibility })
+    notify.success('Sharing updated')
+  } catch (error) {
+    notify.error(errorMessage(error))
+  }
+}
+
 function forgetHere() {
   page.forget()
   notify.info('This browser no longer has edit access to the list')
@@ -229,7 +261,7 @@ function forgetHere() {
       class="mb-4 ml-n3"
       @click="router.back()"
     >
-      Saved lists
+      My lists
     </v-btn>
 
     <!-- Loading -->
@@ -257,7 +289,7 @@ function forgetHere() {
       tone="warning"
       :icon="mdiCalendarRemoveOutline"
       title="This list has expired"
-      text="Lists are available for 30 days. This one has reached the end of its life, and its short links no longer work."
+      text="This list reached the end date it was given, and its short links no longer work."
     >
       <template #actions>
         <v-btn color="primary" :to="{ name: 'home', hash: '#create' }">Create a new list</v-btn>
@@ -282,7 +314,13 @@ function forgetHere() {
         <div class="d-flex flex-wrap align-start ga-4">
           <div class="flex-grow-1 ll-list-header__main">
             <p class="text-label-large text-primary mb-1">
-              {{ isOwner ? 'Your list' : 'Shared list' }}
+              {{
+                list.my_role === 'owner' || (list.legacy && isOwner)
+                  ? 'Your list'
+                  : isOwner
+                    ? 'You can edit this list'
+                    : 'Shared list'
+              }}
             </p>
             <v-form v-if="renaming" class="d-flex align-start ga-2" @submit.prevent="saveRename">
               <v-text-field
@@ -324,6 +362,9 @@ function forgetHere() {
               </v-btn>
             </h1>
             <div class="d-flex flex-wrap align-center ga-2 mt-3">
+              <v-chip v-if="list.visibility === 'private'" color="secondary" variant="outlined"
+                >Only people you add</v-chip
+              >
               <ExpiryChip v-if="list.expires_at" :expires-at="list.expires_at" />
               <v-chip color="secondary"
                 >{{ links.length }} link{{ links.length === 1 ? '' : 's' }}</v-chip
@@ -343,7 +384,7 @@ function forgetHere() {
             >
               Share
             </v-btn>
-            <v-menu v-if="isOwner" location="bottom end">
+            <v-menu v-if="isOwner || page.can('delete')" location="bottom end">
               <template #activator="{ props: menu }">
                 <v-btn
                   v-bind="menu"
@@ -354,18 +395,28 @@ function forgetHere() {
               </template>
               <v-list role="menu" density="comfortable" nav min-width="240">
                 <v-list-item
+                  v-if="isOwner"
                   role="menuitem"
                   :prepend-icon="mdiPencilOutline"
                   title="Rename"
                   @click="startRename"
                 />
                 <v-list-item
+                  v-if="list.legacy && token"
+                  role="menuitem"
+                  :prepend-icon="mdiAccountArrowLeftOutline"
+                  title="Add to my account"
+                  @click="claimHere"
+                />
+                <v-list-item
+                  v-if="list.legacy && token"
                   role="menuitem"
                   :prepend-icon="mdiShieldKeyOutline"
                   title="Show edit link"
                   @click="reveal = { open: true, mode: 'view' }"
                 />
                 <v-list-item
+                  v-if="page.can('rotate_token')"
                   role="menuitem"
                   :prepend-icon="mdiKeyChange"
                   title="Replace edit link"
@@ -373,12 +424,14 @@ function forgetHere() {
                 />
                 <v-divider class="my-1" />
                 <v-list-item
+                  v-if="token"
                   role="menuitem"
                   :prepend-icon="mdiTrayRemove"
                   title="Forget on this device"
                   @click="forgetHere"
                 />
                 <v-list-item
+                  v-if="page.can('delete')"
                   role="menuitem"
                   :prepend-icon="mdiDeleteOutline"
                   title="Delete list"
@@ -499,7 +552,7 @@ function forgetHere() {
           title="Nothing here yet"
           text="The creator of this list hasn't added any links. Check back soon."
         >
-          <template #actions>
+          <template v-if="list.legacy" #actions>
             <v-btn variant="text" :prepend-icon="mdiKeyOutline" @click="claimOpen = true"
               >I have the edit link</v-btn
             >
@@ -507,14 +560,22 @@ function forgetHere() {
         </StatePanel>
       </section>
 
-      <p v-if="!isOwner && links.length && !ownerRevoked" class="text-center mt-10">
+      <p v-if="list.legacy && !isOwner && links.length && !ownerRevoked" class="text-center mt-10">
         <v-btn variant="text" size="small" :prepend-icon="mdiKeyOutline" @click="claimOpen = true">
           Created this list? Open it with your edit link
         </v-btn>
       </p>
 
       <!-- Dialogs -->
-      <ShareDialog v-model="shareOpen" :title="list.title" :url="list.public_url" />
+      <ShareDialog
+        v-model="shareOpen"
+        :title="list.title"
+        :url="list.url"
+        :visibility="list.visibility"
+        :can-change="page.can('settings')"
+        :email-verified="Boolean(session.user.value?.email_verified)"
+        @change-visibility="setVisibility"
+      />
       <EditLinkReveal
         v-if="token"
         v-model="reveal.open"
@@ -522,7 +583,7 @@ function forgetHere() {
         :code="code"
         :token="token"
         :title="list.title"
-        :public-url="list.public_url"
+        :public-url="list.url"
       />
       <v-dialog v-model="editOpen" max-width="560" aria-label="Edit link">
         <v-card v-if="editing" class="pa-2" title="Edit link">
@@ -561,6 +622,15 @@ function forgetHere() {
         action="Delete list"
         :confirm-text="list.title"
         :on-confirm="confirmDeleteList"
+      />
+      <ConfirmDialog
+        v-model="permanentOpen"
+        title="Keep this list permanently?"
+        :text="`It's set to expire on ${list.expires_at ? formatDate(list.expires_at) : ''}. You can remove that date now, or keep it.`"
+        action="Keep permanently"
+        cancel-label="Keep the date"
+        tone="neutral"
+        :on-confirm="keepPermanently"
       />
       <ClaimTokenDialog v-model="claimOpen" :code="code" @claimed="page.load()" />
     </template>

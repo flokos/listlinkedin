@@ -1,3 +1,4 @@
+from django.conf import settings
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
@@ -5,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import selectors, services
+from .exceptions import Gone
 from .permissions import IsListOwnerOrReadOnly, OwnerTokenAuthentication, WriteRateThrottle
 from .serializers import (
     LinkSerializer,
@@ -36,11 +38,19 @@ class ListCreateView(APIView):
 
     @extend_schema(
         request=ListSerializer,
-        responses={201: ListCreatedSerializer, 400: OpenApiResponse(description="Invalid input.")},
+        responses={
+            201: ListCreatedSerializer,
+            400: OpenApiResponse(description="Invalid input."),
+            410: OpenApiResponse(description="Retired: create lists with an account (v2)."),
+        },
         auth=PUBLIC,
         summary="Create a list (returns the private owner token once)",
     )
     def post(self, request):
+        # Creating lists needs an account since V2 (docs/v2/adr/ADR-011). The switch exists
+        # only so test stacks can still create legacy lists; it goes at the legacy sunset.
+        if not settings.LEGACY_LIST_CREATION:
+            raise Gone("Creating lists now requires an account.")
         serializer = ListSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         shared_list, owner_token = services.create_list(**serializer.validated_data)

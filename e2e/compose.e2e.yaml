@@ -8,6 +8,8 @@ services:
       EMAIL_USE_TLS: "false"
       # Every browser shares one client IP here; allauth's per-IP limits would trip.
       AUTH_RATE_LIMITS: "off"
+      # Specs about edit links still create V1 (legacy) lists; production answers 410.
+      LEGACY_LIST_CREATION: "on"
 
   mailpit:
     image: axllent/mailpit:v1.31

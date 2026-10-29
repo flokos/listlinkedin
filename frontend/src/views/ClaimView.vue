@@ -96,7 +96,7 @@ onMounted(async () => {
       tone="warning"
       :icon="mdiCalendarRemoveOutline"
       title="This list has expired"
-      text="Lists are available for 30 days."
+      text="This list reached its end date, so it can no longer be opened."
     >
       <template #actions>
         <v-btn color="primary" :to="{ name: 'home', hash: '#create' }">Create a new list</v-btn>

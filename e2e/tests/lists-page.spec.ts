@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import { expect, openAsOwner, otherDevice, test } from './fixtures'
 
-test('Saved lists shows live status, and a backup restores access on another device', async ({
+test('My lists shows live status, and a backup restores access on another device', async ({
   page,
   browser,
   baseURL,

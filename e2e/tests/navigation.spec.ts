@@ -9,7 +9,7 @@ test.describe('desktop menu', () => {
     const nav = page.getByRole('navigation', { name: 'Main' })
 
     for (const [link, heading, title] of [
-      ['Saved lists', 'Saved lists', 'Saved lists · listlinkedin'],
+      ['My lists', 'My lists', 'My lists · listlinkedin'],
       ['About', 'About & privacy', 'About & privacy · listlinkedin'],
       ['Home', /Collect links/, 'Share a list of links · listlinkedin'],
     ] as const) {
@@ -50,12 +50,13 @@ test.describe('mobile menu', () => {
     await expect(opener).toBeFocused()
 
     await opener.click()
-    await drawer.getByRole('link', { name: 'Saved lists' }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Saved lists' })).toBeVisible()
+    await drawer.getByRole('link', { name: 'My lists' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'My lists' })).toBeVisible()
     await expect(drawer).toBeHidden()
     // The compact "New list" button is reachable on small screens.
+    // Signed out, it leads to Home's invitation to create an account (ADR-011).
     await page.getByRole('banner').getByRole('link', { name: 'New list' }).click()
-    await expect(page.getByRole('textbox', { name: 'List name' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Create a free account' })).toBeVisible()
   })
 })
 
@@ -63,7 +64,7 @@ test('every route works as a deep link (hard reload)', async ({ page, api }) => 
   const list = await api.createList('Deep link')
   for (const [path, heading] of [
     ['/', /Collect links/],
-    ['/lists', 'Saved lists'],
+    ['/lists', 'My lists'],
     ['/about', 'About & privacy'],
     [`/l/${list.public_code}`, 'Deep link'],
     ['/no/such/page', 'Page not found'],

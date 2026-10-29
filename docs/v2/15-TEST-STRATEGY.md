@@ -22,7 +22,7 @@ Test data uses plain builder functions in `conftest.py` (V1 style). There is no 
 | Frontend unit and component | composables, components, client | `frontend/src/**/*.test.ts` | CI `checks` |
 | End-to-end | journeys on the production stack over HTTPS | `e2e/tests/*.spec.ts` | CI `e2e` |
 | Concurrency | real threads or processes on PostgreSQL | `transactional_db` tests (V1 `test_concurrent_*` pattern) | CI `checks` |
-| Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks) | CI `proxy` |
+| Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks; since 1.4 it asserts v1 create → 410 and seeds its legacy list with `manage.py shell`) | CI `proxy` |
 
 ## Unit tests (pure domain)
 
@@ -128,8 +128,8 @@ the phone projects run the journeys marked ★.
    using a fixture site served inside the e2e network) → create group → add list → make a
    synced copy (second user) → modify the parent → see "updates" → review, resolve a conflict →
    apply → verify the child.
-2. ★ Legacy owner: seed a legacy list (an e2e-only management command, because anonymous
-   creation no longer exists) → open the edit link → sign in → add to account → token gone
+2. ★ Legacy owner: seed a legacy list (through `POST /api/v1/lists/`, which the e2e stack
+   keeps open with `LEGACY_LIST_CREATION=on`; production answers 410) → open the edit link → sign in → add to account → token gone
    from storage → V1 short URL still redirects.
 3. ★ Group workspace on a phone: open the drawer, switch lists, focus lands on the `<h1>`, Escape
    closes.
@@ -173,8 +173,8 @@ link to the decision.
 | `GET /api/v1/…/links/` newest first, paginated | **Keep** for the v1 endpoint (compatibility). v2 orders by `position` |
 | Full workflow (`tests/integration/test_workflow.py`) | **Keep** on a legacy list (seeded through the ORM). Add a V2 workflow test |
 | Frontend: `api.test.ts`, `useOwnedLists`, `useEditLink`, backup, url and time utils, `LinkForm` | **Keep**. `api.test.ts` adapts to the split client. Backup and edit-link tests stay until the legacy sunset |
-| E2E: `create.spec` (anonymous create) | **Replaced** by signed-in create (scenario 1) |
-| E2E: `ownership`, `share`, `links`, `navigation`, `keyboard`, `states`, `a11y`, `limits`, `content`, `lists-page`, `smoke` | **Keep** or adapt selectors to tiles and the new nav. `ownership` runs on seeded legacy lists |
+| E2E: `create.spec` (anonymous create) | **Replaced** by signed-in create (task 1.4), plus `claim.spec` for the legacy journey (scenario 2) |
+| E2E: `ownership`, `share`, `links`, `navigation`, `keyboard`, `states`, `a11y`, `limits`, `content`, `lists-page`, `smoke` | **Keep** or adapt selectors to tiles and the new nav. `ownership` runs on seeded legacy lists. Since 1.4, `keyboard` and the creation case in `states` sign in first, and `states` mocks `/api/v2/` |
 | Manual QA checklist | **Extend** ([11](11-UI-UX-MIGRATION.md#accessibility-wcag-22-aa)) |
 
 ## Acceptance test matrix (summary)

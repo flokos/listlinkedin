@@ -8,6 +8,12 @@ from apps.sharing import services
 from apps.sharing.models import SharedList
 
 
+@pytest.fixture(autouse=True)
+def legacy_list_creation(settings):
+    """V1 tests create legacy lists through POST /api/v1/lists/, retired in production."""
+    settings.LEGACY_LIST_CREATION = True
+
+
 @pytest.fixture
 def api_client() -> APIClient:
     return APIClient()

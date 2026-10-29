@@ -30,7 +30,7 @@ const router = createRouter({
       path: '/lists',
       name: 'saved-lists',
       component: () => import('./views/SavedListsView.vue'),
-      meta: { title: 'Saved lists' },
+      meta: { title: 'My lists' },
     },
     {
       path: '/about',

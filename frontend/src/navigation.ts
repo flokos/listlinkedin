@@ -14,7 +14,7 @@ export interface NavItem {
 export const mainNav: NavItem[] = [
   { label: 'Home', to: { name: 'home' }, icon: mdiHomeOutline, match: ['home'] },
   {
-    label: 'Saved lists',
+    label: 'My lists',
     to: { name: 'saved-lists' },
     icon: mdiFormatListBulletedSquare,
     match: ['saved-lists'],
