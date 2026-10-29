@@ -87,7 +87,7 @@ def get_list_for(principal: Principal, code: str) -> tuple[SharedList, Access]:
     lists don't reveal that they exist (A2); expired lists the principal could see are 410."""
     shared_list = (
         SharedList.objects.select_related("owner")
-        .annotate(link_count=Count("links"))
+        .annotate(link_count=Count("links", filter=Q(links__deleted_at__isnull=True)))
         .filter(public_code=code)
         .first()
     )
@@ -107,7 +107,7 @@ def lists_of(user, *, role: Role | None = None) -> QuerySet[SharedList]:
     even if the user has their URL."""
     membership = ListMembership.objects.filter(shared_list=OuterRef("pk"), user=user)
     link_count = (
-        SharedLink.objects.filter(shared_list=OuterRef("pk"))
+        SharedLink.objects.filter(shared_list=OuterRef("pk"), deleted_at__isnull=True)
         .values("shared_list")
         .annotate(n=Count("pk"))
         .values("n")
@@ -182,13 +182,18 @@ def _anonymous_facts(shared_list: SharedList) -> ListFacts:
     )
 
 
-def links_with_short_codes(shared_list: SharedList) -> QuerySet[SharedLink]:
-    """Links of a list, newest first, each annotated with its active `short_code`."""
+def links_with_short_codes(
+    shared_list: SharedList, *, newest_first: bool = False
+) -> QuerySet[SharedLink]:
+    """Live links of a list in their stored order, each annotated with its active
+    `short_code`. Deleted links (tombstones) never appear. `newest_first` is the V1 API's
+    order, kept as its contract."""
     active_code = ShortRedirect.objects.filter(link=OuterRef("pk"), is_active=True).values("code")
+    order = ("-created_at", "-id") if newest_first else ("position",)
     return (
-        SharedLink.objects.filter(shared_list=shared_list)
+        SharedLink.objects.filter(shared_list=shared_list, deleted_at__isnull=True)
         .annotate(short_code=Subquery(active_code[:1]))
-        .order_by("-created_at", "-id")
+        .order_by(*order)
     )
 
 

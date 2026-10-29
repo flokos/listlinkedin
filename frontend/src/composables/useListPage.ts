@@ -108,7 +108,7 @@ export function useListPage(code: Ref<string>) {
 
   async function addLink(input: api.LinkInput) {
     const link = await act((t) => api.createLink(code.value, input, t))
-    links.value = [link, ...links.value]
+    links.value = [...links.value, link] // appended, as on the server
     remember()
     return link
   }

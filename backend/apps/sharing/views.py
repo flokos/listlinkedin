@@ -109,7 +109,7 @@ class LinkCollectionView(OwnedListView):
         responses={200: LinkSerializer(many=True), 404: NOT_FOUND, 410: GONE}, auth=PUBLIC
     )
     def get(self, request, list_code):
-        links = selectors.links_with_short_codes(self.get_list(list_code))
+        links = selectors.links_with_short_codes(self.get_list(list_code), newest_first=True)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(links, request, view=self)
         return paginator.get_paginated_response(LinkSerializer(page, many=True).data)

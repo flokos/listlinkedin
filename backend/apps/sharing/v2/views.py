@@ -23,12 +23,13 @@ from apps.common import errors
 from .. import selectors
 from ..permissions import WriteRateThrottle
 from ..policy import Role
-from ..serializers import LinkSerializer, OwnerTokenSerializer
+from ..serializers import OwnerTokenSerializer
 from ..services import links as link_services
 from ..services import lists as services
 from ..services import members as member_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
+    LinkDetailSerializer,
     ListDetailSerializer,
     ListWriteSerializer,
     MemberAddSerializer,
@@ -41,7 +42,7 @@ IDEMPOTENCY_KEY = OpenApiParameter(
     str,
     OpenApiParameter.HEADER,
     required=False,
-    description="A UUID per user action. Retrying with the same key returns the same list.",
+    description="A UUID per user action. Retrying with the same key returns the same resource.",
 )
 ERRORS = {
     401: OpenApiResponse(description="Sign-in (or the list's owner token) required."),
@@ -192,9 +193,10 @@ LINK_ID = OpenApiParameter("link_id", uuid.UUID, OpenApiParameter.PATH)
     destroy=extend_schema(parameters=[CODE, LINK_ID]),
 )
 class LinkViewSet(viewsets.ViewSet):
-    """/api/v2/lists/{code}/links/: the same link representation as V1, newest first.
+    """/api/v2/lists/{code}/links/: live links in their stored order.
 
     Editors and owners (session), or a legacy list's owner token (Bearer), may change links.
+    Deleting keeps a tombstone: the link disappears and its short URL answers 404.
     """
 
     authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
@@ -203,34 +205,45 @@ class LinkViewSet(viewsets.ViewSet):
     throttle_scope = "list_manage"
     pagination_class = ListPagination
 
-    @extend_schema(responses={200: LinkSerializer(many=True), 404: ERRORS[404]})
+    @extend_schema(responses={200: LinkDetailSerializer(many=True), 404: ERRORS[404]})
     def list(self, request, code=None):
         shared_list, _ = selectors.get_list_for(principal_of(request), code)
         paginator = self.pagination_class()
         links = selectors.links_with_short_codes(shared_list)
         page = paginator.paginate_queryset(links, request, view=self)
-        return paginator.get_paginated_response(LinkSerializer(page, many=True).data)
+        return paginator.get_paginated_response(LinkDetailSerializer(page, many=True).data)
 
-    @extend_schema(request=LinkSerializer, responses={201: LinkSerializer, **ERRORS})
+    @extend_schema(
+        request=LinkDetailSerializer,
+        parameters=[IDEMPOTENCY_KEY],
+        responses={201: LinkDetailSerializer, 200: LinkDetailSerializer, **ERRORS},
+    )
     def create(self, request, code=None):
+        """Append a link, or insert it at `position`. Retrying with the same
+        `Idempotency-Key` returns the first link (200) instead of adding another."""
         principal = principal_of(request)
         shared_list, _ = selectors.get_list_for(principal, code)
-        serializer = LinkSerializer(data=request.data)
+        serializer = LinkDetailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        link = link_services.add_link(principal, shared_list.pk, **serializer.validated_data)
-        data = LinkSerializer(selectors.get_link(shared_list, link.pk)).data
-        return Response(data, status=status.HTTP_201_CREATED)
+        link, created = link_services.add_link(
+            principal,
+            shared_list.pk,
+            creation_key=_idempotency_key(request),
+            **serializer.validated_data,
+        )
+        data = LinkDetailSerializer(selectors.get_link(shared_list, link.pk)).data
+        return Response(data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
-    @extend_schema(request=LinkSerializer, responses={200: LinkSerializer, **ERRORS})
+    @extend_schema(request=LinkDetailSerializer, responses={200: LinkDetailSerializer, **ERRORS})
     def partial_update(self, request, code=None, link_id=None):
         principal = principal_of(request)
         shared_list, _ = selectors.get_list_for(principal, code)
-        serializer = LinkSerializer(data=request.data, partial=True)
+        serializer = LinkDetailSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         link_services.update_link(
             principal, shared_list.pk, link_id, dict(serializer.validated_data)
         )
-        return Response(LinkSerializer(selectors.get_link(shared_list, link_id)).data)
+        return Response(LinkDetailSerializer(selectors.get_link(shared_list, link_id)).data)
 
     @extend_schema(responses={204: None, **ERRORS})
     def destroy(self, request, code=None, link_id=None):

@@ -75,7 +75,12 @@ const visibleLinks = computed(() => {
         [l.title ?? '', l.destination_url].some((text) => text.toLowerCase().includes(q)),
       )
     : links.value
-  if (sort.value === 'newest') return matches
+  if (sort.value === 'newest') {
+    // The server returns the stored order (positions); "Newest" sorts by creation time.
+    return [...matches].sort(
+      (a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    )
+  }
   const key = (l: SharedLink) =>
     (l.title || l.destination_url.replace(/^https?:\/\/(www\.)?/, '')).toLowerCase()
   return [...matches].sort((a, b) => key(a).localeCompare(key(b)))

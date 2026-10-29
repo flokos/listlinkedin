@@ -129,9 +129,13 @@ null for ordinary lists. `parent` is null when the viewer can't view the parent.
 | PUT, DELETE | `/api/v2/lists/{code}/links/{id}/icon/` | editor (account) | multipart icon ≤2 MB, re-encoded to 128×128. Versioned |
 | POST | `/api/v2/lists/{code}/links/{id}/refresh-metadata/` | editor | 202. At most once per hour per link |
 
-Since task 1.4 the links list, create, update and delete endpoints exist with the V1 link
-representation, newest first, and a hard delete. Task 2.1 adds `position`, `description` and
-tombstones; the rest of the table follows in phase 2 and 7.
+Since task 2.1 the links list, create, update and delete endpoints return live links in
+their stored order with `description`, `position` and `source_link_id`. Delete keeps a
+tombstone, and its short URL answers 404. Create takes an optional `position` (clamped)
+and `Idempotency-Key` (a retry answers 200 with the first link). PATCH can't change
+`position`: that is the reorder endpoint (2.2). `icon_url`, `display` and `metadata_status`
+follow in 2.3, 2.4 and 7.3. The V1 API keeps its representation and newest-first order, and
+deletes as tombstones too.
 
 Link representation (V1 fields kept, new fields added):
 

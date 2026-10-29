@@ -6,6 +6,7 @@ from ..domain import MAX_DESCRIPTION_LENGTH
 from ..models import MEMBER_ROLE_CHOICES, ListMembership, SharedList
 from ..policy import Visibility, permissions, role_of
 from ..selectors import Access
+from ..serializers import LinkSerializer
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
 
 VISIBILITIES = [v.value for v in Visibility]
@@ -139,3 +140,30 @@ class MemberAddSerializer(serializers.Serializer):
 
 class MemberRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=MEMBER_ROLE_CHOICES)
+
+
+class LinkDetailSerializer(LinkSerializer):
+    """A link on /api/v2/: V1's fields plus `description`, its `position` among the live
+    links (0-based) and `source_link_id` (the link it was copied from, if any)."""
+
+    description = serializers.CharField(
+        max_length=MAX_DESCRIPTION_LENGTH, allow_null=True, allow_blank=True, required=False
+    )
+    position = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        help_text="0-based. On create: where to insert (clamped; default: at the end). "
+        "Can't be changed here afterwards.",
+    )
+
+    class Meta(LinkSerializer.Meta):
+        fields = [*LinkSerializer.Meta.fields, "description", "position", "source_link_id"]
+        read_only_fields = [*LinkSerializer.Meta.read_only_fields, "source_link_id"]
+
+    def validate_description(self, value: str | None) -> str | None:
+        return (value or "").strip() or None  # one representation of "no description"
+
+    def validate_position(self, value: int) -> int:
+        if self.instance is None and self.partial:  # PATCH
+            raise serializers.ValidationError("Links are moved with the reorder endpoint.")
+        return value
