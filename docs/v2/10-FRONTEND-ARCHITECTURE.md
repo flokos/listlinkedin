@@ -107,7 +107,7 @@ reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes
 | `EditLinkReveal`, `ClaimTokenDialog`, `BackupCard` | Legacy only. They gain "Add to my account". Removed at the legacy sunset |
 | `ListView.vue` (619 lines) | Split into `ListHeader`, `ListToolbar`, `AddLinkCard`, `LinkCollection` (grid/list) and dialog components (`LinkEditDialog`, `LinkDetailsDialog`), since 2.4. `LinkMenu` (the ⋮ menu) and `LinkIcon` (icon or avatar) are shared by tiles and rows |
 
-New components: `LinkTile`, `LinkGrid`, `ViewToggle`, `MoveMenuItems`, `LiveRegion`,
+New components: `LinkTile`, `ViewToggle`, `LiveRegion`, `MovePositionDialog`,
 `VisibilitySelect`, `MembersPanel`, `ListSettingsDialog`, `ImageUploadField`, `MetadataStatus`,
 `GroupSidebar`, `GroupWorkspaceLayout`, `ListPickerDialog`, `HistoryTimeline`, `RevisionDiff`,
 `ProvenanceBanner`, `CopyListDialog` (fork only in V2), `AuthForm` variants, `TagInput`, `TagChips`.
@@ -135,6 +135,19 @@ announce-and-continue pattern [R22]. Each move calls `POST …/reorder/ {link, t
 same endpoint drag-and-drop uses. Task 2.5 starts with a one-day spike that confirms
 vue-draggable-plus on iOS Safari and Android Chrome in the e2e phone projects. If it fails
 there, switch to Pragmatic drag and drop. The API doesn't change either way.
+
+**Spike result (task 2.5, 2026-10-29): vue-draggable-plus 0.6.1 kept.** It inlines SortableJS
+1.15, so the only other new install is `@types/sortablejs`. Settings: `forceFallback` (pointer
+events instead of native HTML5 drag, so every engine behaves alike and the tile's link isn't
+dragged as a URL), `delay: 250` on touch only (a long press drags, a swipe scrolls), `filter`
+on the ⋮ button, and a click guard so a drop never opens the link. `LinkCollection` wraps the
+grid and the rows (the planned separate `LinkGrid` was folded into it, since one draggable
+wraps both layouts); it reports `(link, index)`, and the page applies the move at once, then
+takes the server's order. Verified: mouse dragging in Chromium, Firefox and WebKit, and a
+long-press touch drag in the mobile-chrome project (touch events sent through Chromium
+DevTools). Playwright can't send touch moves to WebKit, so on mobile-safari the e2e tests use
+the ⋮ Move items, which are the guaranteed path anyway; a real iPhone check belongs to the 9.3
+manual QA pass. The planned `MoveMenuItems` component became part of `LinkMenu`.
 
 ## Dependencies
 

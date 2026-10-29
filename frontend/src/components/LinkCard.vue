@@ -10,8 +10,20 @@ import { timeAgo } from '../utils/time'
 import LinkIcon from './LinkIcon.vue'
 import LinkMenu from './LinkMenu.vue'
 
-const props = defineProps<{ link: SharedLink; canEdit: boolean }>()
-const emit = defineEmits<{ details: []; edit: []; delete: [] }>()
+const props = defineProps<{
+  link: SharedLink
+  canEdit: boolean
+  place?: { index: number; count: number } | null
+  canMoveToList?: boolean
+}>()
+const emit = defineEmits<{
+  details: []
+  edit: []
+  delete: []
+  move: [index: number]
+  'move-to-position': []
+  'move-to-list': []
+}>()
 const { copy } = useClipboard()
 
 /** Visitors go through the short link, which always resolves to the current destination. */
@@ -76,9 +88,14 @@ const description = computed(() => props.link.display?.description ?? props.link
         :href="href"
         :short-url="link.short_url"
         :can-edit="canEdit"
+        :place="place"
+        :can-move-to-list="canMoveToList"
         @details="emit('details')"
         @edit="emit('edit')"
         @delete="emit('delete')"
+        @move="emit('move', $event)"
+        @move-to-position="emit('move-to-position')"
+        @move-to-list="emit('move-to-list')"
       />
     </div>
   </article>

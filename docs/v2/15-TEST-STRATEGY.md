@@ -138,7 +138,8 @@ the phone projects run the journeys marked ★.
 3. ★ Group workspace on a phone: open the drawer, switch lists, focus lands on the `<h1>`, Escape
    closes.
 4. Reorder: drag on desktop; ⋮ Move up on a phone; keyboard-only Move; the order persists after
-   reload; the live region announces.
+   reload; the live region announces (`e2e/tests/reorder.spec.ts`, since task 2.5, with a
+   long-press touch drag on mobile-chrome and Move to another list).
 5. Visibility: a private list → the anonymous view is "not found". Unlisted → readable by link,
    absent from Explore. Public → found in Explore.
 6. History: edit, restore version 2 → a new version is created and the restored links come
