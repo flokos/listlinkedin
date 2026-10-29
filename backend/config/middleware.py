@@ -27,7 +27,9 @@ def health_check(get_response):
 
 
 # The image upload endpoints (docs/v2/09-API-DESIGN.md#uploads): the only larger bodies.
-UPLOAD_PATH = re.compile(r"^/api/v2/lists/[^/]+/(?:image|links/[^/]+/icon)/$")
+UPLOAD_PATH = re.compile(
+    r"^/api/v2/(?:lists/[^/]+/(?:image|links/[^/]+/icon)|groups/[^/]+/image)/$"
+)
 
 
 def request_size_limit(get_response):

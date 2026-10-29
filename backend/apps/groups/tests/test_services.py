@@ -235,8 +235,8 @@ def test_moving_keeps_hidden_entries_in_place(alice, bob):
         "d",
         "c",
     ]
-    with pytest.raises(ValidationError):
-        services.move_list(as_(bob), group.pk, a.public_code, 3)  # bob sees only three
+    services.move_list(as_(bob), group.pk, e.public_code, 99)  # clamped to the end
+    assert [x.shared_list.title for x in selectors.entries_for(as_(bob), group)] == ["a", "c", "e"]
 
 
 def test_viewers_cannot_reorder_or_remove(alice, bob):

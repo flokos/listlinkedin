@@ -158,6 +158,9 @@ These are initial values. Tune them from logs.
 | Directory search | 600/h per IP |
 | Adding members by email | 60/h per user |
 
+Groups have their own scopes since 4.2, `group_create` and `group_manage`, with the same
+configured values as `list_create` and `list_manage` (30/h and 600/h).
+
 ## Logging and secrets
 
 Logs record ids (list, link, user, sync record) and error codes. They never record tokens,

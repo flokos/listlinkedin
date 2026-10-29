@@ -134,6 +134,9 @@ check "media directories are not listed" 403 \
 check "a 1 MB upload reaches the API" 404 \
     "$(head -c 1000000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X PUT \
         "$https/api/v2/lists/NoSuchList000000/image/" -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @-)"
+check "a 1 MB group image upload reaches the API" 404 \
+    "$(head -c 1000000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X PUT \
+        "$https/api/v2/groups/NoSuchGroup00000/image/" -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @-)"
 check "an oversized upload is rejected by nginx" 413 \
     "$(head -c 4000000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X PUT \
         "$https/api/v2/lists/NoSuchList000000/image/" -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @-)"

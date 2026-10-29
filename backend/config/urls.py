@@ -13,6 +13,7 @@ CODE = r"[A-Za-z0-9_-]+"
 api_v2 = [
     path("", include("apps.accounts.urls")),
     path("", include("apps.sharing.v2.urls")),
+    path("", include("apps.groups.urls")),
 ]
 
 urlpatterns = [
