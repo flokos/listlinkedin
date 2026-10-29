@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.metadata",
     "apps.sharing",
     "apps.shortener",
+    "apps.versioning",
 ]
 
 MIDDLEWARE = [

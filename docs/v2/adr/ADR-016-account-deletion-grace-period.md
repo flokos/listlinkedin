@@ -47,6 +47,7 @@ Deleting an account (`DELETE /api/v2/me/`, still type-to-confirm) **schedules** 
   ("Everything is erased after 30 days; until then, sign in to restore your account").
 - Every read of a list filters out lists whose owner is being deleted (`OWNER_ACTIVE`), and
   member reads and add-by-email skip such accounts.
-- With PR #23 merged, the trigger's `created_by_id` exception is no longer needed: no user row
-  is deleted any more. It is removed in the first PR that has both.
+- The trigger's `created_by_id` exception from PR #23 is no longer needed, since no user row
+  is deleted any more: `versioning.0004_strict_immutability` removes it (merged with this
+  task), and a test checks that clearing an author fails like any other update.
 - Groups (phase 4) join the same flow: hidden at once, deleted at erasure.

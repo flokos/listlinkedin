@@ -212,3 +212,26 @@ def media_in_use() -> set[str]:
     images = SharedList.objects.exclude(image=None).values_list("image", flat=True)
     icons = SharedLink.objects.exclude(icon=None).values_list("icon", flat=True)
     return {*images, *icons}
+
+
+def live_content(shared_list: SharedList) -> dict:
+    """A list's versioned content as plain data, for its revision snapshot (apps.versioning):
+    title, description and the live links in their stored order with their user fields."""
+    links = SharedLink.objects.filter(shared_list=shared_list, deleted_at__isnull=True).order_by(
+        "position"
+    )
+    return {
+        "title": shared_list.title,
+        "description": shared_list.description,
+        "links": [
+            {
+                "id": link.pk,
+                "source_link_id": link.source_link_id,
+                "url": link.destination_url,
+                "title": link.title,
+                "description": link.description,
+                "icon": link.icon,
+            }
+            for link in links
+        ],
+    }

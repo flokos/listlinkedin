@@ -58,6 +58,9 @@ class SharedList(models.Model):
     allow_branch = models.BooleanField(default=False)
     # Idempotency-Key of the request that created the list (a retried create returns it).
     creation_key = models.UUIDField(null=True, blank=True, editable=False)
+    # The number of the list's latest revision (apps.versioning); 0 before the first one.
+    # Written only under the list's row lock, together with that revision.
+    head_revision = models.PositiveIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
     expires_at = models.DateTimeField(null=True, blank=True, db_index=True)  # NULL = permanent
@@ -80,6 +83,9 @@ class SharedList(models.Model):
                 condition=Q(owner__isnull=False)
                 | Q(visibility=Visibility.UNLISTED.value, expires_at__isnull=False),
                 name="sharing_list_legacy_unlisted_expiring",
+            ),
+            models.CheckConstraint(
+                condition=Q(head_revision__gte=0), name="sharing_list_head_revision_valid"
             ),
         ]
 
