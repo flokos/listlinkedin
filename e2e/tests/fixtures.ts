@@ -162,7 +162,7 @@ export async function expectNoA11yViolations(page: Page, include?: string) {
 
 // HTTP errors the app handles on purpose show up as console errors in some browsers
 // ("Failed to load resource: … 404"). Anything else is a bug.
-const EXPECTED_CONSOLE = [/status of (400|401|403|404|410|413|429|500|502|503)/, /Failed to load resource/]
+const EXPECTED_CONSOLE = [/status of (400|401|403|404|410|412|413|428|429|500|502|503)/, /Failed to load resource/]
 
 export const test = base.extend<{ consoleErrors: string[]; api: ReturnType<typeof apiHelpers> }>({
   consoleErrors: [

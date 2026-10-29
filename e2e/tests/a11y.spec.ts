@@ -61,6 +61,19 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
     })
 
+    test("a list's history with a version's changes and the restore dialog", async ({ page, api }) => {
+      const list = await api.createList('Accessible history')
+      await api.addLink(list, 'https://example.com/a', 'First')
+      await api.addLink(list, 'https://example.com/b', 'Second')
+      await openAsOwner(page, list)
+      await page.goto(`/l/${list.public_code}/history?v=2`)
+      await expect(page.getByRole('heading', { level: 2, name: 'Version 2' })).toBeVisible()
+      await expectNoA11yViolations(page)
+      await page.getByRole('button', { name: 'Restore this version' }).click()
+      await expect(page.getByRole('dialog', { name: 'Restore version 2?' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
     test('a list as visitor and owner, with its dialogs', async ({ page, api }) => {
       const list = await api.createList('Accessible list')
       await api.addLink(list, 'https://example.com/a', 'A titled link')

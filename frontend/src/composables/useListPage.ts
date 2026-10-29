@@ -1,7 +1,14 @@
 import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 
 import * as api from '../api'
-import { ApiError, type ListDetail, type ListInput, type SharedLink } from '../api'
+import {
+  ApiError,
+  revisionOf,
+  type ListDetail,
+  type ListInput,
+  type SharedLink,
+  type WriteOptions,
+} from '../api'
 import { useOwnedLists } from './useOwnedLists'
 import { useSession } from './useSession'
 
@@ -85,6 +92,21 @@ export function useListPage(code: Ref<string>) {
     if (list.value) cache.set(code.value, { list: list.value, links: [...links.value] })
   }
 
+  /** Keeps the list's head revision current from a write's ETag. */
+  function noteEtag(etag: string | null) {
+    const head = revisionOf(etag)
+    if (head !== undefined && list.value && list.value.head_revision !== head) {
+      list.value = { ...list.value, head_revision: head }
+    }
+  }
+
+  /**
+   * Content writes are based on the version on screen (If-Match). If someone else changed the
+   * list meanwhile, the server refuses (412) instead of overwriting: `act` then reloads, and
+   * the form keeps what the user typed so they can check and save again.
+   */
+  const based = (): WriteOptions => ({ ifMatch: list.value?.head_revision, onEtag: noteEtag })
+
   /** Runs an editing action; a 401/403 with a saved edit link means it no longer works. */
   async function act<T>(action: (token: string | undefined) => Promise<T>): Promise<T> {
     try {
@@ -93,13 +115,14 @@ export function useListPage(code: Ref<string>) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         if (token.value) ownerRevoked.value = true
       }
+      if (error instanceof ApiError && error.status === 412) void load()
       if (error instanceof ApiError && error.status === 410) status.value = 'expired'
       throw error
     }
   }
 
   async function change(changes: ListInput) {
-    list.value = await act((t) => api.changeList(code.value, changes, t))
+    list.value = await act((t) => api.changeList(code.value, changes, t, based()))
     if (token.value && changes.title) owned.update(code.value, { title: changes.title })
     remember()
   }
@@ -107,14 +130,14 @@ export function useListPage(code: Ref<string>) {
   const rename = (title: string) => change({ title })
 
   async function addLink(input: api.LinkInput) {
-    const link = await act((t) => api.createLink(code.value, input, t))
+    const link = await act((t) => api.createLink(code.value, input, t, based()))
     links.value = [...links.value, link] // appended, as on the server
     remember()
     return link
   }
 
   async function editLink(id: string, input: api.LinkInput) {
-    const link = await act((t) => api.changeLink(code.value, id, input, t))
+    const link = await act((t) => api.changeLink(code.value, id, input, t, based()))
     links.value = links.value.map((l) => (l.id === id ? link : l))
     remember()
     return link
@@ -124,9 +147,9 @@ export function useListPage(code: Ref<string>) {
   async function setLinkIcon(id: string, file: File | null) {
     let link: SharedLink
     if (file) {
-      link = await act(() => api.uploadLinkIcon(code.value, id, file))
+      link = await act(() => api.uploadLinkIcon(code.value, id, file, based()))
     } else {
-      await act(() => api.removeLinkIcon(code.value, id))
+      await act(() => api.removeLinkIcon(code.value, id, based()))
       const current = links.value.find((l) => l.id === id)!
       // The fetched icon, if any, shows again: reload the link's server view.
       link = (await api.listLinks(code.value, token.value)).results.find((l) => l.id === id) ?? {
@@ -155,7 +178,7 @@ export function useListPage(code: Ref<string>) {
     links.value = next
     const seq = ++moveSeq
     try {
-      const order = await act((t) => api.reorderLinks(code.value, id, to, t))
+      const order = await act((t) => api.reorderLinks(code.value, id, to, t, noteEtag))
       // Quick successive moves: only the latest answer describes the order on screen.
       if (seq === moveSeq) links.value = order
       remember()
@@ -168,7 +191,7 @@ export function useListPage(code: Ref<string>) {
 
   /** Moves a link to another list (copied there with a new short link, deleted here). */
   async function moveToList(id: string, targetCode: string) {
-    const link = await act(() => api.moveLinkToList(code.value, id, targetCode))
+    const link = await act(() => api.moveLinkToList(code.value, id, targetCode, noteEtag))
     links.value = links.value.filter((l) => l.id !== id)
     remember()
     cache.delete(targetCode)
@@ -176,7 +199,7 @@ export function useListPage(code: Ref<string>) {
   }
 
   async function removeLink(id: string) {
-    await act((t) => api.removeLink(code.value, id, t))
+    await act((t) => api.removeLink(code.value, id, t, based()))
     links.value = links.value.filter((l) => l.id !== id)
     remember()
   }
