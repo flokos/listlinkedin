@@ -75,6 +75,14 @@ const router = createRouter({
       component: () => import('./views/AccountView.vue'),
       meta: { title: 'Your account', requiresAuth: true },
     },
+    // A list's history. Its static segment ranks above the list route's optional slug.
+    {
+      path: '/l/:code/history',
+      name: 'list-history',
+      component: () => import('./views/HistoryView.vue'),
+      props: true,
+      meta: { title: 'History' },
+    },
     // Public list URL handed out by the API (`public_url`). nginx serves this app for it.
     {
       path: '/l/:code/:slug?',

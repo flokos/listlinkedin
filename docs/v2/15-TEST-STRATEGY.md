@@ -143,12 +143,14 @@ the phone projects run the journeys marked ★.
 5. Visibility: a private list → the anonymous view is "not found". Unlisted → readable by link,
    absent from Explore. Public → found in Explore.
 6. History: edit, restore version 2 → a new version is created and the restored links come
-   back with the same short URLs.
+   back with the same short URLs (`e2e/tests/history.spec.ts`, since task 3.4; axe on the
+   history page and the restore dialog in `a11y.spec.ts`).
 7. Access: a viewer can't see edit controls, and a forced API write returns 403.
 8. Auth flows: sign up, verify, sign out, reset password (`e2e/tests/auth.spec.ts`, since task
    1.2). These run in all five projects, because cookies, CSRF and `Origin` handling are where
    engines differ. Emails are read from Mailpit's API.
-9. States (mocked like V1's `states.spec.ts`): 412 on edit, offline. *Postponed:* stale preview
+9. States (mocked like V1's `states.spec.ts`): 412 on edit (since 3.4: refused, reloaded, the
+   input kept for retrying), offline. *Postponed:* stale preview
    409, merge failure 500.
 10. a11y: axe on every new page (V1 `a11y.spec.ts` extended). Keyboard spec extended to tiles,
     ⋮ menus and decisions.

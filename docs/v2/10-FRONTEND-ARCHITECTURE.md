@@ -61,7 +61,10 @@ Caching and staleness (risk 28):
 
 - `useListPage` keeps V1's per-list cache for instant back navigation. It always revalidates,
   and it tracks the list `ETag`. A 412 on a write triggers reload-and-retry UX, never a silent
-  overwrite.
+  overwrite. Since task 3.4: content writes send `If-Match` with the list's `head_revision`
+  (the client's `ifMatch` option); every write reports its `ETag` back (`onEtag`), which keeps
+  the head current; moves send none (they apply to the current order); a 412 reloads the list
+  and leaves the form open with the user's input.
 - After a merge or restore, the list cache is replaced from the response's new head. Group
   sidebars refetch the visible lists on focus and every 60 s while visible.
 - Cross-tab: V1's `storage` event sync stays for device tokens. Session changes (sign out in

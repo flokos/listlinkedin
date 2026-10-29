@@ -163,6 +163,14 @@ people on the list.
   a diff against the previous one (added, removed and changed with field before/after). It has
   a **Restore this version** button, confirmed, showing "Creates version 15 with this content.
   Nothing is lost."
+- Since task 3.4: `/l/:code/history?v=N` (from the list's ⋮ **History**, for editors, owners
+  and the edit link; others see "Only the list's editors can see its history"). The timeline is
+  an ordered list of links (each version is bookmarkable, Back returns to the previous one),
+  20 at a time with **Show older versions**. A version shows its changes (list fields, then
+  links with Added, Removed, Edited and Moved, and each changed field as before → after) and
+  its links. Edit forms send `If-Match`: if the list changed meanwhile, the page reloads the
+  latest version, the form stays open with what was typed, and it says "This list changed while
+  you were editing. The latest version is shown now: check your change and try again."
 
 ## Merge preview ("Get updates")
 

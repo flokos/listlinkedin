@@ -6,6 +6,7 @@ import {
   mdiClose,
   mdiDeleteOutline,
   mdiDotsVertical,
+  mdiHistory,
   mdiKeyChange,
   mdiLogout,
   mdiPencilOutline,
@@ -163,6 +164,13 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               :prepend-icon="mdiPencilOutline"
               title="Rename"
               @click="startRename"
+            />
+            <v-list-item
+              v-if="can('view_history')"
+              role="menuitem"
+              :prepend-icon="mdiHistory"
+              title="History"
+              :to="{ name: 'list-history', params: { code: list.code } }"
             />
             <v-list-item
               v-if="list.legacy && hasToken"

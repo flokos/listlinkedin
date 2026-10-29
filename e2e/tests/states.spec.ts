@@ -85,3 +85,29 @@ test('a page chunk missing after a deploy reloads the app once instead of breaki
   // The failed import is logged by the browser; it is the scenario under test.
   consoleErrors.splice(0)
 })
+
+test('an edit based on an outdated version is refused, reloaded and kept for retrying', async ({ page, api }) => {
+  const list = await api.createList('Changed elsewhere')
+  await api.addLink(list, 'https://example.com/a', 'Old title')
+  await openAsOwner(page, list)
+  let refuse = true
+  await page.route(`**/api/v2/lists/${list.public_code}/links/*/`, (route) =>
+    route.request().method() === 'PATCH' && refuse
+      ? ((refuse = false),
+        route.fulfill({
+          status: 412,
+          json: { detail: 'This list changed since you loaded it.', code: 'revision_mismatch', head_revision: 9 },
+        }))
+      : route.continue(),
+  )
+  await page.getByRole('button', { name: 'More actions for Old title' }).click()
+  await page.getByRole('menuitem', { name: 'Edit' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit link' })
+  const title = dialog.getByRole('textbox', { name: 'Title (optional)' })
+  await title.fill('New title')
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
+  await expect(dialog.getByText(/This list changed while you were editing/)).toBeVisible()
+  await expect(title).toHaveValue('New title') // the user's input is kept
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByText('Link updated')).toBeVisible()
+})

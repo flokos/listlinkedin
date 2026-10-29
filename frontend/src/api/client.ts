@@ -47,6 +47,9 @@ export class ApiError extends Error {
 
   /** The most useful single message for a toast or banner. */
   get userMessage(): string {
+    // The page reloads the list on a 412 (useListPage), so say what happened and what to do.
+    if (this.code === 'revision_mismatch')
+      return 'This list changed while you were editing. The latest version is shown now: check your change and try again.'
     if (this.detail) return this.detail
     const first = Object.values(this.fieldErrors)[0]?.[0]
     return first ?? describeStatus(this.status)
@@ -77,6 +80,8 @@ export function describeStatus(status: number): string {
       return "This list doesn't exist or was deleted."
     case 410:
       return 'This list has expired.'
+    case 412:
+      return 'This list changed while you were editing. Reload it and try again.'
     case 413:
       return 'That request was too large.'
     case 429:
@@ -107,14 +112,28 @@ export interface RequestOptions {
   signal?: AbortSignal
   /** Extra headers, e.g. allauth's key headers. */
   headers?: Record<string, string>
+  /** The list revision the change is based on, sent as `If-Match: "r{n}"` (412 if stale). */
+  ifMatch?: number
+  /** Called with the response's ETag, e.g. a list's new `"r{n}"` after a write. */
+  onEtag?: (etag: string | null) => void
+}
+
+/** The options a list-content write passes through: its precondition and the new ETag. */
+export type WriteOptions = Pick<RequestOptions, 'ifMatch' | 'onEtag'>
+
+/** The revision number in a list ETag (`"r12"` → 12), or undefined. */
+export function revisionOf(etag: string | null | undefined): number | undefined {
+  const match = etag?.match(/^"r(\d+)"$/)
+  return match ? Number(match[1]) : undefined
 }
 
 /** Requests `path` (absolute, e.g. `/api/v1/lists/`) and returns the parsed JSON body. */
 export async function request<T>(
   path: string,
-  { method = 'GET', body, token, signal, headers: extra }: RequestOptions = {},
+  { method = 'GET', body, token, signal, headers: extra, ifMatch, onEtag }: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...extra }
+  if (ifMatch !== undefined) headers['If-Match'] = `"r${ifMatch}"`
   // A FormData body (file uploads) sets its own multipart Content-Type with the boundary.
   const isForm = body instanceof FormData
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
@@ -137,6 +156,7 @@ export async function request<T>(
 
   const data: unknown = response.status === 204 ? null : await response.json().catch(() => null)
   if (!response.ok) throw new ApiError(response.status, data, response.headers.get('Retry-After'))
+  onEtag?.(response.headers.get('ETag'))
   return data as T
 }
 

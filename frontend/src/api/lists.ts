@@ -1,5 +1,5 @@
 // Lists and links: the V1 API (/api/v1/). Shapes follow backend/apps/sharing/serializers.py.
-import { request } from './client'
+import { request, type WriteOptions } from './client'
 
 export interface SharedList {
   id: string
@@ -176,8 +176,14 @@ export const createAccountList = (input: ListInput, idempotencyKey: string) =>
 export const getListDetail = (code: string, token?: string, signal?: AbortSignal) =>
   request<ListDetail>(v2(`/lists/${enc(code)}/`), { token, signal })
 
-export const changeList = (code: string, changes: ListInput, token?: string) =>
-  request<ListDetail>(v2(`/lists/${enc(code)}/`), { method: 'PATCH', body: changes, token })
+// Content writes take WriteOptions: the If-Match precondition and the new ETag (task 3.4).
+export const changeList = (code: string, changes: ListInput, token?: string, opts?: WriteOptions) =>
+  request<ListDetail>(v2(`/lists/${enc(code)}/`), {
+    method: 'PATCH',
+    body: changes,
+    token,
+    ...opts,
+  })
 
 export const removeList = (code: string, token?: string) =>
   request<null>(v2(`/lists/${enc(code)}/`), { method: 'DELETE', token })
@@ -192,49 +198,149 @@ export const replaceToken = (code: string, token: string) =>
 export const claimList = (code: string, token: string) =>
   request<ListDetail>(v2(`/lists/${enc(code)}/claim/`), { method: 'POST', token })
 
-export const listLinks = (code: string, token?: string, signal?: AbortSignal) =>
+export const listLinks = (
+  code: string,
+  token?: string,
+  signal?: AbortSignal,
+  onEtag?: WriteOptions['onEtag'],
+) =>
   request<Page<SharedLink>>(v2(`/lists/${enc(code)}/links/?page_size=${LIMITS.linksPerList}`), {
     token,
     signal,
+    onEtag,
   })
 
-export const createLink = (code: string, link: LinkInput, token?: string) =>
-  request<SharedLink>(v2(`/lists/${enc(code)}/links/`), { method: 'POST', body: link, token })
+export const createLink = (code: string, link: LinkInput, token?: string, opts?: WriteOptions) =>
+  request<SharedLink>(v2(`/lists/${enc(code)}/links/`), {
+    method: 'POST',
+    body: link,
+    token,
+    ...opts,
+  })
 
-export const changeLink = (code: string, id: string, link: LinkInput, token?: string) =>
+export const changeLink = (
+  code: string,
+  id: string,
+  link: LinkInput,
+  token?: string,
+  opts?: WriteOptions,
+) =>
   request<SharedLink>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), {
     method: 'PATCH',
     body: link,
     token,
+    ...opts,
   })
 
-export const removeLink = (code: string, id: string, token?: string) =>
-  request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token })
+export const removeLink = (code: string, id: string, token?: string, opts?: WriteOptions) =>
+  request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token, ...opts })
 
 /** Sets a link's own icon (PNG, JPEG, WebP or GIF ≤2 MB; the server re-encodes it). */
-export function uploadLinkIcon(code: string, id: string, file: File) {
+export function uploadLinkIcon(code: string, id: string, file: File, opts?: WriteOptions) {
   const body = new FormData()
   body.append('file', file)
   return request<SharedLink>(v2(`/lists/${enc(code)}/links/${enc(id)}/icon/`), {
     method: 'PUT',
     body,
+    ...opts,
   })
 }
 
-export const removeLinkIcon = (code: string, id: string) =>
-  request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/icon/`), { method: 'DELETE' })
+export const removeLinkIcon = (code: string, id: string, opts?: WriteOptions) =>
+  request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/icon/`), { method: 'DELETE', ...opts })
 
 /** Moves one link to `toIndex` (0-based, clamped) and returns the links in their new order. */
-export const reorderLinks = (code: string, linkId: string, toIndex: number, token?: string) =>
+// Moves need no precondition: they apply to the current order. They still report the ETag.
+export const reorderLinks = (
+  code: string,
+  linkId: string,
+  toIndex: number,
+  token?: string,
+  onEtag?: WriteOptions['onEtag'],
+) =>
   request<SharedLink[]>(v2(`/lists/${enc(code)}/reorder/`), {
     method: 'POST',
     body: { link: linkId, to_index: toIndex },
     token,
+    onEtag,
   })
 
 /** Moves a link to the end of another list you can edit; returns the new link there. */
-export const moveLinkToList = (code: string, id: string, targetCode: string) =>
+export const moveLinkToList = (
+  code: string,
+  id: string,
+  targetCode: string,
+  onEtag?: WriteOptions['onEtag'],
+) =>
   request<SharedLink>(v2(`/lists/${enc(code)}/links/${enc(id)}/move-to-list/`), {
     method: 'POST',
     body: { list: targetCode },
+    onEtag,
+  })
+
+// History (docs/v2/09-API-DESIGN.md#revisions-and-restore).
+
+export type RevisionKind = 'created' | 'edited' | 'restored' | 'migrated' | 'forked'
+
+export interface RevisionSummary {
+  added: number
+  removed: number
+  modified: number
+  moved: number
+  /** The list fields that changed: "title", "description". */
+  list: string[]
+}
+
+export interface Revision {
+  number: number
+  kind: RevisionKind
+  created_at: string
+  /** An account's name, "edit link", or null for the baseline of a list from before V2. */
+  author: { display_name: string } | 'edit link' | null
+  summary: RevisionSummary
+  restored_from: number | null
+}
+
+export interface SnapshotLink {
+  id: string
+  url: string
+  title: string | null
+  description: string | null
+  icon: string | null
+  position: number
+}
+
+export type LinkChangeKind = 'added' | 'removed' | 'modified' | 'moved'
+
+export interface LinkChange {
+  id: string
+  url: string
+  title: string | null
+  changes: LinkChangeKind[]
+  position_before: number | null
+  position_after: number | null
+  fields: Record<string, { before: string | null; after: string | null }>
+}
+
+export interface RevisionDetail extends Revision {
+  snapshot: { list: { title: string; description: string }; links: SnapshotLink[] }
+  diff_from_previous: {
+    list: Record<string, { before: string; after: string }>
+    links: LinkChange[]
+  }
+}
+
+export const listRevisions = (code: string, page = 1, token?: string) =>
+  request<Page<Revision>>(v2(`/lists/${enc(code)}/revisions/?page=${page}`), { token })
+
+export const getRevision = (code: string, number: number, token?: string) =>
+  request<RevisionDetail>(v2(`/lists/${enc(code)}/revisions/${number}/`), { token })
+
+/** Makes the list's content what it was at `number`; `head` is the version you looked at. */
+export const restoreRevision = (code: string, number: number, head: number, token?: string) =>
+  request<{ revision: number; changed: boolean }>(v2(`/lists/${enc(code)}/restore/`), {
+    method: 'POST',
+    body: { revision: number },
+    token,
+    ifMatch: head,
   })
