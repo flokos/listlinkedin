@@ -32,6 +32,7 @@ Settled decisions, with where each is justified. Changing one needs a supersedin
 | D23 | No Pinia; keep the composable singletons until a stated trigger | planning | [10](10-FRONTEND-ARCHITECTURE.md#state-management) |
 | D24 | Drag-and-drop with vue-draggable-plus plus a mandatory ⋮ Move alternative | planning | [10](10-FRONTEND-ARCHITECTURE.md#drag-and-drop) |
 | D25 | **Synchronization is postponed**: no synced copies, merges or sync UI in the V2 release; forks stay; the design is kept | **user (2026-10-29)** | [ADR-015](adr/ADR-015-postpone-synchronization.md) |
+| D26 | **Account deletion has a 30-day grace period**: hidden and signed out at once, restorable by signing in, then erased by a daily job; the anonymous row stays for revision authorship | **user (2026-10-29)** | [ADR-016](adr/ADR-016-account-deletion-grace-period.md) |
 
 ## Open questions
 

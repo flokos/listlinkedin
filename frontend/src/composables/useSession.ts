@@ -40,6 +40,12 @@ export function loadSession(force = false): Promise<void> {
 /** The signed-in user right now, for route guards. Call `loadSession()` first. */
 export const currentUser = (): SessionUser | null => state.user
 
+/** The signed-in account is being deleted: the only thing it can do is restore or sign out. */
+export const deletionPending = (): boolean => Boolean(state.user?.deletion_scheduled_for)
+
+/** Whether the session has been checked already (so guards can decide without waiting). */
+export const sessionKnown = (): boolean => state.status !== 'unknown'
+
 export function useSession() {
   return {
     user: computed(() => state.user),
@@ -60,6 +66,10 @@ export function useSession() {
       await api.signOut()
       state.user = null
       state.status = 'ready'
+    },
+    /** Undoes deleting the account (within the grace period). */
+    async restoreAccount() {
+      state.user = await api.restoreAccount()
     },
     async updateDisplayName(displayName: string) {
       state.user = await api.updateMe({ display_name: displayName })

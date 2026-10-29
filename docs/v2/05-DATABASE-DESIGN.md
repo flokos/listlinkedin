@@ -170,7 +170,7 @@ confirmations), and `django.contrib.sessions` adds `django_session`.
 
 | Table | Columns | Constraints and indexes |
 |---|---|---|
-| `versioning_listrevision` | `id`, `shared_list_id` FK CASCADE, `number` int, `schema_version` smallint, `kind` varchar(16) CHECK in (`created`,`edited`,`restored`,`merged`,`branched`,`forked`,`migrated`), `snapshot` jsonb, `summary` jsonb, `restored_from` int NULL, `created_by_id` FK SET NULL, `created_at` | UNIQUE (`shared_list_id`, `number`); CHECK `number >= 1`; trigger `versioning_revision_immutable` raises on UPDATE, except clearing `created_by_id` alone (account deletion, task 3.1) |
+| `versioning_listrevision` | `id`, `shared_list_id` FK CASCADE, `number` int, `schema_version` smallint, `kind` varchar(16) CHECK in (`created`,`edited`,`restored`,`merged`,`branched`,`forked`,`migrated`), `snapshot` jsonb, `summary` jsonb, `restored_from` int NULL, `created_by_id` FK SET NULL, `created_at` | UNIQUE (`shared_list_id`, `number`); CHECK `number >= 1`; trigger `versioning_revision_immutable` raises on every UPDATE (strict since `versioning.0004`: user rows are never deleted, [ADR-016](adr/ADR-016-account-deletion-grace-period.md)) |
 | `versioning_listbranch` | `id`, `child_list_id` FK CASCADE **UNIQUE**, `parent_list_id` FK SET NULL, `base_revision_id` FK SET NULL, `parent_deleted_at`, `created_at`, `last_synced_at` | CHECK `parent_list_id <> child_list_id`; index on `parent_list_id` |
 | `versioning_branchexclusion` | `id`, `branch_id` FK CASCADE, `source_link_id` uuid, `removed_at` NULL, `created_by_id` FK SET NULL, `created_at` | UNIQUE (`branch_id`, `source_link_id`) |
 | `versioning_syncrecord` | `id`, `branch_id` FK CASCADE, `idempotency_key` uuid, `request_hash` char(64), `fingerprint` char(64), `base_revision_number`, `parent_revision_number`, `child_revision_before`, `child_revision_after` NULL, `decisions` jsonb, `result` jsonb, `created_by_id` FK SET NULL, `created_at` | UNIQUE (`branch_id`, `idempotency_key`) |
@@ -206,7 +206,7 @@ django-tasks-db task table ([ADR-008](adr/ADR-008-background-metadata-extraction
 | Delete a link | Soft: `deleted_at = now()`, `position = NULL`, later positions shift down, the redirect stays (404 while deleted) |
 | Revive a link (restore or merge ACCEPT) | `deleted_at = NULL`, position assigned; same `id` and short code |
 | Delete a group | CASCADE to `GroupList` and memberships. Lists are untouched |
-| Delete a user | PROTECT while they own lists or groups (the account-deletion flow deletes those first). Memberships CASCADE. `created_by`/`added_by` SET NULL |
+| Delete a user | Not done since [ADR-016](adr/ADR-016-account-deletion-grace-period.md): the row is kept, anonymized, after a 30-day grace period (`deleted_at`, `sessions_revoked_at`). The FK rules (PROTECT for owners, CASCADE memberships, SET NULL authors) remain as a safety net |
 
 Tombstoned links are kept as long as their list exists, because older revisions reference
 them. Their cost is one small row each, and lists are capped at 100 live links.

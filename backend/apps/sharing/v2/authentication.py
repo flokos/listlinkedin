@@ -19,8 +19,8 @@ class LegacyTokenAuthentication(OwnerTokenAuthentication):
         if result is None:
             return None
         user = getattr(request._request, "user", None)  # Django's session user
-        if user is None or not user.is_authenticated:
-            user = AnonymousUser()
+        if user is None or not user.is_authenticated or user.deleted_at is not None:
+            user = AnonymousUser()  # an account being deleted acts as signed out (ADR-016)
         return user, result[1]
 
 

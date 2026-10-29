@@ -21,7 +21,7 @@ from apps.common import errors
 from apps.shortener.models import ShortRedirect
 
 from .exceptions import Gone
-from .models import ListMembership, SharedLink, SharedList
+from .models import OWNER_ACTIVE, ListMembership, SharedLink, SharedList
 from .policy import Action, Actor, ListFacts, Role, Visibility, can, can_view
 from .tokens import verify_owner_token
 
@@ -88,7 +88,7 @@ def get_list_for(principal: Principal, code: str) -> tuple[SharedList, Access]:
     shared_list = (
         SharedList.objects.select_related("owner")
         .annotate(link_count=Count("links", filter=Q(links__deleted_at__isnull=True)))
-        .filter(public_code=code)
+        .filter(OWNER_ACTIVE, public_code=code)
         .first()
     )
     if shared_list is None:
@@ -120,6 +120,7 @@ def lists_of(user, *, role: Role | None = None) -> QuerySet[SharedList]:
         which = Q(owner=user) | Q(Exists(membership))
     return (
         SharedList.objects.filter(which)
+        .filter(OWNER_ACTIVE)
         .select_related("owner")
         .annotate(
             member_role=Subquery(membership.values("role")[:1]),
@@ -151,7 +152,7 @@ def members_of(shared_list: SharedList, access: Access) -> QuerySet[ListMembersh
     if not can(access.actor, Action.VIEW_MEMBERS, access.facts):
         raise errors.Forbidden("Only the owner and editors can see who this list is shared with.")
     return (
-        ListMembership.objects.filter(shared_list=shared_list)
+        ListMembership.objects.filter(shared_list=shared_list, user__deleted_at__isnull=True)
         .select_related("user")
         .order_by("created_at", "pk")
     )
@@ -166,7 +167,7 @@ def get_active_list(public_code: str) -> SharedList:
     V1 has no sign-in, so it sees only lists anyone with the URL may see: private lists
     answer 404 exactly like unknown ones.
     """
-    shared_list = SharedList.objects.filter(public_code=public_code).first()
+    shared_list = SharedList.objects.filter(OWNER_ACTIVE, public_code=public_code).first()
     if shared_list is None or not can_view(Actor(), _anonymous_facts(shared_list)):
         raise NotFound()
     if shared_list.is_expired:

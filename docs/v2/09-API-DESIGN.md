@@ -75,7 +75,8 @@ means the step succeeded and left the browser signed out.** Errors are
 | GET | `/api/v2/session/` | Sets the CSRF cookie. Returns `{user: {id, email, display_name, email_verified} \| null}` |
 | GET | `/api/v2/me/` | The signed-in user (401 when signed out) |
 | PATCH | `/api/v2/me/` | `display_name` (≤80 characters, trimmed). `email` is read-only here; changing it goes through allauth's verified flow |
-| DELETE | `/api/v2/me/` | Account deletion. Requires `{"confirm": "<email>"}` (case-insensitive; otherwise 400 on `confirm`), and deletes owned lists and groups first ([04](04-DOMAIN-MODEL.md#ownership-rules)). 204, and the session ends. 409 if a list became the user's during the deletion (nothing is deleted) |
+| DELETE | `/api/v2/me/` | Account deletion. Requires `{"confirm": "<email>"}` (case-insensitive; otherwise 400 on `confirm`). 204: every session ends, owned lists are hidden at once, and everything is erased after 30 days ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)). `deletion_scheduled_for` appears on the session's user while it can still be restored |
+| POST | `/api/v2/me/restore/` | Undo the deletion within the 30 days (the session of a deleting account works only here and on `GET /api/v2/session/`). 200 → the account; 409 once erased |
 
 ## Lists
 

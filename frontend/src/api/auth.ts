@@ -9,6 +9,9 @@ export interface SessionUser {
   email: string
   display_name: string
   email_verified: boolean
+  /** Set while the account is being deleted: when it will be erased. Until then it can be
+   * restored, and nothing else works for it (docs/v2/adr/ADR-016). */
+  deletion_scheduled_for: string | null
 }
 
 const AUTH = '/_allauth/browser/v1'
@@ -70,6 +73,12 @@ export const changePassword = (currentPassword: string, newPassword: string) =>
 export const updateMe = (changes: { display_name: string }) =>
   request<SessionUser>('/api/v2/me/', { method: 'PATCH', body: changes })
 
-/** Deletes the account and every list it owns, and ends the session. `confirm` is the email. */
+/**
+ * Deletes the account: its lists disappear for everyone at once and every session ends. It is
+ * erased after 30 days; until then, signing in offers to restore it. `confirm` is the email.
+ */
 export const deleteAccount = (confirm: string) =>
   request<null>('/api/v2/me/', { method: 'DELETE', body: { confirm } })
+
+/** Undoes deleting the account, within the 30 days. */
+export const restoreAccount = () => request<SessionUser>('/api/v2/me/restore/', { method: 'POST' })

@@ -9,8 +9,8 @@ from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 
-from apps.accounts.models import User
-from apps.accounts.services import delete_account
+from apps.accounts.models import DELETION_GRACE, User
+from apps.accounts.services import delete_account, purge_deleted_accounts
 from apps.sharing import services as legacy_services
 from apps.sharing.models import SharedLink, SharedList
 from apps.sharing.selectors import Principal, live_content
@@ -84,6 +84,8 @@ def test_revisions_are_immutable(alice):
         ListRevision.objects.filter(pk=revision.pk).update(kind="edited")
     with pytest.raises(IntegrityError, match="immutable"), transaction.atomic():
         ListRevision.objects.filter(pk=revision.pk).update(created_by=alice)
+    with pytest.raises(IntegrityError, match="immutable"), transaction.atomic():
+        ListRevision.objects.filter(pk=revision.pk).update(created_by=None)  # no exceptions
 
 
 def test_numbers_are_unique_per_list(alice):
@@ -106,14 +108,19 @@ def test_deleting_a_list_deletes_its_history(alice):
     assert not ListRevision.objects.exists()
 
 
-def test_deleting_an_author_keeps_their_revisions_on_other_lists(alice):
-    """SET_NULL updates created_by: the one change the immutability trigger lets through."""
+def test_an_erased_author_still_owns_their_revisions(alice):
+    """Erasing an account keeps an anonymous user row (ADR-016), so the revisions it wrote on
+    other people's lists keep their author and are never changed."""
     bob = make_user("bob@example.com")
     shared_list = new_list(alice)
     revision = record(shared_list, RevisionKind.CREATED, user=bob)
     delete_account(bob, confirm=bob.email)
+    User.objects.filter(pk=bob.pk).update(deleted_at=timezone.now() - DELETION_GRACE * 2)
+    assert purge_deleted_accounts() == 1
+
     kept = ListRevision.objects.get(pk=revision.pk)
-    assert kept.created_by is None and kept.snapshot == revision.snapshot
+    assert kept.created_by_id == bob.pk and kept.snapshot == revision.snapshot
+    assert kept.created_by.is_active is False and kept.created_by.display_name == ""
 
 
 def test_legacy_lists_are_versioned_too(db):

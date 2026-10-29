@@ -18,6 +18,7 @@ class SessionViewSet(viewsets.ViewSet):
 
     authentication_classes = [SessionAuthentication]
     permission_classes = [AllowAny]
+    allow_deleted_account = True  # shows a deleting account, so the app can offer to restore
 
     @extend_schema(responses={200: SessionSerializer}, summary="Current session")
     def retrieve(self, request):
@@ -60,10 +61,35 @@ class MeViewSet(viewsets.ViewSet):
         summary="Delete your account and the lists you own",
     )
     def destroy(self, request):
-        """Deletes the lists you own (for everyone), your memberships and the account, then
-        ends this session. Type your email address in `confirm`."""
+        """Deletes the account: at once, every session ends, the lists you own are hidden and
+        you disappear from lists you were added to. Everything is erased after 30 days; until
+        then, signing in offers to restore it. Type your email address in `confirm`."""
         serializer = DeleteAccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         services.delete_account(request.user, confirm=serializer.validated_data["confirm"])
-        request.session.flush()  # sign out here; other sessions no longer resolve to a user
+        request.session.flush()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RestoreViewSet(viewsets.ViewSet):
+    """Undo deleting your account, within the grace period (docs/v2/adr/ADR-016)."""
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [WriteRateThrottle]
+    throttle_scope = "account"
+    allow_deleted_account = True
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: MeSerializer,
+            401: NOT_SIGNED_IN,
+            409: OpenApiResponse(description="The account was already erased."),
+        },
+        summary="Restore your account",
+    )
+    def create(self, request):
+        """Restores the account and everything it had: lists, memberships, name. Answers with
+        the account (`deletion_scheduled_for` is null again)."""
+        return Response(MeSerializer(services.restore_account(request.user)).data)

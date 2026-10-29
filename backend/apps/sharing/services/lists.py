@@ -16,7 +16,7 @@ from apps.shortener.services import create_with_unique_code
 
 from .. import tokens
 from ..domain import slug_for
-from ..models import CREATION_KEY_CONSTRAINT, PUBLIC_CODE_CONSTRAINT, SharedList
+from ..models import CREATION_KEY_CONSTRAINT, OWNER_ACTIVE, PUBLIC_CODE_CONSTRAINT, SharedList
 from ..policy import Action, Actor, ListFacts, Visibility, can, can_set_visibility
 from ..selectors import Principal, actor_for, facts_for
 
@@ -192,7 +192,10 @@ def _lock(
     principal: Principal, list_id: UUID, *, with_email: bool = False
 ) -> tuple[SharedList, Actor, ListFacts]:
     """Lock the list row and decide who the principal is on it *now*."""
-    locked = SharedList.objects.select_for_update().filter(pk=list_id).first()
+    # The owner is joined to check OWNER_ACTIVE; only the list row is locked.
+    locked = (
+        SharedList.objects.select_for_update(of=("self",)).filter(OWNER_ACTIVE, pk=list_id).first()
+    )
     if locked is None:
         raise errors.NotVisible()
     actor = actor_for(principal, locked, with_email=with_email)

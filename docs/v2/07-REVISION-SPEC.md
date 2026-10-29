@@ -128,7 +128,9 @@ the first link moves nothing); `list` names the list fields that changed. Since 
 is `versioning/domain/diff.py`; the merge engine, when synchronization resumes, can reuse it.
 
 **Authorship:** `created_by_id` is the acting user. For legacy-token writes it is NULL, and
-the API presents those as "edit link".
+the API presents those as "edit link". An erased account keeps its anonymous row
+([ADR-016](adr/ADR-016-account-deletion-grace-period.md)), so its revisions still point to it;
+the API presents it as "Deleted account".
 
 ## Restoration
 
@@ -165,9 +167,10 @@ holds, and the worker refreshes it on URL change as usual.
   edits revisions.
 - Database: a `BEFORE UPDATE` trigger on `versioning_listrevision` raises an exception. It is
   created by a `RunSQL` migration with a reverse. DELETE stays possible so that deleting a list
-  can cascade. The one update it allows is setting `created_by_id` to NULL with every other
-  column unchanged: deleting an account does that to the revisions it wrote on other people's
-  lists (`SET_NULL`), and the content stays untouched.
+  can cascade. It allows no update at all: since
+  [ADR-016](adr/ADR-016-account-deletion-grace-period.md) erased accounts keep an anonymous
+  row, so nothing ever clears a revision's author (`versioning.0004` removed the temporary
+  exception for that from `0002`).
 - Revisions are visible to the list's owner and editors only, because history can contain
   links an owner deliberately removed ([12](12-AUTHORIZATION.md)).
 

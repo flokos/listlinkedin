@@ -13,7 +13,10 @@ def user_to_share_with(email: str) -> User | None:
     an unverified one must never receive what was meant for its real owner.
     """
     address = (
-        EmailAddress.objects.filter(email__iexact=email.strip(), verified=True)
+        # An account being deleted is gone for everyone else (ADR-016).
+        EmailAddress.objects.filter(
+            email__iexact=email.strip(), verified=True, user__deleted_at__isnull=True
+        )
         .select_related("user")
         .first()
     )
