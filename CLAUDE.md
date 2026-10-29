@@ -44,7 +44,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 | `accounts` | Custom `User` (email login, UUID key), session authentication, `/api/v2/session/` and `/api/v2/me/`. Sign-up, sign-in and passwords via django-allauth's headless API under `/_allauth/` |
 | `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
 | `groups` (planned) | `Group`, `GroupList`, `GroupMembership` |
-| `versioning` (planned) | `ListRevision`, snapshots and diffs in `versioning/domain/`, which has **no Django imports**. `ListBranch`, `BranchExclusion`, `SyncRecord` and the merge engine are **postponed** ([ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md)) |
+| `versioning` | `ListRevision`, `record_revision`, snapshots and diffs in `versioning/domain/`, which has **no Django imports** (an AST test enforces it). `ListBranch`, `BranchExclusion`, `SyncRecord` and the merge engine are **postponed** ([ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md)) |
 | `metadata` | The image pipeline (`images.py`: re-encoding, storage) and `cleanup_media`, since 2.3. Planned: safe URL fetching, metadata parsing (worker tasks) |
 
 - DRF ViewSets handle HTTP only. Services own transactions and row locks. Selectors own reads.

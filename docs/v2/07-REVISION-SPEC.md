@@ -63,6 +63,12 @@ Rules:
 - Canonical form: snapshots are compared as parsed values, never as serialized text, so key
   order and whitespace don't matter.
 
+Since task 3.1 the schema is implemented in `versioning/domain/snapshot.py` (`build`,
+`validate`, `upcast` with the `UPCASTERS` registry, `same_content`) and the writer in
+`versioning/services.py` (`record_revision(locked_list, kind=…, user=…)`). Task 3.2 calls it
+from every mutation; until then only the `migrated` baselines exist, and lists created in
+between have `head_revision = 0`: their first recorded revision gets number 1.
+
 ## Numbering
 
 - `ListRevision.number` starts at 1 per list and increases by exactly 1.
@@ -116,8 +122,10 @@ harmless at the history level.
 
 **Batching:** one user action is one revision. A merge that applies 20 changes writes one
 `merged` revision. `summary` records counts (`{"added": 3, "removed": 1, "modified": 2,
-"moved": 0}`) for the history UI. The counts are computed by diffing the previous and new
-snapshots with the same engine the merge uses.
+"moved": 0, "list": ["title"]}`) for the history UI: links matched by `id`; `moved` counts
+only links that had to move (those outside a longest run kept in relative order, so deleting
+the first link moves nothing); `list` names the list fields that changed. Since task 3.1 this
+is `versioning/domain/diff.py`; the merge engine, when synchronization resumes, can reuse it.
 
 **Authorship:** `created_by_id` is the acting user. For legacy-token writes it is NULL, and
 the API presents those as "edit link".
@@ -157,7 +165,9 @@ holds, and the worker refreshes it on URL change as usual.
   edits revisions.
 - Database: a `BEFORE UPDATE` trigger on `versioning_listrevision` raises an exception. It is
   created by a `RunSQL` migration with a reverse. DELETE stays possible so that deleting a list
-  can cascade.
+  can cascade. The one update it allows is setting `created_by_id` to NULL with every other
+  column unchanged: deleting an account does that to the revisions it wrote on other people's
+  lists (`SET_NULL`), and the content stays untouched.
 - Revisions are visible to the list's owner and editors only, because history can contain
   links an owner deliberately removed ([12](12-AUTHORIZATION.md)).
 
