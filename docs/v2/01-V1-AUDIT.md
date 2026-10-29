@@ -195,6 +195,7 @@ must keep passing.
   documented. V2's claim endpoint makes it unnecessary.
 - DRF is pinned below 3.17, while 3.18.3 is current [R24]. drf-spectacular's classifiers stop
   at Django 5.1 but it works on 5.2 (CI passes). Upgrading belongs in a dedicated PR.
+  *Resolved on `v2` by roadmap task 1.6 (DRF 3.18.3).*
 - `ListView.vue` (619 lines) and `api.ts` will not scale to V2 as single modules
   ([10](10-FRONTEND-ARCHITECTURE.md)).
 - Environment note, not repository debt: the planner's local dev stack had a crash-looping
