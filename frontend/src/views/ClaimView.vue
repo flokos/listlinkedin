@@ -33,7 +33,7 @@ onMounted(async () => {
   }
   try {
     const list = await verifyOwnership(props.code, token)
-    owned.save({ code: props.code, token, title: list.title, expiresAt: list.expires_at })
+    owned.save({ code: props.code, token, title: list.title, expiresAt: list.expires_at ?? '' })
     notify.success('Editing unlocked on this device')
     router.replace({ name: 'list', params: { code: props.code } })
   } catch (error) {

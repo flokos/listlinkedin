@@ -55,7 +55,7 @@ export function useListPage(code: Ref<string>) {
       remember()
       // Keep the saved entry's title and expiry fresh for the Saved lists page.
       if (token.value)
-        owned.update(code.value, { title: listData.title, expiresAt: listData.expires_at })
+        owned.update(code.value, { title: listData.title, expiresAt: listData.expires_at ?? '' })
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       cache.delete(code.value)

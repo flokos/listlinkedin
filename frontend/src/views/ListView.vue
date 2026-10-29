@@ -324,7 +324,7 @@ function forgetHere() {
               </v-btn>
             </h1>
             <div class="d-flex flex-wrap align-center ga-2 mt-3">
-              <ExpiryChip :expires-at="list.expires_at" />
+              <ExpiryChip v-if="list.expires_at" :expires-at="list.expires_at" />
               <v-chip color="secondary"
                 >{{ links.length }} link{{ links.length === 1 ? '' : 's' }}</v-chip
               >

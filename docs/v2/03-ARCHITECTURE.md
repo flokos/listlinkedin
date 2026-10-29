@@ -94,8 +94,8 @@ backend/apps/
   accounts/     User (AbstractUser, email login, UUID key), SessionAuthentication, /api/v2/session|me
   sharing/      SharedList, SharedLink, ListMembership
                 domain.py (URL rules, V1) · policy.py (pure permissions) · tokens.py (V1)
-                services/ (lists, links, members, claims, ordering) · selectors.py
-                api/v2 (ViewSets, serializers) · api/v1 (V1 views, kept for the transition)
+                services/ (legacy: V1 token path · lists: v2; later links, members, claims) · selectors.py (Principal, access)
+                v2/ (ViewSets, serializers, LegacyTokenAuthentication) · views.py, serializers.py, urls.py (V1 API, kept for the transition)
   shortener/    codes, ShortRedirect, /r/ (resolution adds the visibility check)
   groups/       Group, GroupList, GroupMembership · services · selectors · ViewSets
   versioning/   domain/{snapshot,merge,errors}.py (pure) · models · services · selectors · ViewSet actions

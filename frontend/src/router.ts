@@ -71,7 +71,7 @@ const router = createRouter({
     },
     // Public list URL handed out by the API (`public_url`). nginx serves this app for it.
     {
-      path: '/l/:code',
+      path: '/l/:code/:slug?',
       name: 'list',
       component: () => import('./views/ListView.vue'),
       props: true,

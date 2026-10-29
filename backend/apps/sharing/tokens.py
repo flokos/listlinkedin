@@ -13,5 +13,8 @@ def hash_owner_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def verify_owner_token(token: str, expected_hash: str) -> bool:
+def verify_owner_token(token: str, expected_hash: str | None) -> bool:
+    # A claimed list has no token any more: nothing matches it.
+    if not expected_hash:
+        return False
     return hmac.compare_digest(hash_owner_token(token), expected_hash)

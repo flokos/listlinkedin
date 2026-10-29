@@ -4,8 +4,10 @@ from collections.abc import Callable
 from django.db import IntegrityError, transaction
 from rest_framework.exceptions import NotFound
 
+from apps.sharing import selectors
 from apps.sharing.domain import is_blocked_destination
 from apps.sharing.exceptions import Gone
+from apps.sharing.policy import Action, can
 
 from . import generators
 from .models import REDIRECT_CODE_CONSTRAINT, ShortRedirect
@@ -46,10 +48,19 @@ def create_redirect(link) -> ShortRedirect:
     )
 
 
-def resolve_destination(code: str) -> str:
-    """Return the current destination for a short code, or raise 404/410."""
+def resolve_destination(code: str, principal=None) -> str:
+    """Return the current destination for a short code, or raise 404/410.
+
+    The code never bypasses its list's visibility (S2): a private list's links answer 404,
+    like unknown codes, unless `principal` (the requester) may view that list.
+    """
     redirect = ShortRedirect.objects.select_related("link__shared_list").filter(code=code).first()
     if redirect is None:
+        raise NotFound()
+    shared_list = redirect.link.shared_list
+    principal = principal or selectors.ANONYMOUS
+    actor = selectors.actor_for(principal, shared_list)
+    if not can(actor, Action.VIEW, selectors.facts_for(principal, shared_list)):
         raise NotFound()
     destination = redirect.link.destination_url
     # The denylist is re-checked here so blocking a host also disables links already shared.

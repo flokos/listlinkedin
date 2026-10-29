@@ -37,7 +37,7 @@ async function submit() {
   busy.value = true
   try {
     const list = await verifyOwnership(code, parsed.token)
-    owned.save({ code, token: parsed.token, title: list.title, expiresAt: list.expires_at })
+    owned.save({ code, token: parsed.token, title: list.title, expiresAt: list.expires_at ?? '' })
     open.value = false
     emit('claimed', code)
   } catch (e) {

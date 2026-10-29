@@ -7,10 +7,22 @@ import idna
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
+from django.utils.text import slugify
 
 LIST_LIFETIME = timedelta(days=30)
 MAX_LINKS_PER_LIST = 100
 MAX_URL_LENGTH = 2048
+MAX_DESCRIPTION_LENGTH = 1000
+MAX_SLUG_LENGTH = 80
+# Second path segments the app uses under /l/{code}/ (V1's edit link is /l/{code}/manage).
+RESERVED_SLUGS = frozenset({"manage", "history", "sync", "settings"})
+
+
+def slug_for(title: str) -> str:
+    """The cosmetic URL suffix for a list title. Never unique, never resolved."""
+    slug = slugify(title)[:MAX_SLUG_LENGTH].strip("-") or "list"
+    return f"{slug[: MAX_SLUG_LENGTH - 5]}-list" if slug in RESERVED_SLUGS else slug
+
 
 _url_validator = URLValidator(schemes=["http", "https"])
 _DEFAULT_PORTS = {"http": 80, "https": 443}
