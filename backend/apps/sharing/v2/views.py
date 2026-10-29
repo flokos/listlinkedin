@@ -22,11 +22,19 @@ from apps.common import errors
 
 from .. import selectors
 from ..permissions import WriteRateThrottle
+from ..policy import Role
 from ..serializers import LinkSerializer, OwnerTokenSerializer
 from ..services import links as link_services
 from ..services import lists as services
+from ..services import members as member_services
 from .authentication import LegacyTokenAuthentication, principal_of
-from .serializers import ListDetailSerializer, ListWriteSerializer
+from .serializers import (
+    ListDetailSerializer,
+    ListWriteSerializer,
+    MemberAddSerializer,
+    MemberRoleSerializer,
+    MemberSerializer,
+)
 
 IDEMPOTENCY_KEY = OpenApiParameter(
     "Idempotency-Key",
@@ -215,6 +223,84 @@ class LinkViewSet(viewsets.ViewSet):
         shared_list, _ = selectors.get_list_for(principal, code)
         link_services.delete_link(principal, shared_list.pk, link_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+USER_ID = OpenApiParameter("user_id", uuid.UUID, OpenApiParameter.PATH)
+
+
+@extend_schema_view(
+    list=extend_schema(parameters=[CODE]),
+    create=extend_schema(parameters=[CODE]),
+    partial_update=extend_schema(parameters=[CODE, USER_ID]),
+    destroy=extend_schema(parameters=[CODE, USER_ID]),
+)
+class MemberViewSet(viewsets.ViewSet):
+    """/api/v2/lists/{code}/members/: who an account list is shared with.
+
+    The owner and editors may read it. Only the owner adds people (by the email address of
+    an existing, verified account), changes roles and removes people; members may leave.
+    """
+
+    authentication_classes = [SessionAuthentication]  # legacy lists have no members
+    permission_classes = []
+    throttle_classes = [WriteRateThrottle]
+    pagination_class = ListPagination
+
+    @property
+    def throttle_scope(self) -> str:
+        # Adding by email can probe which addresses have accounts, so it has its own limit.
+        return "member_add" if self.action == "create" else "list_manage"
+
+    @extend_schema(responses={200: MemberSerializer(many=True), **ERRORS})
+    def list(self, request, code=None):
+        principal = self._signed_in(request)
+        shared_list, access = selectors.get_list_for(principal, code)
+        paginator = self.pagination_class()
+        members = selectors.members_of(shared_list, access)
+        page = paginator.paginate_queryset(members, request, view=self)
+        data = MemberSerializer(page, many=True, context={"user_id": principal.user.pk}).data
+        return paginator.get_paginated_response(data)
+
+    @extend_schema(request=MemberAddSerializer, responses={201: MemberSerializer, **ERRORS})
+    def create(self, request, code=None):
+        principal = self._signed_in(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        serializer = MemberAddSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        membership = member_services.add_member(
+            principal,
+            shared_list.pk,
+            email=serializer.validated_data["email"],
+            role=Role(serializer.validated_data["role"]),
+        )
+        data = MemberSerializer(membership, context={"user_id": principal.user.pk}).data
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=MemberRoleSerializer, responses={200: MemberSerializer, **ERRORS})
+    def partial_update(self, request, code=None, user_id=None):
+        principal = self._signed_in(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        serializer = MemberRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        membership = member_services.change_role(
+            principal, shared_list.pk, user_id, Role(serializer.validated_data["role"])
+        )
+        return Response(MemberSerializer(membership, context={"user_id": principal.user.pk}).data)
+
+    @extend_schema(responses={204: None, **ERRORS})
+    def destroy(self, request, code=None, user_id=None):
+        """Remove someone (owner), or leave the list (your own user id)."""
+        principal = self._signed_in(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        member_services.remove_member(principal, shared_list.pk, user_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @staticmethod
+    def _signed_in(request) -> selectors.Principal:
+        principal = principal_of(request)
+        if principal.user is None:
+            raise errors.AuthenticationRequired("Sign in to see who a list is shared with.")
+        return principal
 
 
 def _idempotency_key(request) -> uuid.UUID | None:

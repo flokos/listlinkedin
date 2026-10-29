@@ -7,7 +7,6 @@ from uuid import UUID
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from apps.common import errors
 from apps.shortener.services import create_redirect
 
 from ..domain import MAX_LINKS_PER_LIST
@@ -15,13 +14,13 @@ from ..models import SharedLink
 from ..policy import Action, can
 from ..selectors import Principal
 from .legacy import _ensure_not_duplicate, _get_link
-from .lists import _lock
+from .lists import _lock, denied
 
 
 def _lock_for_edit(principal: Principal, list_id: UUID):
     locked, actor, facts = _lock(principal, list_id)
     if not can(actor, Action.EDIT, facts):
-        raise errors.Forbidden("You can't change this list.")
+        raise denied(principal, "You can't change this list.")
     return locked
 
 

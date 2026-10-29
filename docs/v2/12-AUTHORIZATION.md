@@ -45,7 +45,8 @@ lists are `unlisted`, which is exactly their V1 semantics.
 | Upload images (list image, link icons) | — | — | — | ✓ | ✓ | — (requires an account) |
 | Edit tags, slug | — | — | — | ✓ | ✓ | — |
 | Change visibility, expiry, `allow_fork`, `allow_branch` | — | — | — | — | ✓ | — |
-| Manage members | — | — | — | — | ✓ | — |
+| See who has access (members) | — | — | — | ✓ | ✓ | — |
+| Manage members (add a verified account by email, change roles, remove) | — | — | — | — | ✓ | — |
 | Leave (remove own membership) | — | — | ✓ | ✓ | — | — |
 | Delete the list | — | — | — | — | ✓ | ✓ |
 | Rotate the legacy token | — | — | — | — | — | ✓ |
@@ -134,7 +135,9 @@ existence**.
 | Removed links through history | history only for editors, owners and legacy token holders |
 | Content through sync preview | requires current view access to the parent |
 | Private or unlisted lists in the directory | `public` only. The directory query is built from `visible` + `public` filters |
-| Account enumeration when adding a member by email | owners only, rate-limited, with a generic message. Accepted residual risk. Email invitations for unregistered addresses are a later enhancement |
+| Account enumeration when adding a member by email | owners with a verified email only, rate-limited (`member_add`), with one generic message for unknown and unverified addresses. Accepted residual risk. Email invitations for unregistered addresses are a later enhancement |
+| Access meant for someone else's address | only **verified** addresses can be added: an account that signed up with another person's address but never verified it can't receive their access |
+| Members' email addresses | other people see `display_name` and an `email_hint` (`b…@example.com`), never the full address |
 | Owner identity | owner display name shown on `public` lists only. Email addresses are never exposed except to their owner |
 | Guessing codes or ids | 96-bit codes (V1). UUIDv4 ids are never authorization on their own: every lookup goes through the parent list's policy check |
 | Metadata or images of private lists | media filenames are unguessable. Fetched text is stored on the link row behind normal checks |

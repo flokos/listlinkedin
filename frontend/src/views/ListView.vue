@@ -11,6 +11,7 @@ import {
   mdiKeyChange,
   mdiKeyOutline,
   mdiLinkOff,
+  mdiLogout,
   mdiLinkVariantPlus,
   mdiMagnify,
   mdiPencilOutline,
@@ -246,6 +247,20 @@ async function setVisibility(visibility: Visibility) {
   }
 }
 
+// Members may leave a list they were added to.
+const leaveOpen = ref(false)
+async function confirmLeave() {
+  try {
+    const title = list.value?.title
+    await page.leave()
+    notify.success(`You left “${title}”`)
+    router.replace({ name: 'saved-lists' })
+  } catch (error) {
+    notify.error(errorMessage(error))
+    throw error
+  }
+}
+
 function forgetHere() {
   page.forget()
   notify.info('This browser no longer has edit access to the list')
@@ -277,10 +292,27 @@ function forgetHere() {
       as="h1"
       :icon="mdiLinkOff"
       title="This list doesn't exist"
-      text="It may have been deleted by its creator, or the link is mistyped."
+      :text="
+        session.isSignedIn.value
+          ? 'It may have been deleted, the link is mistyped, or it isn\'t shared with you.'
+          : 'It may have been deleted, or the link is mistyped. If someone shared it with you, sign in to open it.'
+      "
     >
       <template #actions>
-        <v-btn color="primary" :to="{ name: 'home', hash: '#create' }">Create a new list</v-btn>
+        <v-btn
+          v-if="!session.isSignedIn.value"
+          color="primary"
+          :to="{ name: 'signin', query: { next: route.fullPath } }"
+        >
+          Sign in
+        </v-btn>
+        <v-btn
+          :color="session.isSignedIn.value ? 'primary' : undefined"
+          :variant="session.isSignedIn.value ? 'flat' : 'text'"
+          :to="{ name: 'home', hash: '#create' }"
+        >
+          Create a new list
+        </v-btn>
       </template>
     </StatePanel>
     <StatePanel
@@ -384,7 +416,7 @@ function forgetHere() {
             >
               Share
             </v-btn>
-            <v-menu v-if="isOwner || page.can('delete')" location="bottom end">
+            <v-menu v-if="isOwner || page.can('delete') || page.can('leave')" location="bottom end">
               <template #activator="{ props: menu }">
                 <v-btn
                   v-bind="menu"
@@ -429,6 +461,13 @@ function forgetHere() {
                   :prepend-icon="mdiTrayRemove"
                   title="Forget on this device"
                   @click="forgetHere"
+                />
+                <v-list-item
+                  v-if="page.can('leave')"
+                  role="menuitem"
+                  :prepend-icon="mdiLogout"
+                  title="Leave list"
+                  @click="leaveOpen = true"
                 />
                 <v-list-item
                   v-if="page.can('delete')"
@@ -574,6 +613,16 @@ function forgetHere() {
         :visibility="list.visibility"
         :can-change="page.can('settings')"
         :email-verified="Boolean(session.user.value?.email_verified)"
+        :people="
+          page.can('view_members')
+            ? {
+                code,
+                ownerName: list.owner?.display_name || null,
+                youAreOwner: list.my_role === 'owner',
+                canManage: page.can('members'),
+              }
+            : undefined
+        "
         @change-visibility="setVisibility"
       />
       <EditLinkReveal
@@ -631,6 +680,17 @@ function forgetHere() {
         cancel-label="Keep the date"
         tone="neutral"
         :on-confirm="keepPermanently"
+      />
+      <ConfirmDialog
+        v-model="leaveOpen"
+        title="Leave this list?"
+        :text="
+          list.visibility === 'private'
+            ? 'You will no longer be able to open it. The owner can add you again.'
+            : 'It will no longer appear in My lists. The owner can add you again.'
+        "
+        action="Leave list"
+        :on-confirm="confirmLeave"
       />
       <ClaimTokenDialog v-model="claimOpen" :code="code" @claimed="page.load()" />
     </template>

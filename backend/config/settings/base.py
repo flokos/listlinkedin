@@ -182,6 +182,8 @@ REST_FRAMEWORK = {
         "list_create": os.environ.get("THROTTLE_LIST_CREATE", "30/hour"),
         "list_manage": os.environ.get("THROTTLE_LIST_MANAGE", "600/hour"),
         "account": os.environ.get("THROTTLE_ACCOUNT", "300/hour"),
+        # Per user: adding people by email can probe which addresses have accounts.
+        "member_add": os.environ.get("THROTTLE_MEMBER_ADD", "60/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.
@@ -189,6 +191,8 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
+    # The same editor/viewer choices appear on members and in requests: one named enum.
+    "ENUM_NAME_OVERRIDES": {"MemberRoleEnum": "apps.sharing.models.MEMBER_ROLE_CHOICES"},
     "TITLE": "Temporary Link Sharing API",
     "DESCRIPTION": (
         "Anonymous, temporary link lists with a built-in URL shortener.\n\n"

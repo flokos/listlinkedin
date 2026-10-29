@@ -89,8 +89,12 @@ means the step succeeded and left the browser signed out.** Errors are
 | POST | `/api/v2/lists/{code}/claim/` | signed in + `Authorization: Bearer <token>` | Makes the caller owner and retires the token (atomic). 200 → detail |
 | POST | `/api/v2/lists/{code}/rotate-token/` | legacy token | `{owner_token}` (V1 behaviour) |
 | PUT, DELETE | `/api/v2/lists/{code}/image/` | editor | multipart `file` ≤2 MB → re-encoded ([ADR-012](adr/ADR-012-media-and-images.md)) |
-| GET, POST | `/api/v2/lists/{code}/members/` | owner (editors may read) | POST `{email, role}` |
-| PATCH, DELETE | `/api/v2/lists/{code}/members/{user_id}/` | owner; members can DELETE themselves | |
+| GET, POST | `/api/v2/lists/{code}/members/` | owner (editors may read; viewers 403). Session only | POST `{email, role}` with role `editor` or `viewer` → 201. The owner needs a verified email (403 `email_unverified`), and so does the added account: unknown and unverified addresses get the same 400 on `email`. Rate limit `member_add` |
+| PATCH, DELETE | `/api/v2/lists/{code}/members/{user_id}/` | owner; members can DELETE themselves (leave) | PATCH `{role}` → 200. DELETE → 204. The owner can't leave (403) |
+
+A member is `{user_id, display_name, email_hint, role, added_at, is_you}`. `email_hint`
+(`b…@example.com`) tells people apart without showing the address ([12](12-AUTHORIZATION.md#leak-analysis)).
+
 
 List detail:
 
@@ -103,7 +107,7 @@ List detail:
   "owner": {"display_name": "Theo"}, "legacy": false,
   "created_at": "…", "updated_at": "…", "expires_at": null,
   "head_revision": 14, "link_count": 12,
-  "my_role": "owner", "permissions": ["edit", "settings", "members", "delete", "fork", "branch"],
+  "my_role": "owner", "permissions": ["view", "view_history", "edit", "settings", "view_members", "members", "delete", "fork", "branch"],
   "origin": {"kind": "branch", "parent": {"code": "…", "title": "Team tools"}, "sync": {"state": "updates_available", "behind": true}}
 }
 ```

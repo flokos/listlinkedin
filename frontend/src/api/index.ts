@@ -2,3 +2,4 @@
 export * from './auth'
 export * from './client'
 export * from './lists'
+export * from './members'

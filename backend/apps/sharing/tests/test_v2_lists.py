@@ -201,7 +201,7 @@ def test_legacy_lists_are_readable_and_editable_with_their_token(legacy):
 
     stranger = APIClient(HTTP_AUTHORIZATION="Bearer not-the-token")
     assert stranger.patch(url, {"title": "x"}, format="json").status_code == 403
-    assert client_for().patch(url, {"title": "x"}, format="json").status_code == 403
+    assert client_for().patch(url, {"title": "x"}, format="json").status_code == 401  # sign in
 
 
 def test_a_token_only_works_on_its_own_list(legacy):
@@ -361,7 +361,7 @@ def test_viewers_and_strangers_cannot_change_links(alice, bob):
     add_member(bob, code, "viewer")
     body = {"destination_url": "https://example.com/"}
     assert client_for(bob).post(f"{URL}{code}/links/", body, format="json").status_code == 403
-    assert client_for().post(f"{URL}{code}/links/", body, format="json").status_code == 403
+    assert client_for().post(f"{URL}{code}/links/", body, format="json").status_code == 401
     assert client_for().get(f"{URL}{code}/links/").status_code == 200  # unlisted: readable
 
 

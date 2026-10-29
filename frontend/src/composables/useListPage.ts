@@ -150,6 +150,14 @@ export function useListPage(code: Ref<string>) {
     owned.forget(code.value)
   }
 
+  /** Leaves a list you were added to (removes your own membership). */
+  async function leave() {
+    const me = session.user.value?.id
+    if (!me) throw new ApiError(401, { detail: 'Sign in to leave this list.' })
+    await api.removeMember(code.value, me)
+    cache.delete(code.value)
+  }
+
   function forget() {
     owned.forget(code.value)
     ownerRevoked.value = false
@@ -183,6 +191,7 @@ export function useListPage(code: Ref<string>) {
     removeLink,
     rotate,
     claim,
+    leave,
     removeList,
     forget,
   }

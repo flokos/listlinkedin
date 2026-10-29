@@ -8,6 +8,7 @@ import type { Visibility } from '../api'
 import { useShare } from '../composables/useShare'
 import { mauve, violet } from '../design/tokens'
 import CopyField from './CopyField.vue'
+import MembersPanel from './MembersPanel.vue'
 
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{
@@ -16,8 +17,10 @@ const props = defineProps<{
   visibility: Visibility
   /** The owner may change who can see the list. */
   canChange?: boolean
-  /** Making a list public needs a verified email address. */
+  /** Making a list public (and adding people) needs a verified email address. */
   emailVerified?: boolean
+  /** Shows the People section (owner and editors): the list's code is needed for it. */
+  people?: { code: string; ownerName: string | null; youAreOwner: boolean; canManage: boolean }
 }>()
 const emit = defineEmits<{ 'change-visibility': [visibility: Visibility] }>()
 
@@ -100,6 +103,14 @@ watch(
           <v-icon :icon="mdiEyeOutline" size="18" />
           {{ describe[visibility] }}
         </p>
+        <MembersPanel
+          v-if="people"
+          :code="people.code"
+          :owner-name="people.ownerName"
+          :you-are-owner="people.youAreOwner"
+          :can-manage="people.canManage"
+          :email-verified="Boolean(emailVerified)"
+        />
       </v-card-text>
       <v-card-actions>
         <v-btn

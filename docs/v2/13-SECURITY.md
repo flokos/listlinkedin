@@ -157,7 +157,8 @@ are SMTP credentials and optionally `SENTRY_DSN` ([14](14-INFRASTRUCTURE.md)).
 
 ## Residual risks (accepted)
 
-- Account enumeration when an owner adds a member by email (owners only, rate-limited).
+- Account enumeration when an owner adds a member by email (verified owners only, rate-limited,
+  one generic answer for unknown and unverified addresses).
 - Media isn't access-controlled (unguessable names).
 - Rate limits are per IP for anonymous users (V1 limitation, unchanged).
 - Phishing through public lists is reduced (verified email, denylist, operator unpublish) but

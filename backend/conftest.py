@@ -14,6 +14,12 @@ def legacy_list_creation(settings):
     settings.LEGACY_LIST_CREATION = True
 
 
+@pytest.fixture(autouse=True)
+def fast_password_hashing(settings):
+    """Production hashing is slow on purpose; tests create many users."""
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+
 @pytest.fixture
 def api_client() -> APIClient:
     return APIClient()
