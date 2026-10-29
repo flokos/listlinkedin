@@ -96,7 +96,8 @@ async function savePassword() {
   }
 }
 
-// Deleting the account deletes the lists it owns, for everyone (docs/v2/04-DOMAIN-MODEL.md).
+// Deleting the account hides the lists it owns from everyone at once and erases everything
+// after 30 days; signing in before then can restore it (docs/v2/adr/ADR-016).
 const deleteOpen = ref(false)
 const ownedCount = ref<number>()
 const preparingDelete = ref(false)
@@ -116,8 +117,8 @@ const deleteText = computed(() => {
   const lists =
     n === 0
       ? "You don't own any lists."
-      : `The ${n === 1 ? 'list' : `${n} lists`} you own, with all ${n === 1 ? 'its' : 'their'} links and short links, will be deleted for everyone.`
-  return `${lists} You'll be removed from lists others shared with you. This can't be undone.`
+      : `The ${n === 1 ? 'list' : `${n} lists`} you own, with all ${n === 1 ? 'its' : 'their'} links and short links, will disappear for everyone right away.`
+  return `${lists} You'll be signed out everywhere and removed from lists others shared with you. Everything is erased after 30 days; until then, sign in to restore your account.`
 })
 async function confirmDelete() {
   if (!user.value) return
@@ -128,7 +129,7 @@ async function confirmDelete() {
     throw error
   }
   await session.refresh()
-  notify.success('Your account was deleted')
+  notify.success('Your account will be erased in 30 days. Sign in before then to restore it.')
   await router.replace({ name: 'home' })
 }
 
@@ -233,8 +234,9 @@ async function signOut() {
     <section class="ll-account-section" aria-labelledby="delete-heading">
       <h2 id="delete-heading" class="text-title-large mb-1">Delete account</h2>
       <p class="text-body-medium text-medium-emphasis mb-4">
-        Deletes your account and the lists you own, for everyone. Lists only saved on this device
-        with an edit link aren't affected.
+        Deletes your account and the lists you own, for everyone. You can restore it by signing in
+        within 30 days; after that it is erased. Lists only saved on this device with an edit link
+        aren't affected.
       </p>
       <v-btn
         variant="tonal"

@@ -32,3 +32,4 @@ Nygard/MADR layout.
 | [013](ADR-013-soft-delete-links-only.md) | Soft-delete Links only; hard-delete Lists and Groups | Accepted |
 | [014](ADR-014-django-version.md) | Stay on Django 5.2 LTS for V2; move to 6.2 LTS afterwards | Accepted |
 | [015](ADR-015-postpone-synchronization.md) | Postpone list synchronization (synced copies and merges) | Accepted |
+| [016](ADR-016-account-deletion-grace-period.md) | Account deletion with a 30-day grace period | Accepted |

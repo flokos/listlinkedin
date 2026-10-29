@@ -120,7 +120,9 @@ harmless at the history level.
 snapshots with the same engine the merge uses.
 
 **Authorship:** `created_by_id` is the acting user. For legacy-token writes it is NULL, and
-the API presents those as "edit link".
+the API presents those as "edit link". An erased account keeps its anonymous row
+([ADR-016](adr/ADR-016-account-deletion-grace-period.md)), so its revisions still point to it;
+the API presents it as "Deleted account".
 
 ## Restoration
 

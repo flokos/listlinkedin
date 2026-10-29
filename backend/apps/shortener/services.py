@@ -54,10 +54,14 @@ def resolve_destination(code: str, principal=None) -> str:
     The code never bypasses its list's visibility (S2): a private list's links answer 404,
     like unknown codes, unless `principal` (the requester) may view that list.
     """
-    redirect = ShortRedirect.objects.select_related("link__shared_list").filter(code=code).first()
+    redirect = (
+        ShortRedirect.objects.select_related("link__shared_list__owner").filter(code=code).first()
+    )
     if redirect is None or redirect.link.is_deleted:
         raise NotFound()  # a deleted link keeps its code (tombstone) but no longer resolves
     shared_list = redirect.link.shared_list
+    if shared_list.owner is not None and shared_list.owner.deleted_at is not None:
+        raise NotFound()  # its owner is deleting their account: hidden (ADR-016)
     principal = principal or selectors.ANONYMOUS
     actor = selectors.actor_for(principal, shared_list)
     if not can(actor, Action.VIEW, selectors.facts_for(principal, shared_list)):

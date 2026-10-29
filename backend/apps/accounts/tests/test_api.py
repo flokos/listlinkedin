@@ -118,6 +118,7 @@ def test_users_can_change_their_display_name_but_not_their_email(client, user):
         "email": "ada@example.com",
         "display_name": "Ada L.",
         "email_verified": False,
+        "deletion_scheduled_for": None,
     }
 
 

@@ -206,7 +206,7 @@ django-tasks-db task table ([ADR-008](adr/ADR-008-background-metadata-extraction
 | Delete a link | Soft: `deleted_at = now()`, `position = NULL`, later positions shift down, the redirect stays (404 while deleted) |
 | Revive a link (restore or merge ACCEPT) | `deleted_at = NULL`, position assigned; same `id` and short code |
 | Delete a group | CASCADE to `GroupList` and memberships. Lists are untouched |
-| Delete a user | PROTECT while they own lists or groups (the account-deletion flow deletes those first). Memberships CASCADE. `created_by`/`added_by` SET NULL |
+| Delete a user | Not done since [ADR-016](adr/ADR-016-account-deletion-grace-period.md): the row is kept, anonymized, after a 30-day grace period (`deleted_at`, `sessions_revoked_at`). The FK rules (PROTECT for owners, CASCADE memberships, SET NULL authors) remain as a safety net |
 
 Tombstoned links are kept as long as their list exists, because older revisions reference
 them. Their cost is one small row each, and lists are capped at 100 live links.

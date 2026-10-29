@@ -21,6 +21,12 @@ VISIBILITY_CHOICES = [(v.value, v.value.capitalize()) for v in Visibility]
 MEMBER_ROLE_CHOICES = [(r.value, r.value.capitalize()) for r in (Role.EDITOR, Role.VIEWER)]
 
 
+# Lists whose owner is deleting their account are hidden from everyone: they read as unknown,
+# can't be changed, and their short URLs answer 404 (docs/v2/adr/ADR-016). Legacy lists have
+# no owner.
+OWNER_ACTIVE = Q(owner__isnull=True) | Q(owner__deleted_at__isnull=True)
+
+
 class SharedList(models.Model):
     """A List (docs/v2/04-DOMAIN-MODEL.md). Its id and public code never change.
 

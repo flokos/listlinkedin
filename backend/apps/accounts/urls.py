@@ -12,4 +12,5 @@ urlpatterns = [
         ),
         name="me",
     ),
+    path("me/restore/", views.RestoreViewSet.as_view({"post": "create"}), name="me-restore"),
 ]

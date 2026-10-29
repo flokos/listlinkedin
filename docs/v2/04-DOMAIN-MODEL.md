@@ -253,9 +253,12 @@ work. An event bus would add indirection without solving a present problem (prom
 - Ownership is never assigned implicitly. It comes from creation (the creator), from a claim
   (proof of token plus a signed-in user), or later from an explicit transfer
   ([02](02-PRODUCT-REQUIREMENTS.md): transfer is "later").
-- Deleting an account needs an explicit decision about owned lists. The FK is `PROTECT`, and
-  the account-deletion flow deletes the user's lists first, after confirmation. Memberships
-  cascade.
+- Deleting an account needs an explicit decision about owned lists. Since
+  [ADR-016](adr/ADR-016-account-deletion-grace-period.md): deleting hides the user's lists from
+  everyone at once and ends every session; signing in within 30 days restores everything;
+  after that the lists and memberships are deleted and the account's personal data erased,
+  keeping an anonymous, inactive row so revisions keep their author. The owner FK stays
+  `PROTECT`; user rows are no longer deleted.
 
 ## Deviations from the proposed baseline
 

@@ -14,7 +14,7 @@ from rest_framework.exceptions import ValidationError
 from apps.accounts.selectors import user_to_share_with
 from apps.common import errors
 
-from ..models import ListMembership
+from ..models import ListMembership, SharedList
 from ..policy import Action, Role, can
 from ..selectors import Principal
 from .lists import _lock, denied
@@ -82,3 +82,20 @@ def _membership(shared_list, user_id: UUID) -> ListMembership:
     if membership is None:
         raise errors.NotVisible("This person isn't on the list.")
     return membership
+
+
+@transaction.atomic
+def remove_memberships_of(user) -> int:
+    """Take a user off every list they were added to, when their account is erased. The
+    lists are locked first, in id order like every multi-list write."""
+    memberships = ListMembership.objects.filter(user=user)
+    list_ids = sorted(memberships.values_list("shared_list_id", flat=True))
+    if list_ids:
+        list(
+            SharedList.objects.select_for_update()
+            .filter(pk__in=list_ids)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+    removed, _ = memberships.delete()
+    return removed

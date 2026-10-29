@@ -95,6 +95,7 @@ These run under supercronic from `backend/docker/crontab`.
 | daily 03:00 | `cleanup_expired`: expired lists (sets `parent_deleted_at` on their branches first), throttle cache | V1, extended |
 | daily 03:20 | `clearsessions` | V2 |
 | daily 03:30 | `prune_db_task_results` (keep 7 days) | V2 |
+| daily 03:40 | `purge_deleted_accounts`: erase accounts deleted more than 30 days ago (lists, memberships, personal data; [ADR-016](adr/ADR-016-account-deletion-grace-period.md)) | 3.0 |
 | weekly Sun 04:00 | `cleanup_media`: delete files referenced by no row and no revision snapshot, older than 7 days | 2.3 (rows: list images, link icons including tombstones; snapshots join in 3.1, fetched icons in 7.3) |
 
 ## Backups

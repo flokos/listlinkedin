@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { trackNavigations } from './composables/useRouteFocus'
-import { currentUser, loadSession } from './composables/useSession'
+import { currentUser, deletionPending, loadSession, sessionKnown } from './composables/useSession'
 import { safeRedirectPath } from './utils/url'
 
 declare module 'vue-router' {
@@ -64,6 +64,12 @@ const router = createRouter({
       meta: { title: 'Verify your email' },
     },
     {
+      path: '/account/restore',
+      name: 'restore-account',
+      component: () => import('./views/RestoreAccountView.vue'),
+      meta: { title: 'Restore your account', requiresAuth: true },
+    },
+    {
       path: '/account',
       name: 'account',
       component: () => import('./views/AccountView.vue'),
@@ -116,14 +122,23 @@ trackNavigations(router)
 
 // Pages that depend on who is signed in wait for the session check; every other page
 // renders at once and the check finishes in the background.
+// An account being deleted can only be restored or signed out (docs/v2/adr/ADR-016): every
+// other page leads to the restore page, which in turn is only for such accounts.
+const RESTORE = { name: 'restore-account' } as const
+
 router.beforeEach(async (to) => {
   if (!to.meta.requiresAuth && !to.meta.guestOnly) {
-    void loadSession()
+    if (sessionKnown()) return deletionPending() ? RESTORE : undefined
+    void loadSession().then(() => {
+      if (deletionPending()) void router.replace(RESTORE)
+    })
     return
   }
   await loadSession()
   if (to.meta.requiresAuth && !currentUser())
     return { name: 'signin', query: { next: to.fullPath } }
+  if (to.name === RESTORE.name) return deletionPending() ? undefined : { name: 'account' }
+  if (deletionPending()) return RESTORE
   if (to.meta.guestOnly && currentUser()) return safeRedirectPath(to.query.next)
 })
 

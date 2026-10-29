@@ -1,8 +1,8 @@
-// Deleting an account (docs/v2/09-API-DESIGN.md): type-to-confirm, the owned lists go with it,
-// and the browser is signed out.
-import { expect, signUpThroughApi, test, uniqueEmail } from './fixtures'
+// Deleting an account (docs/v2/adr/ADR-016): type-to-confirm; the owned lists disappear and
+// the browser is signed out at once; signing in within 30 days offers to restore everything.
+import { expect, PASSWORD, signUpThroughApi, test, uniqueEmail } from './fixtures'
 
-test('delete an account and the lists it owns', async ({ page }) => {
+test('delete an account, then restore it by signing in again', async ({ page }) => {
   const email = uniqueEmail('delete')
   await signUpThroughApi(page, email)
   await page.goto('/')
@@ -15,6 +15,7 @@ test('delete an account and the lists it owns', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete account…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Delete your account?' })
   await expect(dialog.getByText(/The list you own, with all its links/)).toBeVisible()
+  await expect(dialog.getByText(/sign in to restore your account/)).toBeVisible()
   const confirm = dialog.getByRole('button', { name: 'Delete account' })
   await expect(confirm).toBeDisabled()
   await dialog.getByRole('textbox').fill(email)
@@ -24,4 +25,19 @@ test('delete an account and the lists it owns', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Create a free account' })).toBeVisible() // signed out
   await page.goto(listUrl)
   await expect(page.getByRole('heading', { level: 1, name: "This list doesn't exist" })).toBeVisible()
+
+  // Signing in again within the grace period leads to the restore page, and only there.
+  await page.goto('/signin')
+  await page.getByRole('textbox', { name: 'Email' }).fill(email)
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  const restoreHeading = page.getByRole('heading', { level: 1, name: 'Your account is being deleted' })
+  await expect(restoreHeading).toBeVisible()
+  await page.goto(listUrl)
+  await expect(restoreHeading).toBeVisible()
+
+  await page.getByRole('button', { name: 'Restore my account' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'My lists' })).toBeVisible()
+  await page.goto(listUrl)
+  await expect(page.getByRole('heading', { level: 1, name: 'Short-lived list' })).toBeVisible()
 })

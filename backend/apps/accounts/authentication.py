@@ -11,6 +11,15 @@ class SessionAuthentication(authentication.SessionAuthentication):
     API promises. "Session" is not a scheme browsers act on, so no login prompt appears.
     """
 
+    def authenticate(self, request):
+        """An account being deleted counts as signed out, except on the few views that say
+        otherwise (`allow_deleted_account`): the session check and restoring it (ADR-016)."""
+        result = super().authenticate(request)
+        if result is None or result[0].deleted_at is None:
+            return result
+        view = (getattr(request, "parser_context", None) or {}).get("view")
+        return result if getattr(view, "allow_deleted_account", False) else None
+
     def authenticate_header(self, request) -> str:
         return "Session"
 
