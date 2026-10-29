@@ -50,4 +50,5 @@ Deleting an account (`DELETE /api/v2/me/`, still type-to-confirm) **schedules** 
 - The trigger's `created_by_id` exception from PR #23 is no longer needed, since no user row
   is deleted any more: `versioning.0004_strict_immutability` removes it (merged with this
   task), and a test checks that clearing an author fails like any other update.
-- Groups (phase 4) join the same flow: hidden at once, deleted at erasure.
+- Groups join the same flow (since 4.1): a deleting owner's groups are hidden at once
+  (`GROUP_OWNER_ACTIVE`), and erasure deletes them and the account's group memberships.

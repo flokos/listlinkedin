@@ -73,6 +73,13 @@ collaborators are added by account.
 | Remove a list from the group | — | — | ✓ | ✓ |
 | Visibility, members, delete | — | — | — | ✓ |
 
+Since 4.1 the group rules live next to the list rules in `sharing/policy.py` (`can_group`,
+`can_add_list`, `shown_in_group`), and `groups/selectors.py` applies the display rule in SQL
+(`shown_lists_q`, checked equal to `shown_in_group` for every case). An entry the actor isn't
+shown can't be removed or moved by them (404, like an absent one). Moving reorders only the
+entries the actor sees; hidden ones keep their places. When adding, the group answers first:
+someone who can't add to the group never learns whether a list is private.
+
 Rule for adding: you can put a list in a group only if you could share that list yourself. Its
 editors may share it, and anyone may share a public list. Nobody can place another person's
 unlisted or private list into their group.
@@ -87,6 +94,9 @@ is true:
 3. The list is `unlisted`, the group is **not** `public`, and *u* can view the group. Sharing
    an unlisted group link is like sharing the list links in it, and only the lists' editors
    could have put them there (rule above).
+
+Lists nobody may open are never shown, whatever the rule says: expired lists and lists whose
+owner is deleting their account. A legacy edit link grants nothing on groups.
 
 Otherwise the entry is **omitted entirely**: no title, no placeholder, no "1 hidden list"
 count, no position gap. Counts, sidebars and API pages are computed after filtering, in SQL.

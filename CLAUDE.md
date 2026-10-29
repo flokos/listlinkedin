@@ -43,7 +43,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 | `shortener` | Short codes, `ShortRedirect`, `/r/{code}` resolution (visibility checked through `sharing` selectors) |
 | `accounts` | Custom `User` (email login, UUID key), session authentication, `/api/v2/session/` and `/api/v2/me/`. Sign-up, sign-in and passwords via django-allauth's headless API under `/_allauth/` |
 | `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
-| `groups` (planned) | `Group`, `GroupList`, `GroupMembership` |
+| `groups` | `Group`, `GroupList`, `GroupMembership`, since 4.1. Group rules are in `sharing/policy.py`; the display rule in SQL is `groups/selectors.shown_lists_q` |
 | `versioning` | `ListRevision`, `record_revision`, snapshots and diffs in `versioning/domain/`, which has **no Django imports** (an AST test enforces it). `ListBranch`, `BranchExclusion`, `SyncRecord` and the merge engine are **postponed** ([ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md)) |
 | `metadata` | The image pipeline (`images.py`: re-encoding, storage) and `cleanup_media`, since 2.3. Planned: safe URL fetching, metadata parsing (worker tasks) |
 

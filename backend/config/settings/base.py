@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.headless",
     "apps.accounts",
+    "apps.groups",
     "apps.metadata",
     "apps.sharing",
     "apps.shortener",

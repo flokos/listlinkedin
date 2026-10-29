@@ -215,6 +215,13 @@ def denied(principal: Principal, message: str) -> errors.DomainError:
     return errors.Forbidden(message)
 
 
+def lock_list(principal: Principal, list_id: UUID) -> tuple[SharedList, Actor, ListFacts]:
+    """Lock a list the principal may view and return who they are on it, for another app's
+    write that depends on the list (adding it to a group). 404 if not viewable, 410 if
+    expired."""
+    return _lock(principal, list_id)
+
+
 def _lock(
     principal: Principal, list_id: UUID, *, with_email: bool = False
 ) -> tuple[SharedList, Actor, ListFacts]:

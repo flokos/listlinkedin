@@ -101,6 +101,12 @@ def get_list_for(principal: Principal, code: str) -> tuple[SharedList, Access]:
     return shared_list, access
 
 
+def list_id_of(code: str):
+    """The id of the list with this public code, or None. Says nothing about who may see it:
+    callers lock the list with `services.lists.lock_list`, which decides."""
+    return SharedList.objects.filter(public_code=code).values_list("pk", flat=True).first()
+
+
 def lists_of(user, *, role: Role | None = None) -> QuerySet[SharedList]:
     """Lists the user owns or is a member of ("My lists"), with their role and link count,
     optionally only those with one role. Unlisted lists of other people never appear here,
