@@ -1,7 +1,14 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from .views import LinkIconViewSet, LinkViewSet, ListImageViewSet, ListViewSet, MemberViewSet
+from .views import (
+    LinkIconViewSet,
+    LinkViewSet,
+    ListImageViewSet,
+    ListViewSet,
+    MemberViewSet,
+    RevisionViewSet,
+)
 
 router = SimpleRouter()
 router.register("lists", ListViewSet, basename="v2-list")
@@ -26,6 +33,16 @@ urlpatterns = [
     ),
     path("lists/<str:code>/image/", list_image, name="v2-list-image"),
     path("lists/<str:code>/links/<uuid:link_id>/icon/", link_icon, name="v2-link-icon"),
+    path(
+        "lists/<str:code>/revisions/",
+        RevisionViewSet.as_view({"get": "list"}),
+        name="v2-revision-list",
+    ),
+    path(
+        "lists/<str:code>/revisions/<int:number>/",
+        RevisionViewSet.as_view({"get": "retrieve"}),
+        name="v2-revision-detail",
+    ),
     path("lists/<str:code>/members/", members, name="v2-member-list"),
     path("lists/<str:code>/members/<uuid:user_id>/", member, name="v2-member-detail"),
 ]

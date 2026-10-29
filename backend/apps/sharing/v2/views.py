@@ -22,15 +22,23 @@ from rest_framework.response import Response
 from apps.accounts.authentication import SessionAuthentication
 from apps.common import errors
 from apps.metadata.images import MAX_UPLOAD_BYTES
+from apps.versioning import selectors as version_selectors
+from apps.versioning.serializers import (
+    RestoreResultSerializer,
+    RestoreSerializer,
+    RevisionDetailSerializer,
+    RevisionSerializer,
+)
 
 from .. import selectors
 from ..permissions import WriteRateThrottle
-from ..policy import Role
+from ..policy import Action, Role, can
 from ..serializers import OwnerTokenSerializer
 from ..services import links as link_services
 from ..services import lists as services
 from ..services import media as media_services
 from ..services import members as member_services
+from ..services import restore as restore_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
     ImageUploadSerializer,
@@ -83,6 +91,7 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     partial_update=extend_schema(parameters=[CODE]),
     destroy=extend_schema(parameters=[CODE]),
     rotate_token=extend_schema(parameters=[CODE]),
+    restore=extend_schema(parameters=[CODE]),
     claim=extend_schema(parameters=[CODE]),
     reorder=extend_schema(parameters=[CODE]),
 )
@@ -97,7 +106,7 @@ class ListViewSet(viewsets.ViewSet):
 
     @property
     def throttle_scope(self) -> str:
-        return "list_create" if self.action == "create" else "list_manage"
+        return {"create": "list_create", "restore": "restore"}.get(self.action, "list_manage")
 
     @extend_schema(
         parameters=[
@@ -226,6 +235,41 @@ class ListViewSet(viewsets.ViewSet):
             Response(LinkDetailSerializer(links, many=True).data),
             selectors.head_revision_of(shared_list),
         )
+
+    @extend_schema(
+        request=RestoreSerializer,
+        parameters=[
+            OpenApiParameter(
+                "If-Match",
+                str,
+                OpenApiParameter.HEADER,
+                required=True,
+                description='The list\'s current ETag ("r{head_revision}").',
+            )
+        ],
+        responses={
+            200: RestoreResultSerializer,
+            428: OpenApiResponse(description="If-Match is missing."),
+            **ERRORS,
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def restore(self, request, code=None):
+        """Make the list's content what it was at a revision: deleted links come back with the
+        same short URLs, links added since are deleted, the order and the title come back.
+        This writes a new revision; history is never rewritten. Settings stay as they are."""
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        serializer = RestoreSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        head, changed = restore_services.restore_revision(
+            principal,
+            shared_list.pk,
+            serializer.validated_data["revision"],
+            expected_head=if_match(request),
+        )
+        data = RestoreResultSerializer({"revision": head, "changed": changed}).data
+        return with_etag(Response(data), head)
 
     def _detail(self, principal, code: str, status_code: int = 200) -> Response:
         shared_list, access = selectors.get_list_for(principal, code)
@@ -419,6 +463,46 @@ class LinkIconViewSet(ImageUploadViewSet):
         return with_etag(
             Response(status=status.HTTP_204_NO_CONTENT), selectors.head_revision_of(shared_list)
         )
+
+
+NUMBER = OpenApiParameter("number", int, OpenApiParameter.PATH, description="Revision number.")
+
+
+@extend_schema_view(
+    list=extend_schema(parameters=[CODE], responses={200: RevisionSerializer(many=True), **ERRORS}),
+    retrieve=extend_schema(
+        parameters=[CODE, NUMBER], responses={200: RevisionDetailSerializer, **ERRORS}
+    ),
+)
+class RevisionViewSet(viewsets.ViewSet):
+    """/api/v2/lists/{code}/revisions/: a list's history, newest first. Editors, owners and a
+    legacy list's edit link only: history can hold links an owner deliberately removed."""
+
+    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    permission_classes = []
+    pagination_class = ListPagination
+
+    def list(self, request, code=None):
+        shared_list = self._history_of(request, code)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(
+            version_selectors.revisions_of(shared_list), request, view=self
+        )
+        response = paginator.get_paginated_response(RevisionSerializer(page, many=True).data)
+        return with_etag(response, shared_list.head_revision)
+
+    def retrieve(self, request, code=None, number=None):
+        shared_list = self._history_of(request, code)
+        revision = version_selectors.get_revision(shared_list, int(number))
+        return Response(RevisionDetailSerializer(revision).data)
+
+    @staticmethod
+    def _history_of(request, code):
+        principal = principal_of(request)
+        shared_list, access = selectors.get_list_for(principal, code)
+        if not can(access.actor, Action.VIEW_HISTORY, access.facts):
+            raise services.denied(principal, "Only the list's editors can see its history.")
+        return shared_list
 
 
 USER_ID = OpenApiParameter("user_id", uuid.UUID, OpenApiParameter.PATH)

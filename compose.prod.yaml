@@ -19,6 +19,7 @@ x-app-env: &app-env
   THROTTLE_LIST_MANAGE: ${THROTTLE_LIST_MANAGE:-600/hour}
   THROTTLE_ACCOUNT: ${THROTTLE_ACCOUNT:-300/hour}
   THROTTLE_UPLOAD: ${THROTTLE_UPLOAD:-120/hour}  # image uploads, per user
+  THROTTLE_RESTORE: ${THROTTLE_RESTORE:-120/hour}  # restoring earlier revisions
   # Outgoing mail: account verification and password-reset links.
   EMAIL_HOST: ${EMAIL_HOST:-localhost}
   EMAIL_PORT: ${EMAIL_PORT:-587}
