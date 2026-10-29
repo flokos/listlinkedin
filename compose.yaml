@@ -22,6 +22,7 @@ x-app: &app
     EMAIL_USE_TLS: "false"
   volumes:
     - ./backend:/app  # live code reload
+    - media:/srv/media  # uploaded images (MEDIA_ROOT); runserver serves them in development
 
 services:
   db:
@@ -81,7 +82,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    # Vite dev server with hot reload: http://localhost:5173. It proxies /api/ and /r/ to
+    # Vite dev server with hot reload: http://localhost:5173. It proxies /api/, /r/ and /media/ to
     # `api`, so the browser sees one origin, as behind nginx in production.
     build:
       context: ./frontend
@@ -99,3 +100,4 @@ services:
 
 volumes:
   pgdata:
+  media:

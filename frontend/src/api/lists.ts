@@ -26,6 +26,8 @@ export interface SharedLink {
   position?: number
   /** /api/v2/ only. */
   description?: string | null
+  /** /api/v2/ only: the uploaded icon (same-origin /media/ URL), if any. */
+  icon_url?: string | null
   /** /api/v2/ only: the link this one was copied from. */
   source_link_id?: string | null
 }
@@ -108,6 +110,8 @@ export interface ListDetail {
   url: string
   title: string
   description: string
+  /** The list's image (same-origin /media/ URL), if any. */
+  image_url: string | null
   visibility: Visibility
   allow_fork: boolean
   allow_branch: boolean

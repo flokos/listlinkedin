@@ -97,16 +97,26 @@ Pillow pipeline (Pillow 13.0 current [R24]) [Decision, ADR-012]:
 2. Identify by content, never by name or `Content-Type`. Allow PNG, JPEG, WebP, GIF (first
    frame) and ICO (fetched only). Set `Image.MAX_IMAGE_PIXELS` to 16 MP and treat Pillow's
    `DecompressionBombWarning` as an error.
-3. `verify()`, reopen, `load()`, apply `exif_transpose`, convert to RGBA, `contain` into
-   128×128 (icons) or 512×512 (list or group images), and **re-encode** to WebP. Re-encoding
+3. `verify()`, reopen, `load()`, apply `exif_transpose`, convert to RGBA, shrink to fit
+   128×128 (icons) or 512×512 (list or group images), never enlarging (`thumbnail`), and
+   **re-encode** to WebP. Re-encoding
    destroys polyglots and embedded payloads [R15] and strips EXIF and GPS metadata.
 4. Store at `media/{kind}/{hh}/{sha256}.webp`, content-addressed, so files are never
    overwritten and are deduplicated.
 5. nginx serves `/media/` with `X-Content-Type-Options: nosniff`, an explicit
-   `image/webp` type, `Content-Security-Policy: default-src 'none'; sandbox` and
-   `Cache-Control: public, max-age=31536000, immutable`. Images are never served by Django.
-6. Unreferenced files are removed by `cleanup` after 7 days
-   ([14](14-INFRASTRUCTURE.md#scheduled-jobs)).
+   `image/webp` type (every other file is `application/octet-stream`),
+   `Content-Security-Policy: default-src 'none'; sandbox` and
+   `Cache-Control: public, max-age=31536000, immutable` (not on 404s, since a deleted file can
+   be uploaded again). Directories aren't listed. Images are never served by Django in
+   production (development's `runserver` does, behind Vite).
+6. Unreferenced files are removed by `cleanup_media` after 7 days
+   ([14](14-INFRASTRUCTURE.md#scheduled-jobs)). Storing the same image again refreshes the
+   file's age, so an image that was unused and is chosen again isn't deleted under it.
+
+Since task 2.3 this is `apps/metadata/images.py`, with tests for each step (polyglots, bombs,
+wrong types, truncated files, EXIF and GPS removal, first animation frame). Uploads are decoded
+outside the list's row lock; permission is checked before decoding (so strangers can't fill the
+disk) and again under the lock (a removed editor can't attach the image afterwards).
 
 Accepted risk: media URLs aren't access-checked. Their 256-bit content-hash names can only be
 guessed by someone who already has the image. Moving private images behind an authenticated

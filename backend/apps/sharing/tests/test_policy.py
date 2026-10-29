@@ -69,6 +69,7 @@ def test_edit_settings_delete_by_role(actor, role, edit, owner_only, delete):
     assert can(actor, Action.EDIT, f) is edit
     assert can(actor, Action.VIEW_HISTORY, f) is edit
     assert can(actor, Action.VIEW_MEMBERS, f) is edit  # editors see who else is on it
+    assert can(actor, Action.UPLOAD, f) is edit
     assert can(actor, Action.SETTINGS, f) is owner_only
     assert can(actor, Action.MEMBERS, f) is owner_only
     assert can(actor, Action.DELETE, f) is delete
@@ -87,6 +88,7 @@ def test_legacy_token_has_v1_rights_on_its_own_list_only():
     assert not can(TOKEN, Action.SETTINGS, legacy)
     assert not can(TOKEN, Action.MEMBERS, legacy)
     assert not can(TOKEN, Action.VIEW_MEMBERS, legacy)  # legacy lists have no members
+    assert not can(TOKEN, Action.UPLOAD, legacy)  # uploads need an account
     assert not can(TOKEN, Action.CLAIM, legacy)  # claiming also needs an account
     assert can(Actor(user_id=OTHER, legacy_list_id=LIST_ID), Action.CLAIM, legacy)
 

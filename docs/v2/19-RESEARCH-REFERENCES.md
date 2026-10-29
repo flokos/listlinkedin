@@ -63,12 +63,17 @@ Local verification (not web sources):
 - GitHub's Mermaid renderer (2026-10-28, checked in a browser on the rendered pages): all 13
   diagrams in `docs/v2` render, after fixing an edge label with parentheses (03) and
   semicolons in sequence messages (07).
+- Pillow 13.0.0 in the V2 image (task 2.3, 2026-10-29, verified by the tests in
+  `apps/metadata/tests/test_images.py`): `Image.open` checks `MAX_IMAGE_PIXELS` from the header,
+  before decoding. It warns (`DecompressionBombWarning`) above the limit and raises
+  `DecompressionBombError` above twice it, so the pipeline turns the warning into an error.
+  The manylinux wheel encodes WebP (`features.check("webp")`). `ImageOps.contain` enlarges small
+  images, so the pipeline uses `thumbnail` (shrink only).
 
 ## Not verified in this run (prior knowledge, verify during implementation)
 
 | Claim | Where used | Verify in |
 |---|---|---|
-| Pillow: `Image.MAX_IMAGE_PIXELS` and `DecompressionBombWarning`/`Error` behaviour; WebP encode support in the wheels | [13 Media](13-SECURITY.md#media) | task 2.3 |
 | urllib3 2.x: `server_hostname` / `assert_hostname` on connection pools opened by IP | [13 SSRF](13-SECURITY.md#ssrf-safe-fetcher) | task 7.2 |
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Vuetify 4 navigation drawer props `rail`, `permanent`, `temporary` (the docs page could not be fetched) | [11 Groups](11-UI-UX-MIGRATION.md#groups-workspace) | task 4.3 |

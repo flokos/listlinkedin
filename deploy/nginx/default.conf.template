@@ -5,7 +5,8 @@
 server_tokens off;
 
 # Requests carry a title and a URL; Django rejects bodies over 16 KB with a JSON 413.
-# This only stops anything far larger before it reaches a worker.
+# This only stops anything far larger before it reaches a worker. The image upload routes
+# get 3 MB below (Django: 2 MB per file).
 client_max_body_size 32k;
 
 # nginx buffers request bodies before proxying (proxy_request_buffering is on by default),
@@ -63,6 +64,35 @@ server {
     # allow 10.0.0.0/8;
     # allow 192.168.0.0/16;
     # deny all;
+
+    # Image uploads: the only larger request bodies (docs/v2/09-API-DESIGN.md#uploads).
+    # Regex locations match in order, so this one must come before the general API one.
+    location ~ ^/api/v2/lists/[^/]+/(image|links/[^/]+/icon)/$ {
+        client_max_body_size 3m;
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 35s;
+        proxy_send_timeout 35s;
+    }
+
+    # Uploaded images, re-encoded to WebP by the API and named by their SHA-256, so they never
+    # change (docs/v2/13-SECURITY.md#media). Served as inert files: only `.webp` gets an image
+    # type, nothing is sniffed, and a sandbox CSP stops anything opened as a document.
+    location /media/ {
+        alias /srv/media/;
+        types { image/webp webp; }
+        default_type application/octet-stream;
+        # Not `always`: a 404 must not be cached, since a deleted file can come back.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }
 
     # API, short-URL redirects, account endpoints (allauth) and the health check go to Django.
     location ~ ^/(api|r|_allauth)/|^/healthz$ {

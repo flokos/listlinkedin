@@ -20,6 +20,13 @@ def fast_password_hashing(settings):
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 
+@pytest.fixture(autouse=True)
+def media_root(settings, tmp_path):
+    """Uploaded images go to a fresh directory per test, never to the real media volume."""
+    settings.MEDIA_ROOT = str(tmp_path / "media")
+    return tmp_path / "media"
+
+
 @pytest.fixture
 def api_client() -> APIClient:
     return APIClient()

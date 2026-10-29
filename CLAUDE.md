@@ -45,7 +45,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 | `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
 | `groups` (planned) | `Group`, `GroupList`, `GroupMembership` |
 | `versioning` (planned) | `ListRevision`, snapshots and diffs in `versioning/domain/`, which has **no Django imports**. `ListBranch`, `BranchExclusion`, `SyncRecord` and the merge engine are **postponed** ([ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md)) |
-| `metadata` (planned) | Safe URL fetching, metadata parsing, image processing (worker tasks) |
+| `metadata` | The image pipeline (`images.py`: re-encoding, storage) and `cleanup_media`, since 2.3. Planned: safe URL fetching, metadata parsing (worker tasks) |
 
 - DRF ViewSets handle HTTP only. Services own transactions and row locks. Selectors own reads.
   One app never writes another app's models directly; it calls that app's services.
