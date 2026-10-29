@@ -59,7 +59,7 @@ async function restore(event: Event) {
         code: entry.code,
         token: entry.token,
         title: list.title,
-        expiresAt: list.expires_at,
+        expiresAt: list.expires_at ?? '',
       })
       counts.added++
     } catch (error) {

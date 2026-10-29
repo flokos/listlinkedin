@@ -153,7 +153,7 @@ existence**.
 - `policy.can(actor, action, resource) -> bool` is pure. Its inputs are an actor descriptor
   `{user_id | None, legacy_list_id | None}` and resource facts (owner id, role of the actor,
   visibility, flags, expiry), loaded by selectors in one query.
-- `policy.visible_lists_q(actor) -> Q` and `visible_groups_q(actor)` are the **only** way list
+- `policy.py` stays pure, so the SQL side lives in `sharing/selectors.py`: `get_list_for(principal, code)` (one list, 404 when not viewable) and `lists_of(user)` (owned or member lists; unlisted lists of others never enumerate). They, and later `visible_groups`, are the **only** way list
   and group querysets are filtered, in API lists, groups, directory and counts.
 - DRF: `get_object()` is overridden in every ViewSet to call the selector plus
   `check_object_permissions`. Object permissions aren't applied to list endpoints or creation

@@ -1,4 +1,7 @@
-"""Write operations on lists and links.
+"""Write operations on legacy lists, authorized by their owner token: the V1 path.
+
+`/api/v1/` uses these, and creating a list here makes a legacy list (no owner account,
+unlisted, expiring in 30 days). Account-owned lists go through `services.lists`.
 
 Every write re-reads the list with a row lock inside a transaction. That serializes
 concurrent writes to the same list (link limit, duplicate checks, delete vs. update) and
@@ -14,16 +17,17 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 
 from apps.shortener.services import create_redirect, create_with_unique_code
 
-from . import tokens
-from .domain import LIST_LIFETIME, MAX_LINKS_PER_LIST
-from .exceptions import Gone
-from .models import PUBLIC_CODE_CONSTRAINT, SharedLink, SharedList
+from .. import tokens
+from ..domain import LIST_LIFETIME, MAX_LINKS_PER_LIST, slug_for
+from ..exceptions import Gone
+from ..models import PUBLIC_CODE_CONSTRAINT, SharedLink, SharedList
+from ..policy import Visibility
 
 logger = logging.getLogger(__name__)
 
 
 def create_list(*, title: str) -> tuple[SharedList, str]:
-    """Create a list and return it with its plaintext owner token (never stored)."""
+    """Create a legacy list and return it with its plaintext owner token (never stored)."""
     owner_token = tokens.generate_owner_token()
     created_at = timezone.now()
 
@@ -32,6 +36,8 @@ def create_list(*, title: str) -> tuple[SharedList, str]:
             public_code=code,
             owner_token_hash=tokens.hash_owner_token(owner_token),
             title=title,
+            slug=slug_for(title),
+            visibility=Visibility.UNLISTED.value,  # what V1 lists are: anyone with the URL
             created_at=created_at,
             expires_at=created_at + LIST_LIFETIME,
         ),
@@ -45,7 +51,8 @@ def create_list(*, title: str) -> tuple[SharedList, str]:
 def update_list(shared_list: SharedList, *, title: str) -> SharedList:
     locked = _lock_active_list(shared_list)
     locked.title = title
-    locked.save(update_fields=["title", "updated_at"])
+    locked.slug = slug_for(title)
+    locked.save(update_fields=["title", "slug", "updated_at"])
     return locked
 
 

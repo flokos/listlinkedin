@@ -36,7 +36,7 @@ onMounted(() => {
     getList(item.code)
       .then((list) => {
         health[item.code] = 'active'
-        owned.update(item.code, { title: list.title, expiresAt: list.expires_at })
+        owned.update(item.code, { title: list.title, expiresAt: list.expires_at ?? '' })
       })
       .catch((error) => {
         health[item.code] =

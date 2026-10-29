@@ -12,8 +12,12 @@ class DomainError(Exception):
     code = "error"
     default_message = "The request could not be completed."
 
-    def __init__(self, message: str | None = None, **extra: Any) -> None:
+    def __init__(
+        self, message: str | None = None, *, code: str | None = None, **extra: Any
+    ) -> None:
         self.message = message or self.default_message
+        if code is not None:
+            self.code = code  # a more specific code than the class's, e.g. idempotency_key_reused
         self.extra = extra  # additional response fields, e.g. a fresh fingerprint
         super().__init__(self.message)
 

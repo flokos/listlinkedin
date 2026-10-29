@@ -26,7 +26,7 @@ function onCreated(list: CreatedList) {
     code: list.public_code,
     token: list.owner_token,
     title: list.title,
-    expiresAt: list.expires_at,
+    expiresAt: list.expires_at ?? '',
   })
   pending.set(list.public_code)
   router.push({ name: 'list', params: { code: list.public_code } })
