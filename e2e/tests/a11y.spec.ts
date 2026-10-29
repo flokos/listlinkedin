@@ -5,6 +5,7 @@ import {
   expectNoA11yViolations,
   openAsOwner,
   signUpThroughApi,
+  signUpVerified,
   test,
   uniqueEmail,
 } from './fixtures'
@@ -46,6 +47,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
       await page.getByRole('button', { name: 'Account menu' }).click()
       await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
+    test("an account list's share dialog with its People section", async ({ page }) => {
+      await signUpVerified(page, uniqueEmail('a11y-owner'), 'Owner')
+      await page.goto('/')
+      await page.getByRole('textbox', { name: 'List name' }).fill('Shared with people')
+      await page.getByRole('button', { name: 'Create list' }).click()
+      await page.getByRole('button', { name: 'Share', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible()
+      await expect(page.getByText('Nobody else has access yet.')).toBeVisible()
       await expectNoA11yViolations(page)
     })
 

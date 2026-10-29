@@ -81,7 +81,7 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | worker | `true` (`false` disables fetching, for locked-down deployments) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
-| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1 |
+| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5 |
 
 ## Scheduled jobs
 

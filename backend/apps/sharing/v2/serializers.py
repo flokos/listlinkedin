@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from ..domain import MAX_DESCRIPTION_LENGTH
-from ..models import SharedList
+from ..models import MEMBER_ROLE_CHOICES, ListMembership, SharedList
 from ..policy import Visibility, permissions, role_of
 from ..selectors import Access
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
@@ -104,3 +104,38 @@ class ListWriteSerializer(serializers.Serializer):
         if value is not None and value <= timezone.now():
             raise serializers.ValidationError("Choose a time in the future.")
         return value
+
+
+def email_hint(email: str) -> str:
+    """Enough of an address to tell people apart, without showing it: `b…@example.com`.
+    Full addresses are shown only to their own account (docs/v2/12-AUTHORIZATION.md)."""
+    local, _, domain = email.partition("@")
+    return f"{local[:1]}…@{domain}"
+
+
+class MemberSerializer(serializers.ModelSerializer):
+    user_id = serializers.UUIDField(source="user.pk")
+    display_name = serializers.CharField(source="user.display_name")
+    email_hint = serializers.SerializerMethodField()
+    is_you = serializers.SerializerMethodField()
+    added_at = serializers.DateTimeField(source="created_at")
+
+    class Meta:
+        model = ListMembership
+        fields = ["user_id", "display_name", "email_hint", "role", "added_at", "is_you"]
+        read_only_fields = fields
+
+    def get_email_hint(self, membership: ListMembership) -> str:
+        return email_hint(membership.user.email)
+
+    def get_is_you(self, membership: ListMembership) -> bool:
+        return membership.user_id == self.context["user_id"]
+
+
+class MemberAddSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+    role = serializers.ChoiceField(choices=MEMBER_ROLE_CHOICES)
+
+
+class MemberRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=MEMBER_ROLE_CHOICES)

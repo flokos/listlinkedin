@@ -88,7 +88,9 @@ and public endpoints are unauthenticated (V1 test extended). Query counts:
 
 Generated from the tables in [12](12-AUTHORIZATION.md): for each (principal ∈ anonymous,
 signed-in, viewer, editor, owner, legacy token) × (visibility) × (action), assert the HTTP
-outcome. **Leak tests:** compare responses for a nonexistent and a private code (identical
+outcome. Since task 1.5 this lives in `apps/sharing/tests/test_v2_members.py`
+(`test_list_permission_matrix`), with the expected statuses written out rather than derived
+from the policy. **Leak tests:** compare responses for a nonexistent and a private code (identical
 status and body). Check that a public group containing private, unlisted and public lists
 renders only the allowed ones for each viewer type, with counts and positions matching. Check
 that directory search never returns non-public items, and that `parent_inaccessible` reveals

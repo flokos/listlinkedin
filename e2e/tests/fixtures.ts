@@ -84,6 +84,26 @@ export async function signUpThroughApi(page: Page, email: string, password = PAS
   expect(response.status(), await response.text()).toBe(200)
 }
 
+/**
+ * Like signUpThroughApi, then verifies the address with the key from the emailed link and
+ * sets a display name, all through the API (auth.spec tests the verification page itself).
+ * Sharing a list needs verified accounts on both sides.
+ */
+export async function signUpVerified(page: Page, email: string, displayName: string) {
+  await signUpThroughApi(page, email)
+  const link = linkIn(await emailTo(page.request, email, /confirm/i), '/verify-email')
+  const key = decodeURIComponent(new URL(link).hash.replace(/^#key=/, ''))
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const headers = { 'X-CSRFToken': csrf, Origin: ORIGIN }
+  const verified = await page.request.post('/_allauth/browser/v1/auth/email/verify', {
+    data: { key },
+    headers,
+  })
+  expect(verified.status(), await verified.text()).toBe(200)
+  const named = await page.request.patch('/api/v2/me/', { data: { display_name: displayName }, headers })
+  expect(named.status(), await named.text()).toBe(200)
+}
+
 /** The title link of a link card (the icon button has a different name). */
 export const cardTitle = (page: Page, title: string) =>
   page.getByRole('link', { name: `${title} (opens in a new tab)`, exact: true })
@@ -107,8 +127,19 @@ export async function otherDevice(browser: Browser, baseURL: string | undefined)
   return { context, page: await context.newPage() }
 }
 
-/** Fails on WCAG 2.2 A/AA violations found by axe. */
+/**
+ * Fails on WCAG 2.2 A/AA violations found by axe. Waits for running transitions first: a menu
+ * or dialog still fading in has semi-transparent text, which axe reports as low contrast.
+ */
 export async function expectNoA11yViolations(page: Page, include?: string) {
+  await page.evaluate(() => {
+    const finite = document
+      .getAnimations()
+      // Paused ones and spinners never finish; a transition takes well under 2 s.
+      .filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations !== Infinity)
+      .map((a) => a.finished.catch(() => undefined))
+    return Promise.race([Promise.all(finite), new Promise((done) => setTimeout(done, 2000))])
+  })
   let builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
   if (include) builder = builder.include(include)
   const { violations } = await builder.analyze()

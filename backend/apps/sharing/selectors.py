@@ -138,6 +138,18 @@ def access_in_listing(user, shared_list: SharedList) -> Access:
     return Access(actor, facts)
 
 
+def members_of(shared_list: SharedList, access: Access) -> QuerySet[ListMembership]:
+    """The people a list is shared with, oldest first. Only the owner and editors may see
+    them (docs/v2/09-API-DESIGN.md#lists); everyone else gets 403."""
+    if not can(access.actor, Action.VIEW_MEMBERS, access.facts):
+        raise errors.Forbidden("Only the owner and editors can see who this list is shared with.")
+    return (
+        ListMembership.objects.filter(shared_list=shared_list)
+        .select_related("user")
+        .order_by("created_at", "pk")
+    )
+
+
 # V1 (/api/v1/) reads.
 
 

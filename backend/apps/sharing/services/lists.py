@@ -96,9 +96,9 @@ def update_list(principal: Principal, list_id: UUID, changes: dict) -> SharedLis
     (visibility, fork/branch permission, expiry) need the owner."""
     locked, actor, facts = _lock(principal, list_id, with_email="visibility" in changes)
     if any(f in changes for f in CONTENT_FIELDS) and not can(actor, Action.EDIT, facts):
-        raise errors.Forbidden("You can't change this list.")
+        raise denied(principal, "You can't change this list.")
     if any(f in changes for f in SETTINGS_FIELDS) and not can(actor, Action.SETTINGS, facts):
-        raise errors.Forbidden("Only the list's owner can change its settings.")
+        raise denied(principal, "Only the list's owner can change its settings.")
     if "visibility" in changes and not can_set_visibility(
         actor, facts, Visibility(changes["visibility"])
     ):
@@ -120,7 +120,7 @@ def update_list(principal: Principal, list_id: UUID, changes: dict) -> SharedLis
 def delete_list(principal: Principal, list_id: UUID) -> None:
     locked, actor, facts = _lock(principal, list_id)
     if not can(actor, Action.DELETE, facts):
-        raise errors.Forbidden("Only the list's owner can delete it.")
+        raise denied(principal, "Only the list's owner can delete it.")
     locked.delete()  # cascades to links, redirects and memberships
     logger.info("Deleted list %s", list_id)
 
@@ -130,7 +130,7 @@ def rotate_owner_token(principal: Principal, list_id: UUID) -> str:
     """Replace a legacy list's owner token; the old one stops working at once (V1 behaviour)."""
     locked, actor, facts = _lock(principal, list_id)
     if not can(actor, Action.ROTATE_TOKEN, facts):
-        raise errors.Forbidden("Only the holder of this list's edit link can replace it.")
+        raise denied(principal, "Only the holder of this list's edit link can replace it.")
     owner_token = tokens.generate_owner_token()
     locked.owner_token_hash = tokens.hash_owner_token(owner_token)
     locked.save(update_fields=["owner_token_hash", "updated_at"])
@@ -159,6 +159,14 @@ def claim_list(principal: Principal, list_id: UUID) -> SharedList:
     locked.save(update_fields=["owner", "owner_token_hash", "updated_at"])
     logger.info("List %s claimed by user %s", locked.id, principal.user.pk)
     return locked
+
+
+def denied(principal: Principal, message: str) -> errors.DomainError:
+    """The error for a refused action: 401 for an anonymous caller, who may be allowed once
+    signed in (V1's 401 vs 403 split, docs/v2/12-AUTHORIZATION.md#status-codes), else 403."""
+    if principal.user is None and principal.token is None:
+        return errors.AuthenticationRequired(message)
+    return errors.Forbidden(message)
 
 
 def _lock(
