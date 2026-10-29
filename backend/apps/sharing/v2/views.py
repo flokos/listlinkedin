@@ -22,7 +22,8 @@ from apps.common import errors
 
 from .. import selectors
 from ..permissions import WriteRateThrottle
-from ..serializers import OwnerTokenSerializer
+from ..serializers import LinkSerializer, OwnerTokenSerializer
+from ..services import links as link_services
 from ..services import lists as services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import ListDetailSerializer, ListWriteSerializer
@@ -56,6 +57,7 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     partial_update=extend_schema(parameters=[CODE]),
     destroy=extend_schema(parameters=[CODE]),
     rotate_token=extend_schema(parameters=[CODE]),
+    claim=extend_schema(parameters=[CODE]),
 )
 class ListViewSet(viewsets.ViewSet):
     # The owner-token authenticator comes first so 401 answers name the Bearer scheme it
@@ -140,10 +142,79 @@ class ListViewSet(viewsets.ViewSet):
         owner_token = services.rotate_owner_token(principal, shared_list.pk)
         return Response(OwnerTokenSerializer({"owner_token": owner_token}).data)
 
+    @extend_schema(request=None, responses={200: ListDetailSerializer, **ERRORS})
+    @action(detail=True, methods=["post"])
+    def claim(self, request, code=None):
+        """Add a legacy list to your account: sign in and send its owner token as a Bearer
+        header. The token stops working; expiry and visibility stay as they were."""
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        services.claim_list(principal, shared_list.pk)
+        # The token is retired now; describe the list as the new owner sees it.
+        return self._detail(selectors.Principal(user=principal.user), code)
+
     def _detail(self, principal, code: str, status_code: int = 200) -> Response:
         shared_list, access = selectors.get_list_for(principal, code)
         data = ListDetailSerializer(shared_list, context={"access": {shared_list.pk: access}}).data
         return Response(data, status=status_code)
+
+
+LINK_ID = OpenApiParameter("link_id", uuid.UUID, OpenApiParameter.PATH)
+
+
+@extend_schema_view(
+    list=extend_schema(parameters=[CODE]),
+    create=extend_schema(parameters=[CODE]),
+    partial_update=extend_schema(parameters=[CODE, LINK_ID]),
+    destroy=extend_schema(parameters=[CODE, LINK_ID]),
+)
+class LinkViewSet(viewsets.ViewSet):
+    """/api/v2/lists/{code}/links/: the same link representation as V1, newest first.
+
+    Editors and owners (session), or a legacy list's owner token (Bearer), may change links.
+    """
+
+    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    permission_classes = []
+    throttle_classes = [WriteRateThrottle]
+    throttle_scope = "list_manage"
+    pagination_class = ListPagination
+
+    @extend_schema(responses={200: LinkSerializer(many=True), 404: ERRORS[404]})
+    def list(self, request, code=None):
+        shared_list, _ = selectors.get_list_for(principal_of(request), code)
+        paginator = self.pagination_class()
+        links = selectors.links_with_short_codes(shared_list)
+        page = paginator.paginate_queryset(links, request, view=self)
+        return paginator.get_paginated_response(LinkSerializer(page, many=True).data)
+
+    @extend_schema(request=LinkSerializer, responses={201: LinkSerializer, **ERRORS})
+    def create(self, request, code=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        serializer = LinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        link = link_services.add_link(principal, shared_list.pk, **serializer.validated_data)
+        data = LinkSerializer(selectors.get_link(shared_list, link.pk)).data
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=LinkSerializer, responses={200: LinkSerializer, **ERRORS})
+    def partial_update(self, request, code=None, link_id=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        serializer = LinkSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        link_services.update_link(
+            principal, shared_list.pk, link_id, dict(serializer.validated_data)
+        )
+        return Response(LinkSerializer(selectors.get_link(shared_list, link_id)).data)
+
+    @extend_schema(responses={204: None, **ERRORS})
+    def destroy(self, request, code=None, link_id=None):
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        link_services.delete_link(principal, shared_list.pk, link_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def _idempotency_key(request) -> uuid.UUID | None:

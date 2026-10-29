@@ -69,13 +69,14 @@ V2 sends email: verification, password reset and collaborator notices. Configura
 `DEFAULT_FROM_EMAIL`. Dev and e2e send to Mailpit. Production uses any SMTP relay. Outside
 compose, Django's console backend is the base-settings default. The e2e stack also sets
 `AUTH_RATE_LIMITS=off`, because every browser there shares one client IP. Production keeps
-allauth's limits.
+allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit-link lists.
 
 ## Environment variables (new)
 
 | Variable | Used by | Default (dev) |
 |---|---|---|
 | `DJANGO_EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | api | console backend in development, SMTP in production (since task 1.1) |
+| `LEGACY_LIST_CREATION` | api | `off`: `POST /api/v1/lists/` answers 410. `on` only in backend tests and the e2e stack, which still seed legacy lists (since task 1.4; removed in 9.6) |
 | `MEDIA_ROOT` | api, worker | `/srv/media` |
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | worker | `true` (`false` disables fetching, for locked-down deployments) |

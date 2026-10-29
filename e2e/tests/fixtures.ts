@@ -101,20 +101,6 @@ export async function openAsOwner(page: Page, list: CreatedList) {
   await expect(page.getByText('Your list', { exact: true })).toBeVisible()
 }
 
-/** Creates a list through the home page form and acknowledges the edit link. */
-export async function createListInUI(page: Page, title: string) {
-  await page.goto('/')
-  await page.getByRole('textbox', { name: 'List name' }).fill(title)
-  await page.getByRole('button', { name: 'Create list' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Your list is ready. Save your edit link' })
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole('checkbox', { name: /saved my edit link/ }).check()
-  await dialog.getByRole('button', { name: 'Go to my list' }).click()
-  await expect(dialog).toBeHidden()
-  await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
-  return page.url().split('/l/')[1]!
-}
-
 /** A second, independent browser (another device): no shared storage. */
 export async function otherDevice(browser: Browser, baseURL: string | undefined) {
   const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true })

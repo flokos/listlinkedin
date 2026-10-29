@@ -15,12 +15,12 @@ const principles = [
   {
     icon: mdiCookieOff,
     title: 'No tracking',
-    text: 'No cookies, analytics or third-party scripts. Fonts and QR codes are served from this site.',
+    text: 'No analytics or third-party scripts; the only cookies keep you signed in. Fonts and QR codes are served from this site.',
   },
   {
     icon: mdiTimerSandEmpty,
-    title: 'Temporary by design',
-    text: 'Every list expires 30 days after it was created, and its data is deleted within a day after that.',
+    title: 'You decide how long',
+    text: 'Lists last until you delete them, unless you give them an end date. Lists made before accounts existed keep their 30-day lifetime until you add them to your account.',
   },
 ]
 </script>
@@ -49,7 +49,7 @@ const principles = [
         <tbody>
           <tr>
             <th scope="row">Lifetime of a list</th>
-            <td>30 days</td>
+            <td>Until you delete it, or the end date you choose</td>
           </tr>
           <tr>
             <th scope="row">Links per list</th>
@@ -83,7 +83,7 @@ const principles = [
           <v-expansion-panel-text>
             Not from us: without accounts there's no way to prove the list is yours. If this browser
             still has edit access, open the list and choose “Show edit link” from its menu. If you
-            downloaded a backup, restore it on the Saved lists page.
+            downloaded a backup, restore it on the My lists page.
           </v-expansion-panel-text>
         </v-expansion-panel>
         <v-expansion-panel title="Someone else got my edit link. What do I do?">

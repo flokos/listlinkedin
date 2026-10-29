@@ -55,7 +55,7 @@ def test_view(actor, role, visibility, expected):
 
 
 @pytest.mark.parametrize(
-    ("actor", "role", "edit", "settings", "delete"),
+    ("actor", "role", "edit", "owner_only", "delete"),
     [
         (ANON, None, False, False, False),
         (SIGNED_IN, None, False, False, False),
@@ -64,12 +64,12 @@ def test_view(actor, role, visibility, expected):
         (OWNER_ACTOR, None, True, True, True),
     ],
 )
-def test_edit_settings_delete_by_role(actor, role, edit, settings, delete):
+def test_edit_settings_delete_by_role(actor, role, edit, owner_only, delete):
     f = facts(Visibility.UNLISTED, role=role)
     assert can(actor, Action.EDIT, f) is edit
     assert can(actor, Action.VIEW_HISTORY, f) is edit
-    assert can(actor, Action.SETTINGS, f) is settings
-    assert can(actor, Action.MEMBERS, f) is settings
+    assert can(actor, Action.SETTINGS, f) is owner_only
+    assert can(actor, Action.MEMBERS, f) is owner_only
     assert can(actor, Action.DELETE, f) is delete
 
 

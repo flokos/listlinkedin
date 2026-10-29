@@ -87,3 +87,90 @@ export const deleteLink = (code: string, token: string, id: string) =>
  */
 export const verifyOwnership = (code: string, token: string) =>
   request<SharedList>(v1(`/lists/${enc(code)}/`), { method: 'PATCH', body: {}, token })
+
+// /api/v2/: lists with accounts and visibility (docs/v2/09-API-DESIGN.md). A legacy list's
+// owner token, when this browser has one, goes along as a bearer header; otherwise the
+// session decides. `permissions` tells the UI what this user may do.
+
+export type Visibility = 'private' | 'unlisted' | 'public'
+export type ListRole = 'owner' | 'editor' | 'viewer'
+
+export interface ListDetail {
+  id: string
+  code: string
+  slug: string
+  url: string
+  title: string
+  description: string
+  visibility: Visibility
+  allow_fork: boolean
+  allow_branch: boolean
+  owner: { display_name: string } | null
+  /** A V1 list managed by its edit link until someone adds it to their account. */
+  legacy: boolean
+  created_at: string
+  updated_at: string
+  expires_at: string | null
+  link_count: number
+  my_role: ListRole | null
+  permissions: string[]
+}
+
+export interface ListInput {
+  title?: string
+  description?: string
+  visibility?: Visibility
+  allow_fork?: boolean
+  allow_branch?: boolean
+  expires_at?: string | null
+}
+
+const v2 = (path: string) => `/api/v2${path}`
+
+export const myLists = (signal?: AbortSignal) =>
+  request<Page<ListDetail>>(v2('/lists/?page_size=100'), { signal })
+
+export const createAccountList = (input: ListInput, idempotencyKey: string) =>
+  request<ListDetail>(v2('/lists/'), {
+    method: 'POST',
+    body: input,
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
+
+export const getListDetail = (code: string, token?: string, signal?: AbortSignal) =>
+  request<ListDetail>(v2(`/lists/${enc(code)}/`), { token, signal })
+
+export const changeList = (code: string, changes: ListInput, token?: string) =>
+  request<ListDetail>(v2(`/lists/${enc(code)}/`), { method: 'PATCH', body: changes, token })
+
+export const removeList = (code: string, token?: string) =>
+  request<null>(v2(`/lists/${enc(code)}/`), { method: 'DELETE', token })
+
+export const replaceToken = (code: string, token: string) =>
+  request<{ owner_token: string }>(v2(`/lists/${enc(code)}/rotate-token/`), {
+    method: 'POST',
+    token,
+  })
+
+/** Adds a legacy list to the signed-in account; its edit link stops working. */
+export const claimList = (code: string, token: string) =>
+  request<ListDetail>(v2(`/lists/${enc(code)}/claim/`), { method: 'POST', token })
+
+export const listLinks = (code: string, token?: string, signal?: AbortSignal) =>
+  request<Page<SharedLink>>(v2(`/lists/${enc(code)}/links/?page_size=${LIMITS.linksPerList}`), {
+    token,
+    signal,
+  })
+
+export const createLink = (code: string, link: LinkInput, token?: string) =>
+  request<SharedLink>(v2(`/lists/${enc(code)}/links/`), { method: 'POST', body: link, token })
+
+export const changeLink = (code: string, id: string, link: LinkInput, token?: string) =>
+  request<SharedLink>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), {
+    method: 'PATCH',
+    body: link,
+    token,
+  })
+
+export const removeLink = (code: string, id: string, token?: string) =>
+  request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token })

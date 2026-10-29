@@ -16,7 +16,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     test('static pages', async ({ page }) => {
       for (const [path, heading] of [
         ['/', /Collect links/],
-        ['/lists', 'Saved lists'],
+        ['/lists', 'My lists'],
         ['/about', 'About & privacy'],
         ['/no/such/page', 'Page not found'],
       ] as const) {

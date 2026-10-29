@@ -125,6 +125,10 @@ null for ordinary lists. `parent` is null when the viewer can't view the parent.
 | PUT, DELETE | `/api/v2/lists/{code}/links/{id}/icon/` | editor (account) | multipart icon ≤2 MB, re-encoded to 128×128. Versioned |
 | POST | `/api/v2/lists/{code}/links/{id}/refresh-metadata/` | editor | 202. At most once per hour per link |
 
+Since task 1.4 the links list, create, update and delete endpoints exist with the V1 link
+representation, newest first, and a hard delete. Task 2.1 adds `position`, `description` and
+tombstones; the rest of the table follows in phase 2 and 7.
+
 Link representation (V1 fields kept, new fields added):
 
 ```json
@@ -202,7 +206,7 @@ gets a per-route allowance (2 MB), and nginx gets a matching `location` with
 
 | V1 endpoint | V2 behaviour |
 |---|---|
-| `POST /api/v1/lists/` | **410** `{"detail": "Creating lists now requires an account.", "code": "gone"}` ([ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) |
+| `POST /api/v1/lists/` | **410** `{"detail": "Creating lists now requires an account."}` (v1 bodies carry no `code`), since task 1.4. The `LEGACY_LIST_CREATION=on` switch keeps it working for tests and e2e seeding only ([ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) |
 | `GET /api/v1/lists/{code}/`, `…/links/` | Unchanged representation for `unlisted` and `public` lists. `private` → 404 |
 | `PATCH/DELETE …`, `…/links/…`, `rotate-token` | Legacy token on unclaimed lists only (same services as v2). Claimed → 403 |
 | `/l/{code}` on Django | 302 to the v1 API representation (unchanged). Behind nginx the SPA handles it |

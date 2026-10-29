@@ -1,8 +1,9 @@
 // Error and edge states, with server responses mocked where the real stack can't easily
 // produce them. Chromium only (playwright.config.ts): this is app logic, not engine behaviour.
-import { expect, openAsOwner, test } from './fixtures'
+import { expect, openAsOwner, signUpThroughApi, test, uniqueEmail } from './fixtures'
 
 test('unknown lists get a not-found page', async ({ page }) => {
+  await signUpThroughApi(page, uniqueEmail('notfound')) // signed in, "Create" offers the form
   await page.goto('/l/NoSuchList000000')
   await expect(page.getByRole('heading', { level: 1, name: "This list doesn't exist" })).toBeVisible()
   await expect(page).toHaveTitle('List not found · listlinkedin')
@@ -12,7 +13,7 @@ test('unknown lists get a not-found page', async ({ page }) => {
 
 test('expired lists explain what happened', async ({ page, api }) => {
   const list = await api.createList('Expired')
-  await page.route(`**/api/v1/lists/${list.public_code}/**`, (route) =>
+  await page.route(`**/api/v2/lists/${list.public_code}/**`, (route) =>
     route.fulfill({ status: 410, json: { detail: 'This list has expired.' } }),
   )
   await page.goto(`/l/${list.public_code}`)
@@ -21,7 +22,8 @@ test('expired lists explain what happened', async ({ page, api }) => {
 })
 
 test('rate-limited list creation shows the wait and disables the button', async ({ page }) => {
-  await page.route('**/api/v1/lists/', (route) =>
+  await signUpThroughApi(page, uniqueEmail('throttled'))
+  await page.route('**/api/v2/lists/', (route) =>
     route.request().method() === 'POST'
       ? route.fulfill({ status: 429, headers: { 'Retry-After': '120' }, json: { detail: 'Request was throttled.' } })
       : route.continue(),
@@ -36,7 +38,7 @@ test('rate-limited list creation shows the wait and disables the button', async 
 test('a server error offers a retry that recovers', async ({ page, api }) => {
   const list = await api.createList('Flaky server')
   let failures = 1
-  await page.route(`**/api/v1/lists/${list.public_code}/`, (route) =>
+  await page.route(`**/api/v2/lists/${list.public_code}/`, (route) =>
     failures-- > 0 ? route.fulfill({ status: 502, body: 'Bad gateway' }) : route.continue(),
   )
   await page.goto(`/l/${list.public_code}`)

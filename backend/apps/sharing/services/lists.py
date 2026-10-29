@@ -138,6 +138,29 @@ def rotate_owner_token(principal: Principal, list_id: UUID) -> str:
     return owner_token
 
 
+@transaction.atomic
+def claim_list(principal: Principal, list_id: UUID) -> SharedList:
+    """Make the signed-in user the owner of a legacy list whose owner token they present.
+
+    The token is retired in the same transaction, so it can't be used again by anyone. The
+    list's visibility (unlisted) and expiry don't change; making it permanent is a separate,
+    explicit choice. Claiming a list you already own is a no-op (idempotent).
+    """
+    if principal.user is None:
+        raise errors.AuthenticationRequired("Sign in to add this list to your account.")
+    locked = SharedList.objects.select_for_update().filter(pk=list_id).first()
+    if locked is not None and locked.owner_id == principal.user.pk:
+        return locked
+    locked, actor, facts = _lock(principal, list_id)
+    if not can(actor, Action.CLAIM, facts):
+        raise errors.Forbidden("This edit link doesn't work for this list any more.")
+    locked.owner = principal.user
+    locked.owner_token_hash = None
+    locked.save(update_fields=["owner", "owner_token_hash", "updated_at"])
+    logger.info("List %s claimed by user %s", locked.id, principal.user.pk)
+    return locked
+
+
 def _lock(
     principal: Principal, list_id: UUID, *, with_email: bool = False
 ) -> tuple[SharedList, Actor, ListFacts]:

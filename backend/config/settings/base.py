@@ -157,6 +157,10 @@ CACHES = {
     }
 }
 
+# V1's anonymous list creation (POST /api/v1/lists/) answers 410 since V2. Test and e2e stacks
+# turn it back on to create legacy lists for edit-link tests. Never on in production.
+LEGACY_LIST_CREATION = os.environ.get("LEGACY_LIST_CREATION", "off") == "on"
+
 # Hosts links may not point to (subdomains included), e.g. to shut down a phishing domain.
 # This service's own host is always blocked: it would only create redirect loops/chains.
 BLOCKED_DESTINATION_HOSTS = env_list("BLOCKED_DESTINATION_HOSTS")

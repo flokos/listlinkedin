@@ -283,3 +283,99 @@ def test_short_urls_respect_the_lists_visibility(alice, bob):
     response = member.get(f"/r/{short}")
     assert response.status_code == 302
     assert response["Location"] == "https://example.com/"
+
+
+# Claiming legacy lists (task 1.4)
+
+
+def claim(user, shared_list, token):
+    client = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
+    if user:
+        client.force_login(user)  # a real session: the token is read alongside it
+    return client.post(f"{URL}{shared_list.public_code}/claim/")
+
+
+def test_claiming_makes_you_owner_and_retires_the_token(alice, legacy):
+    shared_list, token = legacy
+    expires = shared_list.expires_at
+
+    response = claim(alice, shared_list, token)
+
+    assert response.status_code == 200, response.content
+    data = response.json()
+    assert data["my_role"] == "owner"
+    assert data["legacy"] is False
+    assert data["visibility"] == "unlisted"  # unchanged
+    shared_list.refresh_from_db()
+    assert shared_list.owner == alice
+    assert shared_list.owner_token_hash is None
+    assert shared_list.expires_at == expires  # never made permanent silently
+    # The old token is dead, on v2 and v1.
+    stale = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
+    url = f"{URL}{shared_list.public_code}/"
+    assert stale.patch(url, {"title": "x"}, format="json").status_code == 403
+    v1 = f"/api/v1/lists/{shared_list.public_code}/"
+    assert stale.patch(v1, {"title": "x"}, format="json").status_code == 403
+
+
+def test_claiming_needs_both_an_account_and_the_token(alice, bob, legacy):
+    shared_list, token = legacy
+    assert claim(None, shared_list, token).status_code == 401
+    assert claim(alice, shared_list, "wrong-token").status_code == 403
+    assert claim(alice, shared_list, token).status_code == 200
+    assert claim(alice, shared_list, token).status_code == 200  # idempotent for the owner
+    assert claim(bob, shared_list, token).status_code == 403  # the token is retired
+
+
+def test_v1_creation_is_retired(db, api_client, settings):
+    settings.LEGACY_LIST_CREATION = False
+    response = api_client.post("/api/v1/lists/", {"title": "x"}, format="json")
+    assert response.status_code == 410
+    assert "requires an account" in response.json()["detail"]
+
+
+# Links on /api/v2/ (pulled forward from task 2.1)
+
+
+def test_editors_manage_links_of_account_lists(alice, bob):
+    code = create(alice)["code"]
+    add_member(bob, code, "editor")
+    links = f"{URL}{code}/links/"
+
+    added = client_for(bob).post(
+        links, {"destination_url": "https://example.com/a", "title": "A"}, format="json"
+    )
+    assert added.status_code == 201, added.content
+    link = added.json()
+    assert link["short_url"]
+    edited = client_for(alice).patch(
+        f"{links}{link['id']}/", {"destination_url": "https://example.com/b"}, format="json"
+    )
+    assert edited.json()["short_url"] == link["short_url"]  # K1
+    assert client_for(alice).get(links).json()["count"] == 1
+    assert client_for(bob).delete(f"{links}{link['id']}/").status_code == 204
+
+
+def test_viewers_and_strangers_cannot_change_links(alice, bob):
+    code = create(alice, visibility="unlisted")["code"]
+    add_member(bob, code, "viewer")
+    body = {"destination_url": "https://example.com/"}
+    assert client_for(bob).post(f"{URL}{code}/links/", body, format="json").status_code == 403
+    assert client_for().post(f"{URL}{code}/links/", body, format="json").status_code == 403
+    assert client_for().get(f"{URL}{code}/links/").status_code == 200  # unlisted: readable
+
+
+def test_private_list_links_are_hidden(alice):
+    code = create(alice)["code"]
+    assert client_for().get(f"{URL}{code}/links/").status_code == 404
+
+
+def test_legacy_token_manages_links_on_v2(legacy):
+    shared_list, token = legacy
+    holder = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
+    response = holder.post(
+        f"{URL}{shared_list.public_code}/links/",
+        {"destination_url": "https://example.com/"},
+        format="json",
+    )
+    assert response.status_code == 201
