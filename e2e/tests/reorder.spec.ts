@@ -37,6 +37,15 @@ test('drag a tile to a new place with the mouse', async ({ page, api, isMobile }
   await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 10, from.y + from.height / 2 + 5, { steps: 5 })
   await page.mouse.move(to.x + to.width / 2 + 20, to.y + to.height / 2, { steps: 20 })
+  // Release only once the grid shows the new place. Under load WebKit may not have handled the
+  // swap at the target yet, and a blind release dropped the tile short (CI, PR #30). Nudging
+  // the pointer gives Sortable another move event. The floating copy it adds isn't counted.
+  const placed = page.locator('.ll-link-grid > :not(.sortable-fallback)').getByRole('link', { name: /\(opens in a new tab\)$/ })
+  await expect(async () => {
+    await page.mouse.move(to.x + to.width / 2 + 22, to.y + to.height / 2 + 2, { steps: 2 })
+    await page.mouse.move(to.x + to.width / 2 + 20, to.y + to.height / 2, { steps: 2 })
+    await expect(placed).toHaveText([/Bravo/, /Charlie/, /Alpha/, /Delta/], { timeout: 1000 })
+  }).toPass({ timeout: 10_000 })
   await page.mouse.up()
 
   await expect(cardTitles(page)).toHaveText([/Bravo/, /Charlie/, /Alpha/, /Delta/])
