@@ -58,8 +58,17 @@ check "health check over HTTPS" 200 "$(curl_ -o /dev/null -w '%{http_code}' "$ht
 check "HTTP redirects to HTTPS" "301 https://$SERVER_NAME/api/v1/lists/" \
     "$(curl_ -o /dev/null -w '%{http_code} %{redirect_url}' "$http/api/v1/lists/")"
 
-created=$(curl_ -X POST "$https/api/v1/lists/" -H 'Content-Type: application/json' \
-    -d '{"title":"smoke"}')
+# Anonymous creation is retired in production (docs/v2/adr/ADR-011), so seed a legacy
+# (edit-link) list with the service V1 used and test the rest of the V1 API on it.
+check "anonymous list creation is retired" 410 \
+    "$(curl_ -o /dev/null -w '%{http_code}' -X POST "$https/api/v1/lists/" \
+        -H 'Content-Type: application/json' -d '{"title":"smoke"}')"
+created=$(compose exec -T api python manage.py shell -c '
+import json
+from apps.sharing.serializers import ListCreatedSerializer
+from apps.sharing.services.legacy import create_list
+shared_list, shared_list.owner_token = create_list(title="smoke")
+print(json.dumps(ListCreatedSerializer(shared_list).data))' | tail -n 1)
 code=$(json '["public_code"]' <<<"$created")
 token=$(json '["owner_token"]' <<<"$created")
 check "public URL uses PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/l/$code" "$(json '["public_url"]' <<<"$created")"
@@ -97,13 +106,14 @@ check "oversized body rejected by nginx" 413 \
     "$(head -c 40000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X POST \
         "$https/api/v1/lists/" -H 'Content-Type: application/json' --data-binary @-)"
 
-# 1 list was created above; the limit is 30/hour per client. A fresh spoofed
-# X-Forwarded-For on every request must not reset it: nginx overwrites the header.
+# 1 creation was attempted above; the limit is 30/hour per client and is checked before the
+# 410. A fresh spoofed X-Forwarded-For on every request must not reset it: nginx overwrites
+# the header.
 statuses=$(for i in $(seq 30); do
     curl_ -o /dev/null -w '%{http_code}\n' -X POST "$https/api/v1/lists/" \
         -H "X-Forwarded-For: 198.51.100.$i" -H 'Content-Type: application/json' -d '{"title":"t"}'
 done | sort | uniq -c | awk '{print $2 "x" $1}' | paste -sd' ')
-check "spoofed X-Forwarded-For cannot bypass rate limits" "201x29 429x1" "$statuses"
+check "spoofed X-Forwarded-For cannot bypass rate limits" "410x29 429x1" "$statuses"
 
 # `compose port` prints ":0" for a port that is exposed but has no host binding.
 published=$(compose port api 8000 2>/dev/null || true)

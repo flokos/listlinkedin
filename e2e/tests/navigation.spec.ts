@@ -54,8 +54,9 @@ test.describe('mobile menu', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'My lists' })).toBeVisible()
     await expect(drawer).toBeHidden()
     // The compact "New list" button is reachable on small screens.
+    // Signed out, it leads to Home's invitation to create an account (ADR-011).
     await page.getByRole('banner').getByRole('link', { name: 'New list' }).click()
-    await expect(page.getByRole('textbox', { name: 'List name' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Create a free account' })).toBeVisible()
   })
 })
 

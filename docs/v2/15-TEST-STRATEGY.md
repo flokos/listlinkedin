@@ -22,7 +22,7 @@ Test data uses plain builder functions in `conftest.py` (V1 style). There is no 
 | Frontend unit and component | composables, components, client | `frontend/src/**/*.test.ts` | CI `checks` |
 | End-to-end | journeys on the production stack over HTTPS | `e2e/tests/*.spec.ts` | CI `e2e` |
 | Concurrency | real threads or processes on PostgreSQL | `transactional_db` tests (V1 `test_concurrent_*` pattern) | CI `checks` |
-| Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks) | CI `proxy` |
+| Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks; since 1.4 it asserts v1 create → 410 and seeds its legacy list with `manage.py shell`) | CI `proxy` |
 
 ## Unit tests (pure domain)
 
