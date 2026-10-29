@@ -74,6 +74,25 @@
   border: 0;
 }
 
+/* Links appearing, leaving and moving in a list or grid (<TransitionGroup name="ll-list">). */
+.ll-list-enter-active,
+.ll-list-leave-active {
+  transition:
+    opacity var(--ll-duration-base) var(--ll-ease-standard),
+    transform var(--ll-duration-base) var(--ll-ease-standard);
+}
+.ll-list-enter-from {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.ll-list-leave-to {
+  opacity: 0;
+  transform: translateX(16px);
+}
+.ll-list-move {
+  transition: transform var(--ll-duration-base) var(--ll-ease-standard);
+}
+
 /* Skip link: hidden until focused. */
 .ll-skip-link {
   position: fixed;

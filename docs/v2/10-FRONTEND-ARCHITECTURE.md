@@ -98,14 +98,14 @@ reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes
 
 | V1 component | V2 |
 |---|---|
-| `LinkCard` | Kept as the **list view** row. Shows description and the fetched icon |
+| `LinkCard` | Kept as the **list view** row. Shows the full description and the icon (`display`), since 2.4 |
 | `DomainAvatar` | Kept as the icon **fallback**, scaled for tiles |
-| `LinkForm` | Extended: description, icon upload, metadata preview ("Fetched title: … Use it?") |
+| `LinkForm` | Extended: description (2.4); metadata preview ("Fetched title: … Use it?", 7.3). The icon upload is in `LinkEditDialog` (`ImageUploadField`), since an icon belongs to a saved link. No `autofocus`: the dialog focuses the URL after opening, only if focus isn't already in the form |
 | `StatePanel`, `ConfirmDialog`, `CopyField`, `ExpiryChip`, `LinkLimitMeter`, `RouteAnnouncer`, `RouteProgress`, `ThemeMenu`, `AppFooter` | Unchanged or copy-only changes |
 | `ShareDialog` | Extended with a visibility selector and a members section |
 | `AppHeader`, `AppNavDrawer` | New nav items and an account menu. The drawer pattern is reused for the group sidebar on mobile |
 | `EditLinkReveal`, `ClaimTokenDialog`, `BackupCard` | Legacy only. They gain "Add to my account". Removed at the legacy sunset |
-| `ListView.vue` (619 lines) | Split into `ListHeader`, `ListToolbar`, `AddLinkCard`, `LinkCollection` (grid/list) and dialog components |
+| `ListView.vue` (619 lines) | Split into `ListHeader`, `ListToolbar`, `AddLinkCard`, `LinkCollection` (grid/list) and dialog components (`LinkEditDialog`, `LinkDetailsDialog`), since 2.4. `LinkMenu` (the ⋮ menu) and `LinkIcon` (icon or avatar) are shared by tiles and rows |
 
 New components: `LinkTile`, `LinkGrid`, `ViewToggle`, `MoveMenuItems`, `LiveRegion`,
 `VisibilitySelect`, `MembersPanel`, `ListSettingsDialog`, `ImageUploadField`, `MetadataStatus`,

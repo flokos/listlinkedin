@@ -24,6 +24,14 @@ def slug_for(title: str) -> str:
     return f"{slug[: MAX_SLUG_LENGTH - 5]}-list" if slug in RESERVED_SLUGS else slug
 
 
+def display_host(url: str) -> str:
+    """A link's host for display: lowercase, without `www.`. Internationalized hosts stay in
+    punycode, as stored, so look-alike hosts can't pass for familiar ones (frontend: the
+    same rule in utils/url.ts)."""
+    host = (urlsplit(url).hostname or "").removeprefix("www.")
+    return host or url
+
+
 _url_validator = URLValidator(schemes=["http", "https"])
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 

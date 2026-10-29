@@ -28,8 +28,19 @@ export interface SharedLink {
   description?: string | null
   /** /api/v2/ only: the uploaded icon (same-origin /media/ URL), if any. */
   icon_url?: string | null
+  /** /api/v2/ only: what to show, with the server's precedence applied (user > fetched >
+   * fallback). Clients don't re-derive it. */
+  display?: LinkDisplay
   /** /api/v2/ only: the link this one was copied from. */
   source_link_id?: string | null
+}
+
+export interface LinkDisplay {
+  title: string
+  description: string | null
+  icon_url: string | null
+  /** The site's name if fetched, else the host. */
+  site_name: string
 }
 
 export interface Page<T> {
@@ -42,10 +53,19 @@ export interface Page<T> {
 export interface LinkInput {
   title?: string | null
   destination_url?: string
+  /** /api/v2/ only. */
+  description?: string | null
 }
 
 /** The server's hard limits, mirrored for client-side hints (backend/apps/sharing/domain.py). */
-export const LIMITS = { titleLength: 255, linksPerList: 100, urlBytes: 2048 } as const
+export const LIMITS = {
+  titleLength: 255,
+  descriptionLength: 1000,
+  linksPerList: 100,
+  urlBytes: 2048,
+  /** Uploaded images (docs/v2/09-API-DESIGN.md#uploads). */
+  imageBytes: 2 * 1024 * 1024,
+} as const
 
 const enc = encodeURIComponent
 const v1 = (path: string) => `/api/v1${path}`
@@ -188,3 +208,16 @@ export const changeLink = (code: string, id: string, link: LinkInput, token?: st
 
 export const removeLink = (code: string, id: string, token?: string) =>
   request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token })
+
+/** Sets a link's own icon (PNG, JPEG, WebP or GIF ≤2 MB; the server re-encodes it). */
+export function uploadLinkIcon(code: string, id: string, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return request<SharedLink>(v2(`/lists/${enc(code)}/links/${enc(id)}/icon/`), {
+    method: 'PUT',
+    body,
+  })
+}
+
+export const removeLinkIcon = (code: string, id: string) =>
+  request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/icon/`), { method: 'DELETE' })

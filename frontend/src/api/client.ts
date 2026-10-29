@@ -100,6 +100,7 @@ export function csrfToken(): string | undefined {
 
 export interface RequestOptions {
   method?: string
+  /** Sent as JSON, or as multipart if it is a FormData. */
   body?: unknown
   /** A V1 owner token, sent as a bearer header. Such requests need no CSRF token. */
   token?: string
@@ -114,7 +115,9 @@ export async function request<T>(
   { method = 'GET', body, token, signal, headers: extra }: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...extra }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // A FormData body (file uploads) sets its own multipart Content-Type with the boundary.
+  const isForm = body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
   if (!SAFE_METHODS.has(method) && !token) {
     // Session-authenticated writes need Django's CSRF token. The first visit may not have
@@ -127,7 +130,7 @@ export async function request<T>(
   const response = await fetchOrThrow(path, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     signal,
     credentials: 'same-origin', // the session cookie; never sent to other sites
   })

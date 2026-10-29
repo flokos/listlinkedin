@@ -143,6 +143,7 @@ source (**postponed**, [ADR-015](adr/ADR-015-postpone-synchronization.md)), and 
 | Background processing, justified, no RabbitMQ | MVP | PostgreSQL-backed worker |
 | A delayed job never overwrites manual edits; retry and failure behaviour | MVP | |
 | Browser automation / headless Chromium | **Deferred** | Not needed for HTML metadata (prompt 9.1) |
+| Link pictures beyond icons: a pre-generated **thumbnail of the page** the link goes to, or else a **ready-made image** for well-known sites or kinds of link (for example email links) | **Postponed** (user, 2026-10-29) until the rest of the app is done | [Q16](20-DECISIONS-AND-OPEN-QUESTIONS.md#open-questions). Until then a tile shows the uploaded icon, the fetched icon (7.3) or the letter avatar |
 
 ## Discovery [10]
 

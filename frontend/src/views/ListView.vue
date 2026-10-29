@@ -1,43 +1,35 @@
 <script setup lang="ts">
 import {
   mdiAlertCircleOutline,
-  mdiAccountArrowLeftOutline,
   mdiArrowLeft,
   mdiCalendarRemoveOutline,
-  mdiCheck,
-  mdiClose,
-  mdiDeleteOutline,
-  mdiDotsVertical,
-  mdiKeyChange,
   mdiKeyOutline,
   mdiLinkOff,
-  mdiLogout,
   mdiLinkVariantPlus,
   mdiMagnify,
-  mdiPencilOutline,
   mdiPlus,
   mdiRefresh,
-  mdiShareVariant,
-  mdiShieldKeyOutline,
-  mdiTrayRemove,
 } from '@mdi/js'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { errorMessage, LIMITS, type SharedLink, type Visibility } from '../api'
+import { errorMessage, type LinkInput, type SharedLink, type Visibility } from '../api'
+import AddLinkCard from '../components/AddLinkCard.vue'
 import ClaimTokenDialog from '../components/ClaimTokenDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import EditLinkReveal from '../components/EditLinkReveal.vue'
-import ExpiryChip from '../components/ExpiryChip.vue'
-import LinkCard from '../components/LinkCard.vue'
-import LinkForm from '../components/LinkForm.vue'
-import LinkLimitMeter from '../components/LinkLimitMeter.vue'
+import LinkCollection from '../components/LinkCollection.vue'
+import LinkDetailsDialog from '../components/LinkDetailsDialog.vue'
+import LinkEditDialog from '../components/LinkEditDialog.vue'
+import ListHeader from '../components/ListHeader.vue'
+import ListToolbar, { type LinkSort } from '../components/ListToolbar.vue'
 import ShareDialog from '../components/ShareDialog.vue'
 import StatePanel from '../components/StatePanel.vue'
 import { useListPage } from '../composables/useListPage'
 import { useNotify } from '../composables/useNotify'
 import { usePendingReveal } from '../composables/usePendingReveal'
 import { useSession } from '../composables/useSession'
+import { useViewPreference } from '../composables/useViewPreference'
 import { formatDate } from '../utils/time'
 
 const props = defineProps<{ code: string }>()
@@ -47,6 +39,7 @@ const notify = useNotify()
 const page = useListPage(toRef(props, 'code'))
 const { list, links, status, isOwner, ownerRevoked, token } = page
 const session = useSession()
+const { view } = useViewPreference()
 
 // Title follows the list's name.
 watch([list, status], ([value, state]) => {
@@ -64,40 +57,34 @@ const cameFromMyLists = computed(() =>
   String(window.history.state?.back ?? '').startsWith('/lists'),
 )
 
-// Search and sort (client-side: a list holds at most 100 links, all loaded at once).
+// Search and sort (client-side: a list holds at most 100 links, all loaded at once). The
+// server sends the stored order; "Newest" and "A–Z" are only views of it.
 const search = ref('')
-const sort = ref<'newest' | 'az'>('newest')
-const searchField = ref<{ focus: () => void }>()
+const sort = ref<LinkSort>('custom')
+const shownTitle = (l: SharedLink) => l.display?.title ?? l.title ?? l.destination_url
 const visibleLinks = computed(() => {
   const q = search.value.trim().toLowerCase()
   const matches = q
     ? links.value.filter((l) =>
-        [l.title ?? '', l.destination_url].some((text) => text.toLowerCase().includes(q)),
+        [shownTitle(l), l.destination_url, l.display?.description ?? l.description ?? ''].some(
+          (text) => text.toLowerCase().includes(q),
+        ),
       )
     : links.value
+  if (sort.value === 'custom') return matches
   if (sort.value === 'newest') {
-    // The server returns the stored order (positions); "Newest" sorts by creation time.
     return [...matches].sort(
       (a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
     )
   }
   const key = (l: SharedLink) =>
-    (l.title || l.destination_url.replace(/^https?:\/\/(www\.)?/, '')).toLowerCase()
+    (
+      l.title ||
+      l.display?.title ||
+      l.destination_url.replace(/^https?:\/\/(www\.)?/, '')
+    ).toLowerCase()
   return [...matches].sort((a, b) => key(a).localeCompare(key(b)))
 })
-const atLimit = computed(() => links.value.length >= LIMITS.linksPerList)
-
-// "/" focuses search, as in many web apps.
-function onKeydown(event: KeyboardEvent) {
-  const target = event.target as HTMLElement
-  if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return
-  if (target.closest('input, textarea, [contenteditable="true"]')) return
-  if (links.value.length < 2) return
-  event.preventDefault()
-  searchField.value?.focus()
-}
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 // Share dialog is reflected in the URL (?dialog=share) so the browser's Back button closes it.
 const shareOpen = computed({
@@ -130,48 +117,30 @@ watch(
   },
 )
 
-// Inline rename.
-const renaming = ref(false)
-const newTitle = ref('')
-const renameError = ref<string[]>([])
-const renameBusy = ref(false)
-const renameField = ref<{ focus: () => void }>()
-async function startRename() {
-  newTitle.value = list.value?.title ?? ''
-  renameError.value = []
-  renaming.value = true
-  await nextTick()
-  renameField.value?.focus()
-}
-async function saveRename() {
-  const title = newTitle.value.trim()
-  if (!title) {
-    renameError.value = ['A list needs a name.']
-    return
-  }
-  if (title === list.value?.title) {
-    renaming.value = false
-    return
-  }
-  renameBusy.value = true
+async function rename(title: string) {
   try {
     await page.rename(title)
-    renaming.value = false
     notify.success('List renamed')
+    return true
   } catch (error) {
     // Lost edit access: the banner explains it, so close the editor instead.
-    if (ownerRevoked.value) renaming.value = false
-    else renameError.value = [errorMessage(error)]
-  } finally {
-    renameBusy.value = false
+    if (ownerRevoked.value) return false
+    throw error
   }
 }
 
-// Link editing and deletion.
-const editing = ref<SharedLink | null>(null)
+// Link details, editing and deletion. Dialogs follow the link by id, so they show its latest
+// state (for example a new icon) while open.
+const byId = (id: string | null) => links.value.find((l) => l.id === id) ?? null
+const detailsId = ref<string | null>(null)
+const detailsOpen = computed({
+  get: () => detailsId.value !== null,
+  set: (v) => !v && (detailsId.value = null),
+})
+const editingId = ref<string | null>(null)
 const editOpen = computed({
-  get: () => editing.value !== null,
-  set: (v) => !v && (editing.value = null),
+  get: () => editingId.value !== null,
+  set: (v) => !v && (editingId.value = null),
 })
 const deleting = ref<SharedLink | null>(null)
 const deleteOpen = computed({
@@ -179,14 +148,19 @@ const deleteOpen = computed({
   set: (v) => !v && (deleting.value = null),
 })
 
-async function addLink(input: Parameters<typeof page.addLink>[0]) {
+async function addLink(input: LinkInput) {
   await page.addLink(input)
   notify.success('Link added')
 }
-async function saveLink(input: Parameters<typeof page.editLink>[1]) {
-  if (!editing.value) return
-  await page.editLink(editing.value.id, input)
+async function saveLink(input: LinkInput) {
+  if (!editingId.value) return
+  await page.editLink(editingId.value, input)
   notify.success('Link updated')
+}
+async function setIcon(file: File | null) {
+  if (!editingId.value) return
+  await page.setLinkIcon(editingId.value, file)
+  notify.success(file ? 'Icon updated' : 'Icon removed')
 }
 async function confirmDeleteLink() {
   if (!deleting.value) return
@@ -347,146 +321,21 @@ function forgetHere() {
 
     <!-- The list -->
     <template v-else-if="list">
-      <header class="ll-list-header mb-6">
-        <div class="d-flex flex-wrap align-start ga-4">
-          <div class="flex-grow-1 ll-list-header__main">
-            <p class="text-label-large text-primary mb-1">
-              {{
-                list.my_role === 'owner' || (list.legacy && isOwner)
-                  ? 'Your list'
-                  : isOwner
-                    ? 'You can edit this list'
-                    : 'Shared list'
-              }}
-            </p>
-            <v-form v-if="renaming" class="d-flex align-start ga-2" @submit.prevent="saveRename">
-              <v-text-field
-                ref="renameField"
-                v-model="newTitle"
-                label="List name"
-                :maxlength="LIMITS.titleLength"
-                :error-messages="renameError"
-                hide-details="auto"
-                class="flex-grow-1"
-                @keydown.esc="renaming = false"
-              />
-              <v-btn
-                type="submit"
-                :icon="mdiCheck"
-                color="primary"
-                :loading="renameBusy"
-                aria-label="Save name"
-              />
-              <v-btn
-                :icon="mdiClose"
-                variant="text"
-                aria-label="Cancel renaming"
-                @click="renaming = false"
-              />
-            </v-form>
-            <h1 v-else class="text-headline-large ll-list-title">
-              {{ list.title }}
-              <v-btn
-                v-if="isOwner"
-                icon
-                variant="text"
-                density="comfortable"
-                class="ll-list-title__edit"
-                aria-label="Rename list"
-                @click="startRename"
-              >
-                <v-icon :icon="mdiPencilOutline" size="20" />
-              </v-btn>
-            </h1>
-            <div class="d-flex flex-wrap align-center ga-2 mt-3">
-              <v-chip v-if="list.visibility === 'private'" color="secondary" variant="outlined"
-                >Only people you add</v-chip
-              >
-              <ExpiryChip v-if="list.expires_at" :expires-at="list.expires_at" />
-              <v-chip color="secondary"
-                >{{ links.length }} link{{ links.length === 1 ? '' : 's' }}</v-chip
-              >
-              <span class="text-body-small text-medium-emphasis"
-                >Created {{ formatDate(list.created_at) }}</span
-              >
-            </div>
-          </div>
-
-          <div class="d-flex align-center ga-1">
-            <v-btn
-              color="primary"
-              :variant="isOwner ? 'tonal' : 'flat'"
-              :prepend-icon="mdiShareVariant"
-              @click="shareOpen = true"
-            >
-              Share
-            </v-btn>
-            <v-menu v-if="isOwner || page.can('delete') || page.can('leave')" location="bottom end">
-              <template #activator="{ props: menu }">
-                <v-btn
-                  v-bind="menu"
-                  :icon="mdiDotsVertical"
-                  variant="text"
-                  aria-label="List options"
-                />
-              </template>
-              <v-list role="menu" density="comfortable" nav min-width="240">
-                <v-list-item
-                  v-if="isOwner"
-                  role="menuitem"
-                  :prepend-icon="mdiPencilOutline"
-                  title="Rename"
-                  @click="startRename"
-                />
-                <v-list-item
-                  v-if="list.legacy && token"
-                  role="menuitem"
-                  :prepend-icon="mdiAccountArrowLeftOutline"
-                  title="Add to my account"
-                  @click="claimHere"
-                />
-                <v-list-item
-                  v-if="list.legacy && token"
-                  role="menuitem"
-                  :prepend-icon="mdiShieldKeyOutline"
-                  title="Show edit link"
-                  @click="reveal = { open: true, mode: 'view' }"
-                />
-                <v-list-item
-                  v-if="page.can('rotate_token')"
-                  role="menuitem"
-                  :prepend-icon="mdiKeyChange"
-                  title="Replace edit link"
-                  @click="rotateOpen = true"
-                />
-                <v-divider class="my-1" />
-                <v-list-item
-                  v-if="token"
-                  role="menuitem"
-                  :prepend-icon="mdiTrayRemove"
-                  title="Forget on this device"
-                  @click="forgetHere"
-                />
-                <v-list-item
-                  v-if="page.can('leave')"
-                  role="menuitem"
-                  :prepend-icon="mdiLogout"
-                  title="Leave list"
-                  @click="leaveOpen = true"
-                />
-                <v-list-item
-                  v-if="page.can('delete')"
-                  role="menuitem"
-                  :prepend-icon="mdiDeleteOutline"
-                  title="Delete list"
-                  base-color="error"
-                  @click="deleteListOpen = true"
-                />
-              </v-list>
-            </v-menu>
-          </div>
-        </div>
-      </header>
+      <ListHeader
+        :list="list"
+        :link-count="links.length"
+        :can-edit="isOwner"
+        :has-token="Boolean(token)"
+        :can="page.can"
+        :rename="rename"
+        @share="shareOpen = true"
+        @claim="claimHere"
+        @show-edit-link="reveal = { open: true, mode: 'view' }"
+        @rotate="rotateOpen = true"
+        @forget="forgetHere"
+        @leave="leaveOpen = true"
+        @delete="deleteListOpen = true"
+      />
 
       <v-alert
         v-if="ownerRevoked"
@@ -503,77 +352,27 @@ function forgetHere() {
         </template>
       </v-alert>
 
-      <!-- Owner: add a link -->
-      <v-card v-if="isOwner" class="pa-4 pa-sm-5 mb-8 ll-add-card" color="surface-container">
-        <div class="d-flex flex-wrap align-center justify-space-between ga-4 mb-4">
-          <h2 class="text-title-large d-flex align-center ga-2">
-            <v-icon :icon="mdiLinkVariantPlus" color="primary" /> Add a link
-          </h2>
-          <LinkLimitMeter :count="links.length" />
-        </div>
-        <v-alert
-          v-if="atLimit"
-          type="info"
-          density="compact"
-          class="mb-3"
-          text="This list has reached its limit of 100 links. Delete one to add another."
-        />
-        <LinkForm mode="add" :disabled="atLimit" :submit="addLink" />
-      </v-card>
+      <!-- Editors: add a link -->
+      <AddLinkCard v-if="isOwner" :count="links.length" :submit="addLink" />
 
       <!-- Links -->
       <section aria-labelledby="links-heading">
-        <div class="d-flex flex-wrap align-center ga-3 mb-4">
-          <h2 id="links-heading" class="text-title-large flex-grow-1">Links</h2>
-          <template v-if="links.length > 1">
-            <v-text-field
-              ref="searchField"
-              v-model="search"
-              :prepend-inner-icon="mdiMagnify"
-              placeholder="Search links"
-              aria-label="Search links"
-              density="compact"
-              hide-details
-              clearable
-              class="ll-search"
-            >
-              <template #append-inner>
-                <kbd
-                  v-if="!search"
-                  class="ll-kbd d-none d-md-inline-block"
-                  title="Press / to search"
-                  >/</kbd
-                >
-              </template>
-            </v-text-field>
-            <v-btn-toggle
-              v-model="sort"
-              mandatory
-              variant="outlined"
-              density="compact"
-              aria-label="Sort links"
-            >
-              <v-btn value="newest">Newest</v-btn>
-              <v-btn value="az">A–Z</v-btn>
-            </v-btn-toggle>
-          </template>
-        </div>
+        <ListToolbar
+          v-model:search="search"
+          v-model:sort="sort"
+          v-model:view="view"
+          :count="links.length"
+        />
 
-        <TransitionGroup
+        <LinkCollection
           v-if="visibleLinks.length"
-          name="ll-list"
-          tag="div"
-          class="d-flex flex-column ga-3"
-        >
-          <LinkCard
-            v-for="link in visibleLinks"
-            :key="link.id"
-            :link="link"
-            :owner="isOwner"
-            @edit="editing = link"
-            @delete="deleting = link"
-          />
-        </TransitionGroup>
+          :links="visibleLinks"
+          :view="view"
+          :can-edit="isOwner"
+          @details="detailsId = $event.id"
+          @edit="editingId = $event.id"
+          @delete="deleting = $event"
+        />
         <StatePanel
           v-else-if="links.length"
           :icon="mdiMagnify"
@@ -639,22 +438,14 @@ function forgetHere() {
         :title="list.title"
         :public-url="list.url"
       />
-      <v-dialog v-model="editOpen" max-width="560" aria-label="Edit link">
-        <v-card v-if="editing" class="pa-2" title="Edit link">
-          <v-card-text>
-            <p class="text-body-small text-medium-emphasis mb-4">
-              The short link stays the same, so anyone who has it will reach the new destination.
-            </p>
-            <LinkForm
-              mode="edit"
-              :initial="{ url: editing.destination_url, title: editing.title }"
-              :submit="saveLink"
-              @done="editing = null"
-              @cancel="editing = null"
-            />
-          </v-card-text>
-        </v-card>
-      </v-dialog>
+      <LinkDetailsDialog v-model="detailsOpen" :link="byId(detailsId)" />
+      <LinkEditDialog
+        v-model="editOpen"
+        :link="byId(editingId)"
+        :can-upload="page.can('upload')"
+        :submit="saveLink"
+        :set-icon="setIcon"
+      />
       <ConfirmDialog
         v-model="deleteOpen"
         title="Delete this link?"
@@ -701,54 +492,3 @@ function forgetHere() {
     </template>
   </div>
 </template>
-
-<style scoped>
-.ll-list-header__main {
-  min-width: 0;
-  flex-basis: 320px;
-}
-.ll-list-title {
-  overflow-wrap: anywhere;
-}
-.ll-list-title__edit {
-  vertical-align: middle;
-  opacity: 0.6;
-}
-.ll-list-title__edit:hover,
-.ll-list-title__edit:focus-visible {
-  opacity: 1;
-}
-.ll-add-card {
-  border-color: rgba(var(--v-theme-primary), 0.25) !important;
-}
-.ll-kbd {
-  padding: 0 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(var(--v-border-color), 0.3);
-  font-family: var(--ll-font-mono);
-  font-size: 0.75rem;
-  line-height: 1.4;
-  opacity: var(--v-medium-emphasis-opacity);
-}
-.ll-search {
-  max-width: 280px;
-  min-width: 180px;
-}
-.ll-list-enter-active,
-.ll-list-leave-active {
-  transition:
-    opacity var(--ll-duration-base) var(--ll-ease-standard),
-    transform var(--ll-duration-base) var(--ll-ease-standard);
-}
-.ll-list-enter-from {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-.ll-list-leave-to {
-  opacity: 0;
-  transform: translateX(16px);
-}
-.ll-list-move {
-  transition: transform var(--ll-duration-base) var(--ll-ease-standard);
-}
-</style>

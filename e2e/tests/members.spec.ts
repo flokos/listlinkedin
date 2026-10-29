@@ -1,6 +1,6 @@
 // Sharing an account list with people (docs/v2/12-AUTHORIZATION.md): the owner adds an
 // existing, verified account by email, changes what they may do, and members may leave.
-import { expect, otherDevice, signUpVerified, test, uniqueEmail } from './fixtures'
+import { cardTitle, expect, otherDevice, signUpVerified, test, uniqueEmail } from './fixtures'
 
 test('share a private list with someone, let them edit, and they leave', async ({
   page,
@@ -47,7 +47,7 @@ test('share a private list with someone, let them edit, and they leave', async (
   await friend.page.reload()
   await friend.page.getByRole('textbox', { name: 'Link', exact: true }).fill('https://example.com/shared')
   await friend.page.getByRole('button', { name: 'Add link' }).click()
-  await expect(friend.page.getByText('example.com/shared', { exact: true })).toBeVisible()
+  await expect(cardTitle(friend.page, 'example.com')).toBeVisible() // untitled: named by its host
 
   // The friend leaves; the private list is closed to them again.
   await friend.page.getByRole('button', { name: 'List options' }).click()

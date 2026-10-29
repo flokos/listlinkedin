@@ -14,9 +14,10 @@ test.describe('managing links as the owner', () => {
     await add.click()
     await expect(page.getByText('Link added')).toBeVisible()
     await expect(cardTitle(page, 'The guide')).toBeVisible()
-    await expect(page.getByText('example.com/guide', { exact: true })).toBeVisible()
     await expect(url).toHaveValue('') // cleared for the next one
     await expect(url).toBeFocused()
+    await page.getByRole('button', { name: 'List view' }).click() // rows show the full URL
+    await expect(page.getByText('example.com/guide', { exact: true })).toBeVisible()
 
     for (const [bad, message] of [
       ['ftp://files.example.com', 'Only http and https links are allowed.'],
@@ -42,7 +43,11 @@ test.describe('managing links as the owner', () => {
     await page.getByRole('button', { name: 'More actions for Old title' }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     const dialog = page.getByRole('dialog', { name: 'Edit link' })
-    await dialog.getByRole('textbox', { name: 'Link', exact: true }).fill('https://example.com/new')
+    // The URL field gets focus once the dialog has opened, and only then: it used to take focus
+    // back from the title after the opening animation (roadmap 2.4).
+    const urlField = dialog.getByRole('textbox', { name: 'Link', exact: true })
+    await expect(urlField).toBeFocused()
+    await urlField.fill('https://example.com/new')
     await dialog.getByRole('textbox', { name: 'Title (optional)' }).fill('New title')
     await dialog.getByRole('button', { name: 'Save changes' }).click()
     await expect(page.getByText('Link updated')).toBeVisible()
@@ -70,8 +75,14 @@ test.describe('managing links as the owner', () => {
     await page.goto(`/l/${list.public_code}`)
 
     const titles = cardTitles(page)
-    await expect(titles).toHaveText([/Mango/, /Apple/, /Zebra/]) // newest first
-    await page.getByRole('button', { name: 'A–Z' }).click()
+    await expect(titles).toHaveText([/Zebra/, /Apple/, /Mango/]) // the list's own order
+    const sortBy = async (name: string) => {
+      await page.getByRole('button', { name: /^Sort: / }).click()
+      await page.getByRole('menuitemradio', { name }).click()
+    }
+    await sortBy('Newest')
+    await expect(titles).toHaveText([/Mango/, /Apple/, /Zebra/])
+    await sortBy('A–Z')
     await expect(titles).toHaveText([/Apple/, /Mango/, /Zebra/])
 
     const search = page.getByRole('textbox', { name: 'Search links' })

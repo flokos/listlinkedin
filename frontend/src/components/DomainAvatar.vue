@@ -13,7 +13,13 @@ const avatar = computed(() => avatarFor(props.url))
 <template>
   <span
     class="ll-domain-avatar"
-    :style="{ width: `${size}px`, height: `${size}px`, background: avatarTints[avatar.tint] }"
+    :style="{
+      width: `${size}px`,
+      height: `${size}px`,
+      background: avatarTints[avatar.tint],
+      fontSize: `${Math.max(16, Math.round(size * 0.4))}px`,
+      borderRadius: `${Math.max(12, Math.round(size * 0.2))}px`,
+    }"
     aria-hidden="true"
   >
     {{ avatar.initial }}
@@ -25,9 +31,7 @@ const avatar = computed(() => avatarFor(props.url))
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  border-radius: 12px;
   color: #fff;
   font-weight: 700;
-  font-size: 1rem;
 }
 </style>

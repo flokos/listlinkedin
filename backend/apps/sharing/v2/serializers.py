@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from apps.metadata import images
 
-from ..domain import MAX_DESCRIPTION_LENGTH
+from ..domain import MAX_DESCRIPTION_LENGTH, display_host
 from ..models import MEMBER_ROLE_CHOICES, ListMembership, SharedList
 from ..policy import Visibility, permissions, role_of
 from ..selectors import Access
@@ -151,10 +151,32 @@ class MemberRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=MEMBER_ROLE_CHOICES)
 
 
+class LinkDisplaySerializer(serializers.Serializer):
+    title = serializers.CharField()
+    description = serializers.CharField(allow_null=True)
+    icon_url = serializers.CharField(allow_null=True)
+    site_name = serializers.CharField()
+
+
+def link_display(link) -> dict:
+    """What to show for a link: the user's own fields win, then fetched metadata, then a
+    fallback (docs/v2/04-DOMAIN-MODEL.md, invariant 6). Computed here so clients don't
+    re-implement the precedence. Metadata keys: `title`, `description`, `icon` (a media path)
+    and `site_name`, filled by the metadata worker from task 7.3."""
+    fetched = link.metadata or {}
+    host = display_host(link.destination_url)
+    return {
+        "title": link.title or fetched.get("title") or host,
+        "description": link.description or fetched.get("description") or None,
+        "icon_url": images.url_for(link.icon or fetched.get("icon")),
+        "site_name": fetched.get("site_name") or host,
+    }
+
+
 class LinkDetailSerializer(LinkSerializer):
     """A link on /api/v2/: V1's fields plus `description`, the uploaded icon's `icon_url`,
-    its `position` among the live links (0-based) and `source_link_id` (the link it was
-    copied from, if any)."""
+    `display` (what to show, with the precedence applied), its `position` among the live
+    links (0-based) and `source_link_id` (the link it was copied from, if any)."""
 
     description = serializers.CharField(
         max_length=MAX_DESCRIPTION_LENGTH, allow_null=True, allow_blank=True, required=False
@@ -170,11 +192,14 @@ class LinkDetailSerializer(LinkSerializer):
         help_text="The uploaded icon (128×128 WebP), set with PUT …/icon/."
     )
 
+    display = serializers.SerializerMethodField()
+
     class Meta(LinkSerializer.Meta):
         fields = [
             *LinkSerializer.Meta.fields,
             "description",
             "icon_url",
+            "display",
             "position",
             "source_link_id",
         ]
@@ -182,6 +207,10 @@ class LinkDetailSerializer(LinkSerializer):
 
     def get_icon_url(self, link) -> str | None:
         return images.url_for(link.icon)
+
+    @extend_schema_field(LinkDisplaySerializer)
+    def get_display(self, link) -> dict:
+        return link_display(link)
 
     def validate_description(self, value: str | None) -> str | None:
         return (value or "").strip() or None  # one representation of "no description"

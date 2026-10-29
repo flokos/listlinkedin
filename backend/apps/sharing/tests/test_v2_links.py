@@ -260,3 +260,39 @@ def test_the_migration_numbers_existing_links_newest_first():
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
     executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+def test_display_applies_user_then_fetched_then_fallback(client, code):
+    plain = add(client, code, "https://www.example.com/page")
+    assert plain["display"] == {
+        "title": "example.com",  # no title, nothing fetched: the host
+        "description": None,
+        "icon_url": None,
+        "site_name": "example.com",
+    }
+    fetched = {
+        "title": "Fetched title",
+        "description": "Fetched description",
+        "icon": "meta/ab/ab12.webp",
+        "site_name": "Example",
+    }
+    SharedLink.objects.filter(pk=plain["id"]).update(metadata=fetched)
+    link = client.get(links_url(code)).json()["results"][0]
+    assert link["display"] == {
+        "title": "Fetched title",
+        "description": "Fetched description",
+        "icon_url": "/media/meta/ab/ab12.webp",
+        "site_name": "Example",
+    }
+    assert link["title"] is None and link["icon_url"] is None  # fetched data stays apart
+
+    SharedLink.objects.filter(pk=plain["id"]).update(icon="icons/cd/cd34.webp")
+    mine = client.patch(
+        links_url(code, plain["id"]), {"title": "Mine", "description": "My words"}, format="json"
+    ).json()
+    assert mine["display"] == {
+        "title": "Mine",
+        "description": "My words",
+        "icon_url": "/media/icons/cd/cd34.webp",
+        "site_name": "Example",
+    }
