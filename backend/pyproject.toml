@@ -6,7 +6,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "django>=5.2,<5.3",
     "django-allauth>=65.21,<66",  # accounts: email login, verification, reset (headless API)
-    "djangorestframework>=3.16,<3.17",
+    "djangorestframework>=3.18.3,<3.19",
     "drf-spectacular>=0.28",
     "gunicorn>=23",
     "idna>=3.7",  # IDNA2008/UTS46 host encoding, as browsers do (the stdlib codec is IDNA2003)
