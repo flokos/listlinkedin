@@ -14,7 +14,9 @@ changes (K1). V2 adds a stored order and tombstones:
   here, in one transaction.
 
 The `*_on` functions work on a list the caller has already locked and authorized; both the
-v2 path below (policy, `Principal`) and the V1 owner-token path (`legacy`) call them.
+v2 path below (policy, `Principal`) and the V1 owner-token path (`legacy`) call them. Their
+callers record the revision (apps.versioning) after them, under the same lock, and check the
+optional If-Match precondition (`expected_head`) before them.
 """
 
 from uuid import UUID
@@ -25,12 +27,14 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.shortener.services import create_redirect
+from apps.versioning.models import RevisionKind
+from apps.versioning.services import record_revision
 
 from ..domain import MAX_LINKS_PER_LIST
 from ..models import SharedLink, SharedList
 from ..policy import Action, can
 from ..selectors import Principal
-from .lists import _lock, denied
+from .lists import _lock, check_head, denied
 
 DUPLICATE_URL = "This URL is already in the list."
 
@@ -38,11 +42,18 @@ DUPLICATE_URL = "This URL is already in the list."
 # v2: authorized by the policy (editors, owners, or a legacy list's owner token).
 
 
-def _lock_for_edit(principal: Principal, list_id: UUID) -> SharedList:
+def _lock_for_edit(
+    principal: Principal, list_id: UUID, expected_head: int | None = None
+) -> SharedList:
     locked, actor, facts = _lock(principal, list_id)
     if not can(actor, Action.EDIT, facts):
         raise denied(principal, "You can't change this list.")
+    check_head(locked, expected_head)
     return locked
+
+
+def _versioned(locked: SharedList, principal: Principal) -> None:
+    record_revision(locked, kind=RevisionKind.EDITED, user=principal.user)
 
 
 @transaction.atomic
@@ -55,13 +66,15 @@ def add_link(
     description: str | None = None,
     position: int | None = None,
     creation_key: UUID | None = None,
+    expected_head: int | None = None,
 ) -> tuple[SharedLink, bool]:
     """Returns (link, created). Retrying with the same `creation_key` returns the first link."""
     locked = _lock_for_edit(principal, list_id)
     if creation_key is not None:
         existing = locked.links.filter(creation_key=creation_key).first()
         if existing is not None:
-            return existing, False
+            return existing, False  # a retry: answered before the precondition, which moved
+    check_head(locked, expected_head)
     link = add_link_on(
         locked,
         destination_url=destination_url,
@@ -70,28 +83,62 @@ def add_link(
         position=position,
         creation_key=creation_key,
     )
+    _versioned(locked, principal)
     return link, True
 
 
 @transaction.atomic
-def update_link(principal: Principal, list_id: UUID, link_id: UUID, changes: dict) -> SharedLink:
-    return update_link_on(_lock_for_edit(principal, list_id), link_id, changes)
+def update_link(
+    principal: Principal,
+    list_id: UUID,
+    link_id: UUID,
+    changes: dict,
+    *,
+    expected_head: int | None = None,
+) -> SharedLink:
+    locked = _lock_for_edit(principal, list_id, expected_head)
+    link = update_link_on(locked, link_id, changes)
+    _versioned(locked, principal)
+    return link
 
 
 @transaction.atomic
-def delete_link(principal: Principal, list_id: UUID, link_id: UUID) -> None:
-    delete_link_on(_lock_for_edit(principal, list_id), link_id)
+def delete_link(
+    principal: Principal, list_id: UUID, link_id: UUID, *, expected_head: int | None = None
+) -> None:
+    locked = _lock_for_edit(principal, list_id, expected_head)
+    delete_link_on(locked, link_id)
+    _versioned(locked, principal)
 
 
 @transaction.atomic
-def move_link(principal: Principal, list_id: UUID, link_id: UUID, to_index: int) -> bool:
-    """Move a link to `to_index` (0-based, clamped). Returns False if nothing moved."""
-    return move_link_on(_lock_for_edit(principal, list_id), link_id, to_index)
+def move_link(
+    principal: Principal,
+    list_id: UUID,
+    link_id: UUID,
+    to_index: int,
+    *,
+    expected_head: int | None = None,
+) -> bool:
+    """Move a link to `to_index` (0-based, clamped). Returns False if nothing moved.
+
+    No precondition is needed for a move (it applies to the current order), but one is
+    honoured if sent."""
+    locked = _lock_for_edit(principal, list_id, expected_head)
+    moved = move_link_on(locked, link_id, to_index)
+    if moved:
+        _versioned(locked, principal)
+    return moved
 
 
 @transaction.atomic
 def move_link_to_list(
-    principal: Principal, source_id: UUID, link_id: UUID, target_id: UUID
+    principal: Principal,
+    source_id: UUID,
+    link_id: UUID,
+    target_id: UUID,
+    *,
+    expected_head: int | None = None,
 ) -> SharedLink:
     """Copy the link to the end of another list (new short URL) and delete it here (K4).
 
@@ -109,6 +156,7 @@ def move_link_to_list(
         raise denied(principal, "You can't change this list.")
     if not can(target_actor, Action.EDIT, target_facts):
         raise denied(principal, "You can't add links to that list.")
+    check_head(source, expected_head)  # the list the user was looking at
     link = get_live_link(source, link_id)
     copy = add_link_on(
         target,
@@ -123,6 +171,8 @@ def move_link_to_list(
     )
     copy.save(update_fields=["icon", "metadata", "metadata_fetched_at"])
     delete_link_on(source, link.pk)
+    _versioned(target, principal)  # one revision in each list
+    _versioned(source, principal)
     return copy
 
 

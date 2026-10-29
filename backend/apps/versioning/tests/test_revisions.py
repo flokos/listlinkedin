@@ -44,9 +44,13 @@ def alice(db):
     return make_user()
 
 
+def revision(shared_list, number=1) -> ListRevision:
+    return ListRevision.objects.get(shared_list=shared_list, number=number)
+
+
 def test_revisions_are_numbered_and_no_ops_write_nothing(alice):
-    shared_list = new_list(alice)
-    first = record(shared_list, RevisionKind.CREATED, user=alice)
+    shared_list = new_list(alice)  # creating a list writes revision 1 (task 3.2)
+    first = revision(shared_list)
     assert (first.number, first.kind, first.created_by) == (1, "created", alice)
     assert first.summary == {"added": 0, "removed": 0, "modified": 0, "moved": 0, "list": []}
     assert record(shared_list) is None  # nothing changed
@@ -63,7 +67,7 @@ def test_revisions_are_numbered_and_no_ops_write_nothing(alice):
 def test_settings_and_fetched_metadata_are_not_content(alice):
     shared_list = new_list(alice)
     link = link_services.add_link_on(shared_list, destination_url="https://example.com/a")
-    record(shared_list, RevisionKind.CREATED)
+    assert record(shared_list) is not None  # the link is content
     SharedList.objects.filter(pk=shared_list.pk).update(visibility="public", image="images/x.webp")
     SharedLink.objects.filter(pk=link.pk).update(metadata={"title": "Fetched"})
     assert record(shared_list) is None
@@ -76,7 +80,7 @@ def test_recording_needs_the_mutations_transaction():
 
 
 def test_revisions_are_immutable(alice):
-    revision = record(new_list(alice), RevisionKind.CREATED)
+    revision = ListRevision.objects.get(shared_list=new_list(alice))
     with pytest.raises(TypeError, match="immutable"):
         revision.save()
     # The trigger raises restrict_violation, which psycopg reports as an IntegrityError.
@@ -90,20 +94,19 @@ def test_revisions_are_immutable(alice):
 
 def test_numbers_are_unique_per_list(alice):
     shared_list = new_list(alice)
-    revision = record(shared_list, RevisionKind.CREATED)
+    first = revision(shared_list)
     with pytest.raises(IntegrityError), transaction.atomic():
         ListRevision.objects.create(
             shared_list=shared_list,
             number=1,
             schema_version=1,
             kind="edited",
-            snapshot=revision.snapshot,
+            snapshot=first.snapshot,
         )
 
 
 def test_deleting_a_list_deletes_its_history(alice):
     shared_list = new_list(alice)
-    record(shared_list, RevisionKind.CREATED)
     list_services.delete_list(Principal(user=alice), shared_list.pk)
     assert not ListRevision.objects.exists()
 
@@ -113,7 +116,8 @@ def test_an_erased_author_still_owns_their_revisions(alice):
     other people's lists keep their author and are never changed."""
     bob = make_user("bob@example.com")
     shared_list = new_list(alice)
-    revision = record(shared_list, RevisionKind.CREATED, user=bob)
+    link_services.add_link_on(shared_list, destination_url="https://example.com/bob")
+    revision = record(shared_list, user=bob)  # Bob's edit on Alice's list
     delete_account(bob, confirm=bob.email)
     User.objects.filter(pk=bob.pk).update(deleted_at=timezone.now() - DELETION_GRACE * 2)
     assert purge_deleted_accounts() == 1
@@ -126,15 +130,14 @@ def test_an_erased_author_still_owns_their_revisions(alice):
 def test_legacy_lists_are_versioned_too(db):
     shared_list, _ = legacy_services.create_list(title="Legacy")
     legacy_services.add_link(shared_list, destination_url="https://example.com/a")
-    revision = record(shared_list, RevisionKind.CREATED)  # an edit link: no user
-    assert revision.created_by is None and len(revision.snapshot["links"]) == 1
+    latest = revision(shared_list, 2)  # created, then the link added through the edit link
+    assert latest.created_by is None and len(latest.snapshot["links"]) == 1
 
 
 @pytest.mark.django_db(transaction=True)
 def test_concurrent_writers_get_consecutive_numbers():
     owner = make_user()
     shared_list = new_list(owner)
-    record(shared_list, RevisionKind.CREATED)
     writers = 20
     barrier = threading.Barrier(writers)
     errors = []

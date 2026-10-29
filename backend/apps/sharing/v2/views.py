@@ -4,6 +4,7 @@ Views do HTTP only. Who may do what is decided by the policy, through selectors 
 services (writes, re-checked under the row lock).
 """
 
+import re
 import uuid
 
 from drf_spectacular.utils import (
@@ -43,6 +44,14 @@ from .serializers import (
     ReorderSerializer,
 )
 
+IF_MATCH = OpenApiParameter(
+    "If-Match",
+    str,
+    OpenApiParameter.HEADER,
+    required=False,
+    description='The list\'s ETag ("r{head_revision}") the change is based on. If the list '
+    "changed since, the request fails with 412 `revision_mismatch` and changes nothing.",
+)
 IDEMPOTENCY_KEY = OpenApiParameter(
     "Idempotency-Key",
     str,
@@ -56,6 +65,7 @@ ERRORS = {
     403: OpenApiResponse(description="Not allowed for this user."),
     404: OpenApiResponse(description="No such list, or not visible to you."),
     410: OpenApiResponse(description="The list has expired."),
+    412: OpenApiResponse(description="If-Match: the list changed since (revision_mismatch)."),
 }
 
 
@@ -143,6 +153,7 @@ class ListViewSet(viewsets.ViewSet):
 
     @extend_schema(
         request=ListWriteSerializer(partial=True),
+        parameters=[IF_MATCH],
         responses={200: ListDetailSerializer, **ERRORS},
     )
     def partial_update(self, request, code=None):
@@ -155,7 +166,12 @@ class ListViewSet(viewsets.ViewSet):
             context={"email_verified": principal.email_verified},
         )
         serializer.is_valid(raise_exception=True)
-        services.update_list(principal, shared_list.pk, dict(serializer.validated_data))
+        services.update_list(
+            principal,
+            shared_list.pk,
+            dict(serializer.validated_data),
+            expected_head=if_match(request),
+        )
         return self._detail(principal, code)
 
     @extend_schema(responses={204: None, **ERRORS})
@@ -186,7 +202,9 @@ class ListViewSet(viewsets.ViewSet):
         return self._detail(selectors.Principal(user=principal.user), code)
 
     @extend_schema(
-        request=ReorderSerializer, responses={200: LinkDetailSerializer(many=True), **ERRORS}
+        request=ReorderSerializer,
+        parameters=[IF_MATCH],
+        responses={200: LinkDetailSerializer(many=True), **ERRORS},
     )
     @action(detail=True, methods=["post"])
     def reorder(self, request, code=None):
@@ -201,14 +219,18 @@ class ListViewSet(viewsets.ViewSet):
             shared_list.pk,
             serializer.validated_data["link"],
             serializer.validated_data["to_index"],
+            expected_head=if_match(request),
         )
         links = selectors.links_with_short_codes(shared_list)
-        return Response(LinkDetailSerializer(links, many=True).data)
+        return with_etag(
+            Response(LinkDetailSerializer(links, many=True).data),
+            selectors.head_revision_of(shared_list),
+        )
 
     def _detail(self, principal, code: str, status_code: int = 200) -> Response:
         shared_list, access = selectors.get_list_for(principal, code)
         data = ListDetailSerializer(shared_list, context={"access": {shared_list.pk: access}}).data
-        return Response(data, status=status_code)
+        return with_etag(Response(data, status=status_code), shared_list.head_revision)
 
 
 LINK_ID = OpenApiParameter("link_id", uuid.UUID, OpenApiParameter.PATH)
@@ -239,11 +261,12 @@ class LinkViewSet(viewsets.ViewSet):
         paginator = self.pagination_class()
         links = selectors.links_with_short_codes(shared_list)
         page = paginator.paginate_queryset(links, request, view=self)
-        return paginator.get_paginated_response(LinkDetailSerializer(page, many=True).data)
+        response = paginator.get_paginated_response(LinkDetailSerializer(page, many=True).data)
+        return with_etag(response, shared_list.head_revision)
 
     @extend_schema(
         request=LinkDetailSerializer,
-        parameters=[IDEMPOTENCY_KEY],
+        parameters=[IDEMPOTENCY_KEY, IF_MATCH],
         responses={201: LinkDetailSerializer, 200: LinkDetailSerializer, **ERRORS},
     )
     def create(self, request, code=None):
@@ -257,31 +280,46 @@ class LinkViewSet(viewsets.ViewSet):
             principal,
             shared_list.pk,
             creation_key=_idempotency_key(request),
+            expected_head=if_match(request),
             **serializer.validated_data,
         )
         data = LinkDetailSerializer(selectors.get_link(shared_list, link.pk)).data
-        return Response(data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        response = Response(data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return with_etag(response, selectors.head_revision_of(shared_list))
 
-    @extend_schema(request=LinkDetailSerializer, responses={200: LinkDetailSerializer, **ERRORS})
+    @extend_schema(
+        request=LinkDetailSerializer,
+        parameters=[IF_MATCH],
+        responses={200: LinkDetailSerializer, **ERRORS},
+    )
     def partial_update(self, request, code=None, link_id=None):
         principal = principal_of(request)
         shared_list, _ = selectors.get_list_for(principal, code)
         serializer = LinkDetailSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         link_services.update_link(
-            principal, shared_list.pk, link_id, dict(serializer.validated_data)
+            principal,
+            shared_list.pk,
+            link_id,
+            dict(serializer.validated_data),
+            expected_head=if_match(request),
         )
-        return Response(LinkDetailSerializer(selectors.get_link(shared_list, link_id)).data)
+        data = LinkDetailSerializer(selectors.get_link(shared_list, link_id)).data
+        return with_etag(Response(data), selectors.head_revision_of(shared_list))
 
-    @extend_schema(responses={204: None, **ERRORS})
+    @extend_schema(parameters=[IF_MATCH], responses={204: None, **ERRORS})
     def destroy(self, request, code=None, link_id=None):
         principal = principal_of(request)
         shared_list, _ = selectors.get_list_for(principal, code)
-        link_services.delete_link(principal, shared_list.pk, link_id)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        link_services.delete_link(
+            principal, shared_list.pk, link_id, expected_head=if_match(request)
+        )
+        return with_etag(
+            Response(status=status.HTTP_204_NO_CONTENT), selectors.head_revision_of(shared_list)
+        )
 
     @extend_schema(
-        parameters=[CODE, LINK_ID],
+        parameters=[CODE, LINK_ID, IF_MATCH],
         request=MoveToListSerializer,
         responses={201: LinkDetailSerializer, **ERRORS},
     )
@@ -293,9 +331,14 @@ class LinkViewSet(viewsets.ViewSet):
         serializer = MoveToListSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         target, _ = selectors.get_list_for(principal, serializer.validated_data["list"])
-        copy = link_services.move_link_to_list(principal, source.pk, link_id, target.pk)
+        copy = link_services.move_link_to_list(
+            principal, source.pk, link_id, target.pk, expected_head=if_match(request)
+        )
         data = LinkDetailSerializer(selectors.get_link(target, copy.pk)).data
-        return Response(data, status=status.HTTP_201_CREATED)
+        # The ETag is the source list's: the one the request was made on.
+        return with_etag(
+            Response(data, status=status.HTTP_201_CREATED), selectors.head_revision_of(source)
+        )
 
 
 class ImageUploadViewSet(viewsets.ViewSet):
@@ -345,11 +388,11 @@ class ListImageViewSet(ImageUploadViewSet):
 
 @extend_schema_view(
     update=extend_schema(
-        parameters=[CODE, LINK_ID],
+        parameters=[CODE, LINK_ID, IF_MATCH],
         request={"multipart/form-data": ImageUploadSerializer},
         responses={200: LinkDetailSerializer, 400: NOT_AN_IMAGE, **ERRORS},
     ),
-    destroy=extend_schema(parameters=[CODE, LINK_ID], responses={204: None, **ERRORS}),
+    destroy=extend_schema(parameters=[CODE, LINK_ID, IF_MATCH], responses={204: None, **ERRORS}),
 )
 class LinkIconViewSet(ImageUploadViewSet):
     """/api/v2/lists/{code}/links/{id}/icon/: a link's own icon, shrunk to fit 128×128."""
@@ -357,14 +400,25 @@ class LinkIconViewSet(ImageUploadViewSet):
     def update(self, request, code=None, link_id=None):
         principal = principal_of(request)
         shared_list, _ = selectors.get_list_for(principal, code)
-        media_services.set_link_icon(principal, shared_list.pk, link_id, self._file(request))
-        return Response(LinkDetailSerializer(selectors.get_link(shared_list, link_id)).data)
+        media_services.set_link_icon(
+            principal,
+            shared_list.pk,
+            link_id,
+            self._file(request),
+            expected_head=if_match(request),
+        )
+        data = LinkDetailSerializer(selectors.get_link(shared_list, link_id)).data
+        return with_etag(Response(data), selectors.head_revision_of(shared_list))
 
     def destroy(self, request, code=None, link_id=None):
         principal = principal_of(request)
         shared_list, _ = selectors.get_list_for(principal, code)
-        media_services.set_link_icon(principal, shared_list.pk, link_id, None)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        media_services.set_link_icon(
+            principal, shared_list.pk, link_id, None, expected_head=if_match(request)
+        )
+        return with_etag(
+            Response(status=status.HTTP_204_NO_CONTENT), selectors.head_revision_of(shared_list)
+        )
 
 
 USER_ID = OpenApiParameter("user_id", uuid.UUID, OpenApiParameter.PATH)
@@ -453,3 +507,24 @@ def _idempotency_key(request) -> uuid.UUID | None:
         return uuid.UUID(value)
     except ValueError:
         raise serializers.ValidationError({"Idempotency-Key": ["Must be a UUID."]}) from None
+
+
+# Revisions as HTTP preconditions (docs/v2/09-API-DESIGN.md#concurrency-preconditions).
+_IF_MATCH = re.compile(r'\s*"r(\d+)"\s*')  # strong comparison: a weak ETag never matches
+
+
+def if_match(request) -> int | None:
+    """The revision an If-Match header names: None if absent or `*`. A value that isn't one
+    of our ETags can't match the current state, so it fails like a stale one."""
+    value = request.headers.get("If-Match")
+    if value is None or value.strip() == "*":
+        return None
+    match = _IF_MATCH.fullmatch(value)
+    if match is None:
+        raise errors.RevisionMismatch('If-Match must be an ETag such as "r12".')
+    return int(match.group(1))
+
+
+def with_etag(response: Response, head_revision: int) -> Response:
+    response["ETag"] = f'"r{head_revision}"'
+    return response

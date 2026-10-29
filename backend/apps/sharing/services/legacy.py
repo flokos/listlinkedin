@@ -16,6 +16,8 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.shortener.services import create_with_unique_code
+from apps.versioning.models import RevisionKind
+from apps.versioning.services import record_revision
 
 from .. import tokens
 from ..domain import LIST_LIFETIME, slug_for
@@ -27,6 +29,7 @@ from .links import add_link_on, delete_link_on, update_link_on
 logger = logging.getLogger(__name__)
 
 
+@transaction.atomic
 def create_list(*, title: str) -> tuple[SharedList, str]:
     """Create a legacy list and return it with its plaintext owner token (never stored)."""
     owner_token = tokens.generate_owner_token()
@@ -44,6 +47,8 @@ def create_list(*, title: str) -> tuple[SharedList, str]:
         ),
         PUBLIC_CODE_CONSTRAINT,
     )
+    locked = SharedList.objects.select_for_update().get(pk=shared_list.pk)
+    record_revision(locked, kind=RevisionKind.CREATED)  # an edit link: no author
     logger.info("Created list %s", shared_list.id)
     return shared_list, owner_token
 
@@ -54,6 +59,7 @@ def update_list(shared_list: SharedList, *, title: str) -> SharedList:
     locked.title = title
     locked.slug = slug_for(title)
     locked.save(update_fields=["title", "slug", "updated_at"])
+    _versioned(locked)
     return locked
 
 
@@ -77,19 +83,32 @@ def delete_list(shared_list: SharedList) -> None:
 @transaction.atomic
 def add_link(shared_list: SharedList, *, destination_url: str, title: str | None = None):
     """V1 appends too; the V1 API still lists links newest first (its contract)."""
-    return add_link_on(_lock_active_list(shared_list), destination_url=destination_url, title=title)
+    locked = _lock_active_list(shared_list)
+    link = add_link_on(locked, destination_url=destination_url, title=title)
+    _versioned(locked)
+    return link
 
 
 @transaction.atomic
 def update_link(shared_list: SharedList, link_id: UUID, **changes) -> SharedLink:
     """Apply validated `title` / `destination_url` changes. The short code is never touched."""
-    return update_link_on(_lock_active_list(shared_list), link_id, changes)
+    locked = _lock_active_list(shared_list)
+    link = update_link_on(locked, link_id, changes)
+    _versioned(locked)
+    return link
 
 
 @transaction.atomic
 def delete_link(shared_list: SharedList, link_id: UUID) -> None:
     """A tombstone, as on v2: the short URL answers 404 from now on."""
-    delete_link_on(_lock_active_list(shared_list), link_id)
+    locked = _lock_active_list(shared_list)
+    delete_link_on(locked, link_id)
+    _versioned(locked)
+
+
+def _versioned(locked: SharedList) -> None:
+    """Edit-link writes are versioned like any other; their revisions have no author."""
+    record_revision(locked, kind=RevisionKind.EDITED)
 
 
 def _lock_active_list(authorized: SharedList) -> SharedList:
