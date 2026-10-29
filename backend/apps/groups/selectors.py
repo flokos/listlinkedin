@@ -3,11 +3,21 @@ filtered (docs/v2/12-AUTHORIZATION.md#implementation-notes)."""
 
 from dataclasses import dataclass
 
-from django.db.models import Count, Exists, IntegerField, OuterRef, Q, QuerySet, Subquery, Value
+from django.db.models import (
+    CharField,
+    Count,
+    Exists,
+    IntegerField,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Value,
+)
 from django.db.models.functions import Coalesce, Now
 
 from apps.common import errors
-from apps.sharing.models import ListMembership
+from apps.sharing.models import ListMembership, SharedLink, SharedList
 from apps.sharing.policy import (
     Actor,
     GroupAction,
@@ -46,6 +56,17 @@ def group_facts_for(principal: Principal, group: Group) -> GroupFacts:
             .values_list("role", flat=True)
             .first()
         )
+    return GroupFacts(
+        id=group.pk,
+        owner_id=group.owner_id,
+        visibility=Visibility(group.visibility),
+        member_role=Role(role) if role else None,
+    )
+
+
+def facts_in_listing(user, group: Group) -> GroupFacts:
+    """Facts for a row of `groups_of(user)`, from its annotations (no extra queries)."""
+    role = group.member_role if group.owner_id != user.pk else None
     return GroupFacts(
         id=group.pk,
         owner_id=group.owner_id,
@@ -93,6 +114,43 @@ def entries_for(principal: Principal, group: Group) -> QuerySet[GroupList]:
         .select_related("shared_list__owner")
         .order_by("position", "pk")
     )
+
+
+def lists_in(principal: Principal, group: Group) -> QuerySet[SharedList]:
+    """The lists the group shows this principal, in the group's order, annotated like
+    `sharing.selectors.lists_of` (`member_role`, `link_count`) so `access_in_listing` can
+    describe each one. Stored positions stay inside: the order is all that comes out."""
+    user = principal.user
+    shown = entries_for(principal, group)
+    entry = GroupList.objects.filter(group=group, shared_list=OuterRef("pk"))
+    links = (
+        SharedLink.objects.filter(shared_list=OuterRef("pk"), deleted_at__isnull=True)
+        .values("shared_list")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
+    member_role = (
+        Subquery(
+            ListMembership.objects.filter(shared_list=OuterRef("pk"), user=user).values("role")[:1]
+        )
+        if user is not None
+        else Value(None, output_field=CharField())
+    )
+    return (
+        SharedList.objects.filter(pk__in=shown.values("shared_list"))
+        .select_related("owner")
+        .annotate(
+            group_position=Subquery(entry.values("position")[:1]),
+            member_role=member_role,
+            link_count=Coalesce(Subquery(links), Value(0), output_field=IntegerField()),
+        )
+        .order_by("group_position", "pk")
+    )
+
+
+def media_in_use() -> set[str]:
+    """Group images, for `cleanup_media`."""
+    return set(Group.objects.exclude(image=None).values_list("image", flat=True))
 
 
 def groups_of(user, *, role: Role | None = None) -> QuerySet[Group]:

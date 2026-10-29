@@ -4,15 +4,17 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from apps.sharing.selectors import media_in_use
+from apps.groups.selectors import media_in_use as group_media
+from apps.sharing.selectors import media_in_use as list_media
+from apps.versioning.selectors import icons_in_snapshots
 
 GRACE_DAYS = 7
 
 
 class Command(BaseCommand):
     help = (
-        "Delete media files that no list or link refers to and that are older than "
-        f"{GRACE_DAYS} days (docs/v2/14-INFRASTRUCTURE.md#scheduled-jobs)."
+        "Delete media files that no list, link, group or revision refers to and that are older "
+        f"than {GRACE_DAYS} days (docs/v2/14-INFRASTRUCTURE.md#scheduled-jobs)."
     )
 
     def handle(self, *args, **options):
@@ -24,7 +26,7 @@ class Command(BaseCommand):
         # Read the references *after* listing the files: a file stored after the listing
         # isn't considered, and a reference committed before the query is seen.
         candidates = [p for p in root.rglob("*") if p.suffix in (".webp", ".tmp") and p.is_file()]
-        in_use = media_in_use()
+        in_use = list_media() | group_media() | icons_in_snapshots()
         deleted = 0
         for path in candidates:
             if path.relative_to(root).as_posix() in in_use or path.stat().st_mtime > cutoff:

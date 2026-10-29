@@ -208,6 +208,30 @@ Since task 3.3:
 | PUT, DELETE | `/api/v2/groups/{code}/image/` | group editor | |
 | GET, POST, PATCH, DELETE | `/api/v2/groups/{code}/members/…` | group owner | As for lists |
 
+Since 4.2. Groups use the session only: a legacy edit link grants nothing on them.
+
+- A group is `{id, code, slug, url, title, description, image_url, visibility, owner,
+  created_at, updated_at, list_count, my_role, permissions}`. `url` is `/g/{code}/{slug}`.
+  `list_count` counts the lists the group shows **you**. `owner` (a display name) appears on
+  public groups and to members. `permissions` come from `can_group`: `view`, `edit`,
+  `add_list`, `view_members`, `settings`, `members`, `delete`, `leave`.
+- `GET …/lists/` answers a plain array, not a page (a group holds at most 100 lists). Each
+  item is a list summary as on `/api/v2/lists/`, as you see that list, plus `shown_to_all`:
+  false when you see the list only through your own role on it, so other people who can view
+  the group don't. Order is the array's order. Stored positions are never returned
+  ([Q17](20-DECISIONS-AND-OPEN-QUESTIONS.md)).
+- `POST …/lists/` → 201 with the item. Can't edit the group → 403, checked before anything
+  about the list. A list you can't see → 404; one you could see but not share → 403
+  `cannot_share_list`; expired → 410; already there → 409 `duplicate_list`; a full group → 400.
+- `DELETE …/lists/{list_code}/` and `POST …/reorder/` treat a list hidden from you like one
+  that isn't there (404). `to_index` counts only the lists you are shown and is clamped.
+  Hidden lists keep their places. Reorder answers with the array.
+- `PUT …/image/` as for list images (multipart `file`, 512×512 WebP; `upload` rate limit) →
+  200 with the group. Group editors and the owner.
+- Members: `{user_id, display_name, email_hint, role, added_at, is_you}`, with the same rules
+  and errors as list members.
+- Rate limits: `group_create`, `group_manage`, and `member_add` for adding people.
+
 ## Directory
 
 | Method | Path | Notes |

@@ -14,6 +14,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.accounts.selectors import user_to_share_with
 from apps.common import errors
+from apps.metadata import images
 from apps.sharing.domain import slug_for
 from apps.sharing.policy import (
     Actor,
@@ -51,6 +52,7 @@ CANNOT_ADD = (
     "ask them to sign up, then try again."
 )
 NOT_IN_GROUP = "This list isn't in the group."
+CANNOT_CHANGE_IMAGE = "Only the group's editors and owner can change its image."
 
 
 @transaction.atomic
@@ -115,6 +117,34 @@ def delete_group(principal: Principal, group_id: UUID) -> None:
     logger.info("Deleted group %s", group_id)
 
 
+def set_group_image(principal: Principal, group_id: UUID, data: bytes | None) -> Group:
+    """Replace the group's image with `data` (any accepted format), or remove it (None).
+
+    As for list images (apps.sharing.services.media): permission is checked before decoding,
+    so strangers can't fill the disk, and again under the lock; the decode happens outside it.
+    """
+    path = None
+    if data is not None:
+        with transaction.atomic():
+            _lock_for_edit(principal, group_id, CANNOT_CHANGE_IMAGE)
+        try:
+            path = images.store(images.process(data, images.IMAGE), images.IMAGE)
+        except images.ImageRejected as exc:
+            raise ValidationError({"file": [str(exc)]}) from None
+    with transaction.atomic():
+        locked = _lock_for_edit(principal, group_id, CANNOT_CHANGE_IMAGE)
+        locked.image = path
+        locked.save(update_fields=["image", "updated_at"])
+    return locked
+
+
+def _lock_for_edit(principal: Principal, group_id: UUID, message: str) -> Group:
+    locked, actor, facts = _lock(principal, group_id)
+    if not can_group(actor, GroupAction.EDIT, facts):
+        raise denied(principal, message)
+    return locked
+
+
 # The lists in a group.
 
 
@@ -172,8 +202,9 @@ def remove_list(principal: Principal, group_id: UUID, list_code: str) -> None:
 
 @transaction.atomic
 def move_list(principal: Principal, group_id: UUID, list_code: str, to_index: int) -> GroupList:
-    """Move a list to `to_index` in the order the actor sees. Entries hidden from the actor
-    keep their places, so a move reveals nothing about them and never displaces them."""
+    """Move a list to `to_index` (0-based, clamped) in the order the actor sees. Entries
+    hidden from the actor keep their places, so a move reveals nothing about them and never
+    displaces them."""
     locked, actor, facts = _lock(principal, group_id)
     if not can_group(actor, GroupAction.EDIT, facts):
         raise denied(principal, "You can't reorder this group.")
@@ -183,10 +214,8 @@ def move_list(principal: Principal, group_id: UUID, list_code: str, to_index: in
     moving = next((e for e in shown if e.shared_list.public_code == list_code), None)
     if moving is None:
         raise errors.NotVisible(NOT_IN_GROUP)
-    if not 0 <= to_index < len(shown):
-        raise ValidationError({"to_index": [f"Must be between 0 and {len(shown) - 1}."]})
     shown.remove(moving)
-    shown.insert(to_index, moving)
+    shown.insert(min(to_index, len(shown)), moving)  # clamped to the end, like links
     reordered = iter(shown)
     _renumber(locked, [next(reordered) if e.pk in shown_ids else e for e in entries])
     locked.save(update_fields=["updated_at"])

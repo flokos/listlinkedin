@@ -23,6 +23,7 @@ export HTTP_PORT=0 HTTPS_PORT=0
 # Every browser shares one client IP; the default 30 lists/hour would throttle the suite.
 # The rate-limit UI is tested with mocked responses instead.
 export THROTTLE_LIST_CREATE=10000/hour THROTTLE_LIST_MANAGE=100000/hour
+export THROTTLE_GROUP_CREATE=10000/hour THROTTLE_GROUP_MANAGE=100000/hour
 
 # The production stack plus Mailpit for account emails (e2e/compose.e2e.yaml).
 compose() { docker compose -f compose.prod.yaml -f e2e/compose.e2e.yaml "$@"; }

@@ -84,7 +84,7 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | worker | `true` (`false` disables fetching, for locked-down deployments) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
-| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3 |
+| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2 |
 
 ## Scheduled jobs
 
@@ -96,7 +96,7 @@ These run under supercronic from `backend/docker/crontab`.
 | daily 03:20 | `clearsessions` | V2 |
 | daily 03:30 | `prune_db_task_results` (keep 7 days) | V2 |
 | daily 03:40 | `purge_deleted_accounts`: erase accounts deleted more than 30 days ago (lists, memberships, personal data; [ADR-016](adr/ADR-016-account-deletion-grace-period.md)) | 3.0 |
-| weekly Sun 04:00 | `cleanup_media`: delete files referenced by no row and no revision snapshot, older than 7 days | 2.3 (rows: list images, link icons including tombstones; snapshots join in 3.1, fetched icons in 7.3) |
+| weekly Sun 04:00 | `cleanup_media`: delete files referenced by no row and no revision snapshot, older than 7 days | 2.3 (rows: list images, link icons including tombstones); revision snapshots and group images since 4.2 (snapshots were documented for 3.1 but missed until then); fetched icons in 7.3 |
 
 ## Backups
 

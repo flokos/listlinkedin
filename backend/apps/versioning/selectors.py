@@ -1,6 +1,7 @@
 """Reading history (docs/v2/07-REVISION-SPEC.md). Callers check that the reader may see the
 list's history (the policy's VIEW_HISTORY) before calling these."""
 
+from django.db import connection
 from django.db.models import QuerySet
 from rest_framework.exceptions import NotFound
 
@@ -36,3 +37,17 @@ def previous_snapshot(revision: ListRevision) -> dict | None:
         shared_list_id=revision.shared_list_id, number=revision.number - 1
     )
     return snapshot.upcast(stored)
+
+
+def icons_in_snapshots() -> set[str]:
+    """Every link icon a revision snapshot refers to, for `cleanup_media`: restoring that
+    revision brings the icon back, so its file must stay."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT DISTINCT link ->> 'icon'
+            FROM {ListRevision._meta.db_table}, jsonb_array_elements(snapshot -> 'links') AS link
+            WHERE link ->> 'icon' IS NOT NULL
+            """  # noqa: S608 - the only interpolation is our own table name
+        )
+        return {row[0] for row in cursor.fetchall()}

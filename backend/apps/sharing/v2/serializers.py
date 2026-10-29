@@ -7,13 +7,11 @@ from rest_framework import serializers
 from apps.metadata import images
 
 from ..domain import MAX_DESCRIPTION_LENGTH, display_host
-from ..models import MEMBER_ROLE_CHOICES, ListMembership, SharedList
+from ..models import MEMBER_ROLE_CHOICES, VISIBILITY_CHOICES, ListMembership, SharedList
 from ..policy import Visibility, permissions, role_of
 from ..selectors import Access
 from ..serializers import LinkSerializer
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
-
-VISIBILITIES = [v.value for v in Visibility]
 
 
 class ListOwnerSerializer(serializers.Serializer):
@@ -101,7 +99,7 @@ class ListWriteSerializer(serializers.Serializer):
     description = serializers.CharField(
         max_length=MAX_DESCRIPTION_LENGTH, allow_blank=True, required=False
     )
-    visibility = serializers.ChoiceField(choices=VISIBILITIES, required=False)
+    visibility = serializers.ChoiceField(choices=VISIBILITY_CHOICES, required=False)
     allow_fork = serializers.BooleanField(required=False)
     allow_branch = serializers.BooleanField(required=False)
     expires_at = serializers.DateTimeField(

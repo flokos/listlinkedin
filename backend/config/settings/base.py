@@ -192,6 +192,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "list_create": os.environ.get("THROTTLE_LIST_CREATE", "30/hour"),
         "list_manage": os.environ.get("THROTTLE_LIST_MANAGE", "600/hour"),
+        "group_create": os.environ.get("THROTTLE_GROUP_CREATE", "30/hour"),
+        "group_manage": os.environ.get("THROTTLE_GROUP_MANAGE", "600/hour"),
         "account": os.environ.get("THROTTLE_ACCOUNT", "300/hour"),
         # Per user: adding people by email can probe which addresses have accounts.
         "member_add": os.environ.get("THROTTLE_MEMBER_ADD", "60/hour"),
@@ -207,7 +209,10 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     # The same editor/viewer choices appear on members and in requests: one named enum.
-    "ENUM_NAME_OVERRIDES": {"MemberRoleEnum": "apps.sharing.models.MEMBER_ROLE_CHOICES"},
+    "ENUM_NAME_OVERRIDES": {
+        "MemberRoleEnum": "apps.sharing.models.MEMBER_ROLE_CHOICES",
+        "VisibilityEnum": "apps.sharing.models.VISIBILITY_CHOICES",
+    },
     "TITLE": "Temporary Link Sharing API",
     "DESCRIPTION": (
         "Anonymous, temporary link lists with a built-in URL shortener.\n\n"

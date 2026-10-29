@@ -3,7 +3,6 @@ from functools import cached_property
 
 from allauth.account.utils import has_verified_email
 from django.db.models import (
-    Case,
     Count,
     Exists,
     IntegerField,
@@ -12,7 +11,6 @@ from django.db.models import (
     QuerySet,
     Subquery,
     Value,
-    When,
 )
 from django.db.models.functions import Coalesce
 from rest_framework.exceptions import NotFound
@@ -131,23 +129,25 @@ def lists_of(user, *, role: Role | None = None) -> QuerySet[SharedList]:
         .annotate(
             member_role=Subquery(membership.values("role")[:1]),
             link_count=Coalesce(Subquery(link_count), Value(0), output_field=IntegerField()),
-            is_owner=Case(When(owner=user, then=Value(1)), default=Value(0)),
         )
         .order_by("-updated_at", "-pk")
     )
 
 
 def access_in_listing(user, shared_list: SharedList) -> Access:
-    """Access for a row of `lists_of(user)`, from its annotations (no extra queries)."""
-    actor = Actor(user_id=user.pk)
+    """Access for a row annotated with the user's `member_role` (`lists_of(user)`, or a
+    group's lists), from its annotations (no extra queries). `user` may be None (signed out).
+    """
+    actor = Actor(user_id=user.pk if user is not None else None)
     role = shared_list.member_role
+    is_owner = user is not None and shared_list.owner_id == user.pk
     facts = ListFacts(
         id=shared_list.pk,
         owner_id=shared_list.owner_id,
         visibility=Visibility(shared_list.visibility),
         allow_fork=shared_list.allow_fork,
         allow_branch=shared_list.allow_branch,
-        member_role=Role(role) if role and not shared_list.is_owner else None,
+        member_role=Role(role) if role and not is_owner else None,
     )
     return Access(actor, facts)
 
@@ -213,8 +213,8 @@ def get_link(shared_list: SharedList, link_id) -> SharedLink:
 
 def media_in_use() -> set[str]:
     """Every media path a list or link refers to, for `cleanup_media`. Tombstoned links count:
-    restoring one brings its icon back. (Revision snapshots join this set with task 3.1, and
-    fetched icons with 7.3.)"""
+    restoring one brings its icon back. `cleanup_media` adds group images and the icons in
+    revision snapshots. (Fetched icons join with 7.3.)"""
     images = SharedList.objects.exclude(image=None).values_list("image", flat=True)
     icons = SharedLink.objects.exclude(icon=None).values_list("icon", flat=True)
     return {*images, *icons}
