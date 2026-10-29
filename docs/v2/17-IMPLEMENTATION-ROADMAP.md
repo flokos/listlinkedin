@@ -12,6 +12,9 @@ How to use this document:
   releases. Production moves from V1 to V2 once, in phase 9 ([06](06-MIGRATION-PLAN.md)).
 - The order follows technical dependencies. It is not a waterfall: the lanes below run in
   parallel wherever the dependency graph allows.
+- **Synchronization is postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md),
+  2026-10-29): phase 6 and synced copies (branches) are not part of the V2 release. Phase 6
+  keeps its task numbers so the design stays traceable. Dashed nodes in the graph are postponed.
 
 ## Dependency graph and parallel lanes
 
@@ -35,31 +38,33 @@ flowchart LR
   T15 --> T41[4.1 Groups model]
   T41 --> T42[4.2 Groups API] --> T43[4.3 Group workspace UI]
   T23 --> T42
-  T32 --> T51[5.1 Fork + branch]
+  T32 --> T51[5.1 Fork]
   T51 --> T52[5.2 Copy UI]
-  T31 --> T61[6.1 Merge engine]
-  T61 --> T62[6.2 Sync services + API]
-  T51 --> T62
-  T62 --> T63[6.3 Sync UI]
+  T31 -.-> T61[6.1 Merge engine: postponed]
+  T61 -.-> T62[6.2 Sync services + API: postponed]
+  T51 -.-> T62
+  T62 -.-> T63[6.3 Sync UI: postponed]
   T23 --> T71[7.1 Task worker]
   T71 --> T72[7.2 Safe fetcher] --> T73[7.3 Link metadata]
   T21 --> T73
   T15 --> T81[8.1 Search + directory API] --> T82[8.2 Explore UI]
-  T63 --> T9[9 Hardening + release]
+  T52 --> T9[9 Hardening + release]
   T43 --> T9
   T73 --> T9
   T82 --> T9
   T34 --> T9
+  classDef postponed stroke-dasharray: 5 5
+  class T61,T62,T63 postponed
 ```
 
 | Lane | Can run in parallel with | Notes |
 |---|---|---|
 | A: accounts and ownership (1.x) | 1.6 dependency refresh, 2.3 media | 1.1 first, since everything with a user FK depends on it |
 | B: links and tiles (2.x) | 1.4, 1.5 | 2.1 is the gate for revisions and metadata |
-| C: revisions → fork/branch → sync (3, 5, 6) | 4.x, 7.x, 8.x | 6.1 (pure engine) can start as soon as 3.1 fixes the snapshot schema |
-| D: groups (4.x) | 3.x, 5.x, 6.x | needs 1.5 (roles) and 2.3 (images) |
-| E: metadata (7.x) | 3.x–6.x | needs 2.1 and 2.3 |
-| F: discovery (8.x) | 3.x–7.x | needs 1.3 and 1.5 (visibility, verified-email gate) |
+| C: revisions → fork (3, 5) | 4.x, 7.x, 8.x | Sync (6.x) is postponed ([ADR-015](adr/ADR-015-postpone-synchronization.md)) |
+| D: groups (4.x) | 3.x, 5.x | needs 1.5 (roles) and 2.3 (images) |
+| E: metadata (7.x) | 3.x–5.x | needs 2.1 and 2.3 |
+| F: discovery (8.x) | 3.x–5.x, 7.x | needs 1.3 and 1.5 (visibility, verified-email gate) |
 
 **Recommended first implementation PR: task 1.1 (`feature/accounts-foundation`).** The custom
 user model must exist before the first migration that references users, and nearly every
@@ -175,19 +180,25 @@ lists. Keyboard and screen-reader navigation of the sidebar works on desktop and
 
 ---
 
-## Phase 5: Fork and branch
+## Phase 5: Fork ("Make a copy")
 
-**Goal:** "Make a copy" and "Make a synced copy" create independent lists atomically.
-**Dependencies:** 3.2. **Read:** [08 Fork vs branch](08-SYNCHRONIZATION-SPEC.md#fork-vs-branch).
+**Goal:** "Make a copy" creates an independent list atomically. **Dependencies:** 3.2.
+**Read:** [08 Fork vs branch](08-SYNCHRONIZATION-SPEC.md#fork-vs-branch) (the fork half).
+Synced copies (branches) are postponed with phase 6 ([ADR-015](adr/ADR-015-postpone-synchronization.md)).
 
 | Task | Branch | Scope | Depends on | Size |
 |---|---|---|---|---|
-| [ ] **5.1** Fork and branch | `feature/fork-and-branch` | `ListBranch` (+ `parent_deleted_at`), `forked_from_id`, creation from the parent's head snapshot (links, codes, `source_link_id`, copied metadata, revision 1), fork, branches and detach endpoints, `Idempotency-Key`; delete-list and `cleanup_expired` set `parent_deleted_at`; atomicity and permission tests | 3.2 | M |
-| [ ] **5.2** Copy UI | `feature/copy-ui` | `CopyListDialog`, `allow_fork`/`allow_branch` settings, provenance banner, "synced copies of this list" | 5.1 | M |
+| [ ] **5.1** Fork | `feature/fork` | `forked_from_id`, creation from the source's head snapshot (links, new short codes, `source_link_id`, copied metadata, revision 1 `forked`), the fork endpoint, `Idempotency-Key`; atomicity and permission tests. *Postponed with phase 6:* `ListBranch`, the branches and detach endpoints, `parent_deleted_at` | 3.2 | S |
+| [ ] **5.2** Copy UI | `feature/copy-ui` | `CopyListDialog` ("Make a copy" only), the `allow_fork` setting, a provenance line ("Copied from …", when viewable). *Postponed:* `allow_branch` in the UI, synced-copy option, "synced copies of this list" | 5.1 | S |
 
 ---
 
-## Phase 6: Synchronization
+## Phase 6: Synchronization (postponed)
+
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29). Not part of
+> the V2 release; phase 9 doesn't depend on it. The tasks below are kept unchanged as the
+> design baseline. Before resuming, revisit [08](08-SYNCHRONIZATION-SPEC.md), add an ADR that
+> accepts or replaces the design, and restore the branch half of 5.1 and 5.2.
 
 **Goal:** a reviewed three-way merge from the parent with Use update / Keep mine / Ignore,
 exactly as specified. **Dependencies:** 3.1 (engine), 5.1 (services). **Read:**
@@ -234,7 +245,7 @@ input. **Dependencies:** 2.1, 2.3. **Read:** [ADR-008](adr/ADR-008-background-me
 ## Phase 9: Hardening and release
 
 **Goal:** V2 is secure, fast, accessible, documented and released without losing V1.
-**Dependencies:** everything above.
+**Dependencies:** everything above except the postponed phase 6.
 
 | Task | Branch | Scope | Size |
 |---|---|---|---|
@@ -245,5 +256,5 @@ input. **Dependencies:** 2.1, 2.3. **Read:** [ADR-008](adr/ADR-008-background-me
 | [ ] **9.5** Rehearsal and release | `chore/release-v2` | staging restore + migration timing + rollback drill; reconcile `main` → `v2`; `release/v1` + `v1.0.0`; release PR `v2 → main`; deploy per [06](06-MIGRATION-PLAN.md#deployment-strategy-release-day) | M |
 | [ ] **9.6** Legacy sunset (≥30 days after launch) | `chore/legacy-sunset` | remove `/api/v1/`, the legacy principal, `LEGACY_LIST_CREATION`, backup and edit-link UI; contract migration (`owner_token_hash`, CHECK L2) | S |
 
-**Definition of done for V2:** every acceptance criterion above, all CI jobs green on `v2`, the
+**Definition of done for V2:** every acceptance criterion above (except postponed phase 6), all CI jobs green on `v2`, the
 release rehearsal executed with a written result, and rollback verified on staging.

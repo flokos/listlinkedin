@@ -40,7 +40,7 @@ in development. Production rollback is covered [below](#rollback).
 | 3 | `versioning`: `ListRevision`, the immutability trigger | schema | yes | |
 | 3 | Baseline revisions: for every list, `number = 1`, `kind = 'migrated'`, snapshot of the current state; `head_revision = 1` | data (batched, 500 lists per transaction) | reverse deletes `migrated` revisions | [Revision initialization](#revision-initialization) |
 | 4 | `groups` tables | schema | yes | |
-| 5–6 | `ListBranch`, `BranchExclusion`, `SyncRecord` | schema | yes | |
+| 5–6 | `ListBranch`, `BranchExclusion`, `SyncRecord`: **postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)), not created in V2 | schema | yes | |
 | 7 | django-tasks-db tables | schema (third-party) | yes | |
 | 8 | `pg_trgm` extension, generated search column, GIN indexes | schema | yes | `CREATE EXTENSION` needs the DB owner role. The compose `POSTGRES_USER` is the owner |
 

@@ -1,6 +1,7 @@
 # ADR-004: Three-way merge with a branch-level baseline
 
-- Status: Accepted (2026-10-28, V2 planning)
+- Status: Accepted (2026-10-28, V2 planning). **Implementation postponed** by
+  [ADR-015](ADR-015-postpone-synchronization.md) (2026-10-29); this design stays the baseline.
 - Related: [08-SYNCHRONIZATION-SPEC.md](../08-SYNCHRONIZATION-SPEC.md)
 
 ## Context

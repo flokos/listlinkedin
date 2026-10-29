@@ -52,10 +52,10 @@ lists are `unlisted`, which is exactly their V1 semantics.
 | Rotate the legacy token | — | — | — | — | — | ✓ |
 | Claim (become owner) | — | ✓ with a valid token | — | — | — | (needs a session too) |
 | Fork ("Make a copy") | — | if can view **and** `allow_fork` | same | same | ✓ | — |
-| Branch ("Make a synced copy") | — | if can view **and** `allow_branch` | same | same | ✓ | — |
-| Preview or apply sync (as child) | — | — | — | ✓ on the child **and** can view the parent | same as Editor | — |
+| Branch ("Make a synced copy"), *postponed* | — | if can view **and** `allow_branch` | same | same | ✓ | — |
+| Preview or apply sync (as child), *postponed* | — | — | — | ✓ on the child **and** can view the parent | same as Editor | — |
 | Remove an exclusion | — | — | — | ✓ on the child | ✓ | — |
-| Detach a branch | — | — | — | — | ✓ (child owner) | — |
+| Detach a branch, *postponed* | — | — | — | — | ✓ (child owner) | — |
 | Create a list | — | ✓ | | | | — (no anonymous creation, [ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) |
 
 A view-only capability never grants editing. In V2 the share URL (`/l/{code}`) is only ever a
@@ -96,6 +96,8 @@ access rule from prompt 5.5: a public group can't expose a private list's data *
 existence**.
 
 ## Synchronization
+
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): these rules apply once synchronization is resumed.
 
 - Preview and apply require editor (or above) on the child **and** the ability to view the
   parent **now**. Both are re-checked under the child lock at apply time.

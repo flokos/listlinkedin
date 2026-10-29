@@ -149,7 +149,8 @@ derived read structure is the stored search vector (a generated column) for the 
 ## Frontend architecture (summary)
 
 The Vue 3 + Vuetify 4 SPA is extended, not rewritten. Composables hold state and a typed API
-client is split by resource. New views cover account, groups, history, sync and explore.
+client is split by resource. New views cover account, groups, history and explore; the sync view is
+postponed ([ADR-015](adr/ADR-015-postpone-synchronization.md)).
 Details are in [10-FRONTEND-ARCHITECTURE.md](10-FRONTEND-ARCHITECTURE.md).
 
 ## Why this shape

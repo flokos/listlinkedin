@@ -144,7 +144,7 @@ These are initial values. Tune them from logs.
 | Content writes (lists, links, groups, reorder) | 1200/h per user; legacy token writes 600/h per IP (V1) |
 | Uploads | 120/h per user |
 | Metadata refresh | 60/h per user, 1/h per link |
-| Sync apply, restore, claim | 120/h per user |
+| Sync apply (postponed), restore, claim | 120/h per user |
 | Directory search | 600/h per IP |
 | Adding members by email | 60/h per user |
 

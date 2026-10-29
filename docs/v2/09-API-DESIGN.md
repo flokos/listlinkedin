@@ -157,6 +157,8 @@ it. `metadata_status` is one of `pending`, `ready`, `unavailable` or `disabled`.
 
 ## Fork, branch and sync
 
+> **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md), 2026-10-29): only `POST /api/v2/lists/{code}/fork/` is built in V2. The branch, detach and sync endpoints below, and `origin.kind = "branch"` with its `sync` field in the list detail, are kept as the design.
+
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | POST | `/api/v2/lists/{code}/fork/` | see [12](12-AUTHORIZATION.md#list-permission-matrix) | `{title?}` → 201 new list. `Idempotency-Key` optional |
