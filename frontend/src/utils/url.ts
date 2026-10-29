@@ -94,3 +94,14 @@ export function avatarFor(input: string): { initial: string; tint: AvatarTint } 
     tint: AVATAR_TINTS[hash % AVATAR_TINTS.length]!,
   }
 }
+
+/**
+ * A list's code from a pasted link (`…/l/{code}/{slug}`, `…/g/{group}/l/{code}`) or the bare
+ * code, or undefined. Only the shape is checked: the server says whether the list exists.
+ */
+export function listCodeFrom(input: string): string | undefined {
+  const text = input.trim()
+  const fromLink = text.match(/\/l\/([A-Za-z0-9_-]+)/)
+  if (fromLink) return fromLink[1]
+  return /^[A-Za-z0-9_-]{4,32}$/.test(text) ? text : undefined
+}

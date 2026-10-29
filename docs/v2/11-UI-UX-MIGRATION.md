@@ -128,15 +128,35 @@ Desktop ≥1280                  Tablet 960–1279              Phone <960
 
 - `v-navigation-drawer`: **permanent** at ≥1280 px (280 px wide), **rail** with expand at
   960–1279 px, and **temporary** (modal, scrim, Escape closes, focus returns to ☰) below 960 px,
-  which is V1's `AppNavDrawer` behaviour. **[Assumption]** Vuetify 4 keeps the `rail`,
-  `permanent` and `temporary` props of the drawer used in V1. Verify in task 4.3 against the
-  installed version, since the docs couldn't be fetched during planning.
+  which is V1's `AppNavDrawer` behaviour. Vuetify 4.3.1 has these props (verified in task 4.3,
+  [19](19-RESEARCH-REFERENCES.md)).
 - The sidebar is a `<nav aria-label="Lists in Dev Portal">` with links. The current list has
   `aria-current="page"`. Selecting a list navigates to `/g/{code}/l/{listCode}`, so the URL
   persists state and Back works. Focus moves to the list's `<h1>` (V1's route focus).
 - The group header shows the group title, Share and ⋮ (Settings, Add list, Reorder). Lists the
   viewer can't see aren't rendered at all ([12](12-AUTHORIZATION.md#which-lists-a-group-shows-to-a-viewer)).
 - Empty group: "Add your first list" with a list picker.
+
+Since task 4.3: **Groups** (`/groups`, signed in; in the menu only when signed in) lists your
+groups with your role, who can see each and how many lists it shows you, and **New group**
+(name and description; new groups are private). `/g/{code}/{slug}` shows the group's first
+list and `/g/{code}/l/{listCode}` a chosen one; the page stays mounted while switching, so only
+the list part changes, and the title reads "List · Group". The list part is the list page
+itself (tiles, adding and editing links, its own Share and ⋮); deleting or leaving the list
+returns to the group. The group's name is the page's `<h1>` only while the group is empty.
+The header has the group's **Share** (who can see the group and its People, as for lists, with
+"Each list in the group is shown only to people who may see that list") and ⋮ with **Add
+lists**, **Reorder lists**, **Settings** (name, description, image), **Leave group** and
+**Delete group** (type the name; the lists stay). The rail shows two letters per list and
+expands on keyboard focus or its **Show list names** toggle, not on hover (a click on the
+toggle would otherwise open and close it at once). Lists you see only through your own role
+on them carry a crossed-out eye and "not everyone in the group sees this list" for screen
+readers. **Reorder lists** turns the sidebar into an ordered list with a drag handle and Move
+up, Move down and Remove buttons per list, announced in the live region; on phones it opens
+the drawer, and **Done** closes it. **Add lists** offers your lists you own or edit and your
+public lists (lists already there say "In this group"), plus **Or paste a list's link** for a
+public list someone else made, until Explore (8.2) can search them. Refusals show the server's
+reason. A missing group and one you may not see read the same: "This group doesn't exist".
 
 ## Sharing
 

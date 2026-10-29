@@ -46,7 +46,7 @@ describe('MembersPanel', () => {
   it('lists the owner first, then the people on the list', async () => {
     const wrapper = mountPanel()
     await flushPromises()
-    expect(api.listMembers).toHaveBeenCalledWith('CODE')
+    expect(api.listMembers).toHaveBeenCalledWith('CODE', 'list')
     const items = wrapper.findAll('.v-list-item').map((item) => item.text())
     expect(items[0]).toContain('You')
     expect(items[0]).toContain('Owner')
@@ -62,7 +62,7 @@ describe('MembersPanel', () => {
     await wrapper.find('input[type="email"]').setValue('  carol@example.com ')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(api.addMember).toHaveBeenCalledWith('CODE', 'carol@example.com', 'viewer')
+    expect(api.addMember).toHaveBeenCalledWith('CODE', 'carol@example.com', 'viewer', 'list')
     expect(wrapper.text()).toContain('Carol')
   })
 

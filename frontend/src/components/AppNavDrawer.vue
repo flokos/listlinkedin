@@ -13,7 +13,7 @@ import { useRoute } from 'vue-router'
 import { useOwnedLists } from '../composables/useOwnedLists'
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
-import { externalNav, mainNav, signInRoute } from '../navigation'
+import { externalNav, shownNav, signInRoute } from '../navigation'
 import AppLogo from './AppLogo.vue'
 
 const open = defineModel<boolean>({ required: true })
@@ -61,7 +61,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <div class="pa-4 pb-2"><AppLogo :size="28" /></div>
     <v-list nav aria-label="Main">
       <v-list-item
-        v-for="item in mainNav"
+        v-for="item in shownNav"
         :key="item.label"
         :to="item.to"
         :prepend-icon="item.icon"

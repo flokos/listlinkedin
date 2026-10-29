@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { mdiExportVariant, mdiEyeOutline } from '@mdi/js'
 import QRCode from 'qrcode'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import type { Visibility } from '../api'
+import type { MemberKind, Visibility } from '../api'
 
 import { useShare } from '../composables/useShare'
 import { mauve, violet } from '../design/tokens'
@@ -11,17 +11,22 @@ import CopyField from './CopyField.vue'
 import MembersPanel from './MembersPanel.vue'
 
 const open = defineModel<boolean>({ required: true })
-const props = defineProps<{
-  title: string
-  url: string
-  visibility: Visibility
-  /** The owner may change who can see the list. */
-  canChange?: boolean
-  /** Making a list public (and adding people) needs a verified email address. */
-  emailVerified?: boolean
-  /** Shows the People section (owner and editors): the list's code is needed for it. */
-  people?: { code: string; ownerName: string | null; youAreOwner: boolean; canManage: boolean }
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** What is shared: a list (the default) or a group. */
+    kind?: MemberKind
+    title: string
+    url: string
+    visibility: Visibility
+    /** The owner may change who can see the list. */
+    canChange?: boolean
+    /** Making a list public (and adding people) needs a verified email address. */
+    emailVerified?: boolean
+    /** Shows the People section (owner and editors): the list's code is needed for it. */
+    people?: { code: string; ownerName: string | null; youAreOwner: boolean; canManage: boolean }
+  }>(),
+  { kind: 'list', people: undefined },
+)
 const emit = defineEmits<{ 'change-visibility': [visibility: Visibility] }>()
 
 const options: { value: Visibility; label: string; hint: string }[] = [
@@ -33,11 +38,11 @@ const options: { value: Visibility; label: string; hint: string }[] = [
   { value: 'unlisted', label: 'Anyone with the link', hint: "It isn't listed anywhere." },
   { value: 'public', label: 'Public', hint: 'Anyone can find it.' },
 ]
-const describe: Record<Visibility, string> = {
+const describe = computed<Record<Visibility, string>>(() => ({
   private: 'Only people you add can open this link.',
-  unlisted: 'Anyone with this link can view the list, but not change it.',
-  public: 'Anyone can view this list, but not change it.',
-}
+  unlisted: `Anyone with this link can view the ${props.kind}, but not change it.`,
+  public: `Anyone can view this ${props.kind}, but not change it.`,
+}))
 
 const qr = ref<string>()
 const { canShare, share } = useShare()
@@ -59,17 +64,17 @@ watch(
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="480" aria-label="Share this list">
+  <v-dialog v-model="open" max-width="480" :aria-label="`Share this ${kind}`">
     <v-card class="pa-2">
       <v-card-item>
-        <v-card-title class="text-title-large">Share this list</v-card-title>
+        <v-card-title class="text-title-large">Share this {{ kind }}</v-card-title>
         <v-card-subtitle class="text-wrap">{{ title }}</v-card-subtitle>
       </v-card-item>
       <v-card-text class="pt-4">
         <v-radio-group
           v-if="canChange"
           :model-value="visibility"
-          label="Who can see this list"
+          :label="`Who can see this ${kind}`"
           class="mb-2"
           hide-details
           @update:model-value="(value) => value && emit('change-visibility', value as Visibility)"
@@ -86,7 +91,7 @@ watch(
                 <span class="d-block text-body-small text-medium-emphasis">
                   {{
                     option.value === 'public' && !emailVerified
-                      ? 'Verify your email address on your account page to publish lists.'
+                      ? `Verify your email address on your account page to publish ${kind}s.`
                       : option.hint
                   }}
                 </span>
@@ -103,11 +108,15 @@ watch(
           <v-icon :icon="mdiEyeOutline" size="18" />
           {{ describe[visibility] }}
         </p>
+        <p v-if="kind === 'group'" class="text-body-small text-medium-emphasis text-center mt-2">
+          Each list in the group is shown only to people who may see that list.
+        </p>
         <MembersPanel
           v-if="people"
           :code="people.code"
           :owner-name="people.ownerName"
           :you-are-owner="people.youAreOwner"
+          :kind="kind"
           :can-manage="people.canManage"
           :email-verified="Boolean(emailVerified)"
         />

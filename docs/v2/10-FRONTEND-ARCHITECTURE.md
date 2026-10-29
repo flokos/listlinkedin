@@ -105,17 +105,24 @@ reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes
 | `DomainAvatar` | Kept as the icon **fallback**, scaled for tiles |
 | `LinkForm` | Extended: description (2.4); metadata preview ("Fetched title: … Use it?", 7.3). The icon upload is in `LinkEditDialog` (`ImageUploadField`), since an icon belongs to a saved link. No `autofocus`: the dialog focuses the URL after opening, only if focus isn't already in the form |
 | `StatePanel`, `ConfirmDialog`, `CopyField`, `ExpiryChip`, `LinkLimitMeter`, `RouteAnnouncer`, `RouteProgress`, `ThemeMenu`, `AppFooter` | Unchanged or copy-only changes |
-| `ShareDialog` | Extended with a visibility selector and a members section |
+| `ShareDialog` | Extended with a visibility selector and a members section. Since 4.3 it also shares groups (`kind="group"`), and `MembersPanel` serves both through `api/members.ts` |
 | `AppHeader`, `AppNavDrawer` | New nav items and an account menu. The drawer pattern is reused for the group sidebar on mobile |
 | `EditLinkReveal`, `ClaimTokenDialog`, `BackupCard` | Legacy only. They gain "Add to my account". Removed at the legacy sunset |
 | `ListView.vue` (619 lines) | Split into `ListHeader`, `ListToolbar`, `AddLinkCard`, `LinkCollection` (grid/list) and dialog components (`LinkEditDialog`, `LinkDetailsDialog`), since 2.4. `LinkMenu` (the ⋮ menu) and `LinkIcon` (icon or avatar) are shared by tiles and rows |
 
 New components: `LinkTile`, `ViewToggle`, `LiveRegion`, `MovePositionDialog`,
 `VisibilitySelect`, `MembersPanel`, `ListSettingsDialog`, `ImageUploadField`, `MetadataStatus`,
-`GroupSidebar`, `GroupWorkspaceLayout`, `ListPickerDialog`, `HistoryTimeline`, `RevisionDiff`,
+`GroupSidebar`, `ListPickerDialog`, `HistoryTimeline`, `RevisionDiff`,
 `ProvenanceBanner`, `CopyListDialog` (fork only in V2), `AuthForm` variants, `TagInput`, `TagChips`.
 Postponed with synchronization ([ADR-015](adr/ADR-015-postpone-synchronization.md)): `SyncStatusChip`,
 `ChangeCard`, `FieldCompare`, `DecisionGroup`, `ExclusionsPanel`, `api/sync.ts`, `useSyncPreview`.
+
+Since 4.3: `GroupView` is the workspace (the sidebar plus `ListView` with `in-group`, which
+hides the My lists back link and returns to the group after a deletion), `GroupSidebar`,
+`GroupAddListDialog`, `GroupFormDialog` (new group and settings) and `GroupsView`. A route's
+`meta.pageKey` names the page instance (`App.vue` keys the router view with it), so the
+workspace stays mounted while `/g/{code}/l/{listCode}` changes. There is no separate
+`GroupWorkspaceLayout`: the drawer joins Vuetify's app layout from the page.
 
 ## Drag and drop
 

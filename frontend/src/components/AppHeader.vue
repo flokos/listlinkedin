@@ -15,7 +15,7 @@ import { useDisplay } from 'vuetify'
 import { useOwnedLists } from '../composables/useOwnedLists'
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
-import { externalNav, mainNav, signInRoute, type NavItem } from '../navigation'
+import { externalNav, shownNav, signInRoute, type NavItem } from '../navigation'
 import AppLogo from './AppLogo.vue'
 import ThemeMenu from './ThemeMenu.vue'
 
@@ -51,7 +51,7 @@ const isDev = import.meta.env.DEV
 
       <nav v-if="mdAndUp" aria-label="Main" class="d-flex ga-1">
         <v-btn
-          v-for="item in mainNav"
+          v-for="item in shownNav"
           :key="item.label"
           :to="item.to"
           variant="text"

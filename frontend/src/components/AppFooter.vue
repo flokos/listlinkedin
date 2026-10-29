@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { externalNav, mainNav } from '../navigation'
+import { externalNav, shownNav } from '../navigation'
 </script>
 
 <template>
@@ -12,7 +12,7 @@ import { externalNav, mainNav } from '../navigation'
       </p>
       <nav aria-label="Footer" class="d-flex flex-wrap ga-4 text-body-small">
         <router-link
-          v-for="item in mainNav"
+          v-for="item in shownNav"
           :key="item.label"
           :to="item.to"
           class="ll-footer__link"

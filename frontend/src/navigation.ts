@@ -1,6 +1,14 @@
 // The site menu, defined once and rendered by the app bar, the mobile drawer and the footer.
-import { mdiFormatListBulletedSquare, mdiHomeOutline, mdiInformationOutline } from '@mdi/js'
+import {
+  mdiFolderMultipleOutline,
+  mdiFormatListBulletedSquare,
+  mdiHomeOutline,
+  mdiInformationOutline,
+} from '@mdi/js'
+import { computed } from 'vue'
 import type { RouteLocationNormalizedLoaded, RouteLocationRaw } from 'vue-router'
+
+import { currentUser } from './composables/useSession'
 
 export interface NavItem {
   label: string
@@ -9,6 +17,8 @@ export interface NavItem {
   /** Route names that count as "inside" this item, for the active state. */
   match: string[]
   badge?: 'owned-lists'
+  /** Shown only to signed-in visitors. */
+  account?: boolean
 }
 
 export const mainNav: NavItem[] = [
@@ -20,8 +30,18 @@ export const mainNav: NavItem[] = [
     match: ['saved-lists'],
     badge: 'owned-lists',
   },
+  {
+    label: 'Groups',
+    to: { name: 'groups' },
+    icon: mdiFolderMultipleOutline,
+    match: ['groups', 'group', 'group-list'],
+    account: true,
+  },
   { label: 'About', to: { name: 'about' }, icon: mdiInformationOutline, match: ['about'] },
 ]
+
+/** The menu items for this visitor: account pages only when signed in. */
+export const shownNav = computed(() => mainNav.filter((item) => !item.account || currentUser()))
 
 /** Secondary links that leave the app (opened in a new tab). */
 export const externalNav = [{ label: 'API docs', href: '/api/docs/' }]

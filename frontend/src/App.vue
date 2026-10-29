@@ -40,7 +40,11 @@ const { queue } = useNotify()
           <!-- No <transition>: the previous page is replaced at once and the new one fades in
                with a CSS animation (.ll-page). Vue transitions wait on animation frames,
                which WebKit may not run in background tabs, leaving two pages mounted. -->
-          <component :is="Component" :key="route.path" class="ll-page" />
+          <component
+            :is="Component"
+            :key="route.meta.pageKey?.(route) ?? route.path"
+            class="ll-page"
+          />
         </router-view>
       </div>
       <AppFooter />
