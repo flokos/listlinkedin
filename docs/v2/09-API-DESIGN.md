@@ -75,7 +75,7 @@ means the step succeeded and left the browser signed out.** Errors are
 | GET | `/api/v2/session/` | Sets the CSRF cookie. Returns `{user: {id, email, display_name, email_verified} \| null}` |
 | GET | `/api/v2/me/` | The signed-in user (401 when signed out) |
 | PATCH | `/api/v2/me/` | `display_name` (≤80 characters, trimmed). `email` is read-only here; changing it goes through allauth's verified flow |
-| DELETE | `/api/v2/me/` | Account deletion. Requires `{"confirm": "<email>"}`, and deletes owned lists and groups first ([04](04-DOMAIN-MODEL.md#ownership-rules)) |
+| DELETE | `/api/v2/me/` | Account deletion. Requires `{"confirm": "<email>"}` (case-insensitive; otherwise 400 on `confirm`), and deletes owned lists and groups first ([04](04-DOMAIN-MODEL.md#ownership-rules)). 204, and the session ends. 409 if a list became the user's during the deletion (nothing is deleted) |
 
 ## Lists
 

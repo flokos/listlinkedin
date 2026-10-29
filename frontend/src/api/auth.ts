@@ -69,3 +69,7 @@ export const changePassword = (currentPassword: string, newPassword: string) =>
 
 export const updateMe = (changes: { display_name: string }) =>
   request<SessionUser>('/api/v2/me/', { method: 'PATCH', body: changes })
+
+/** Deletes the account and every list it owns, and ends the session. `confirm` is the email. */
+export const deleteAccount = (confirm: string) =>
+  request<null>('/api/v2/me/', { method: 'DELETE', body: { confirm } })

@@ -101,9 +101,10 @@ def get_list_for(principal: Principal, code: str) -> tuple[SharedList, Access]:
     return shared_list, access
 
 
-def lists_of(user) -> QuerySet[SharedList]:
-    """Lists the user owns or is a member of ("My lists"), with their role and link count.
-    Unlisted lists of other people never appear here, even if the user has their URL."""
+def lists_of(user, *, role: Role | None = None) -> QuerySet[SharedList]:
+    """Lists the user owns or is a member of ("My lists"), with their role and link count,
+    optionally only those with one role. Unlisted lists of other people never appear here,
+    even if the user has their URL."""
     membership = ListMembership.objects.filter(shared_list=OuterRef("pk"), user=user)
     link_count = (
         SharedLink.objects.filter(shared_list=OuterRef("pk"))
@@ -111,8 +112,14 @@ def lists_of(user) -> QuerySet[SharedList]:
         .annotate(n=Count("pk"))
         .values("n")
     )
+    if role is Role.OWNER:
+        which = Q(owner=user)
+    elif role is not None:
+        which = Q(Exists(membership.filter(role=role.value)))
+    else:
+        which = Q(owner=user) | Q(Exists(membership))
     return (
-        SharedList.objects.filter(Q(owner=user) | Q(Exists(membership)))
+        SharedList.objects.filter(which)
         .select_related("owner")
         .annotate(
             member_role=Subquery(membership.values("role")[:1]),

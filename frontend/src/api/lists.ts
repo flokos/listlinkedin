@@ -130,6 +130,10 @@ const v2 = (path: string) => `/api/v2${path}`
 export const myLists = (signal?: AbortSignal) =>
   request<Page<ListDetail>>(v2('/lists/?page_size=100'), { signal })
 
+/** How many lists the signed-in user owns (all pages). */
+export const ownedListCount = () =>
+  request<Page<ListDetail>>(v2('/lists/?role=owner&page_size=1')).then((page) => page.count)
+
 export const createAccountList = (input: ListInput, idempotencyKey: string) =>
   request<ListDetail>(v2('/lists/'), {
     method: 'POST',

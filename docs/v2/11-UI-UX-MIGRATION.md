@@ -197,7 +197,7 @@ Sign in (email, password, "Forgot your password?"), Sign up (optional display na
 password with Django's validators shown inline), Verify email (opens the emailed link and
 offers to resend it), Reset password (request, then choose a new one). Account: display name,
 email with its verification status and a resend button, password change, sign out (task 1.2).
-**Delete account** (type-to-confirm, lists owned → deleted, with a count) comes with task 1.7.
+**Delete account** (type-to-confirm, lists owned → deleted, with a count) since task 1.7.
 Changing the email address is a later enhancement. Sign-in and sign-up honour a validated
 `?next=` path. No social login, no MFA in the MVP. allauth supports both later
 ([02](02-PRODUCT-REQUIREMENTS.md#accounts-and-access-51-56-88)).

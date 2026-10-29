@@ -117,6 +117,25 @@ def update_list(principal: Principal, list_id: UUID, changes: dict) -> SharedLis
 
 
 @transaction.atomic
+def delete_lists_owned_by(user) -> int:
+    """Delete every list `user` owns, when their account is deleted
+    (docs/v2/04-DOMAIN-MODEL.md#ownership-rules).
+
+    The rows are locked first, in id order like every multi-list write, so a write in progress
+    on one of them finishes before its list goes. Links, short URLs and memberships cascade.
+    """
+    ids = list(
+        SharedList.objects.select_for_update()
+        .filter(owner=user)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    SharedList.objects.filter(pk__in=ids).delete()
+    logger.info("Deleted %d lists owned by user %s", len(ids), user.pk)
+    return len(ids)
+
+
+@transaction.atomic
 def delete_list(principal: Principal, list_id: UUID) -> None:
     locked, actor, facts = _lock(principal, list_id)
     if not can(actor, Action.DELETE, facts):
