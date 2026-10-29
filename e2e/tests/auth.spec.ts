@@ -53,6 +53,9 @@ test('reset a forgotten password from the emailed link', async ({ page, request 
 
   await page.goto('/signin')
   await page.getByRole('link', { name: 'Forgot your password?' }).click()
+  // Wait for the new page: the sign-in page has an "Email" field too, and typing into it
+  // while the reset page loads loses the address (a CI flake, traced 2026-10-29).
+  await expect(page.getByRole('heading', { level: 1, name: 'Reset your password' })).toBeVisible()
   await page.getByRole('textbox', { name: 'Email' }).fill(email)
   await page.getByRole('button', { name: 'Send reset link' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible()
