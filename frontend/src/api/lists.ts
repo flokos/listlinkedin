@@ -22,6 +22,12 @@ export interface SharedLink {
   short_url: string | null
   created_at: string
   updated_at: string
+  /** /api/v2/ only: 0-based order among the list's links. */
+  position?: number
+  /** /api/v2/ only. */
+  description?: string | null
+  /** /api/v2/ only: the link this one was copied from. */
+  source_link_id?: string | null
 }
 
 export interface Page<T> {

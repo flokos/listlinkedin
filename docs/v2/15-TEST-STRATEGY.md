@@ -163,6 +163,7 @@ link to the decision.
 | Codes are 16 chars, 96 bits, collision retry, DB uniqueness (`test_shortener.py`) | **Keep** unchanged |
 | `/r/` 302 to the current destination; `no-store`, `no-referrer`; 404 unknown; 410 expired, inactive or blocked; trailing slash tolerated | **Keep**. Add: private → 404, tombstoned → 404, revived → 302 |
 | The short code survives destination edits (`test_links.py`) | **Keep** (K1) |
+| Deleting a link removes its row and short code (`test_links.py::test_owner_can_remove_link`, `test_shortener.py::test_deleted_link_stops_redirecting`) | **Replaced** in task 2.1 ([ADR-013](adr/ADR-013-soft-delete-links-only.md)): the link becomes a tombstone, disappears from both APIs, and its short URL still answers 404; the row and short code are kept for history and restore |
 | Anonymous reads never expose secrets; token only on create or rotate (`test_lists.py`, `test_security.py`) | **Keep** for v1 and v2 representations |
 | Owner token checks, rotation, the token rotated mid-request → 403, a token from another list rejected | **Keep** for legacy lists. Claimed lists → 403 (new test) |
 | Mass assignment blocked; immutable fields | **Keep** (v1 + v2 serializers) |

@@ -55,8 +55,8 @@ def resolve_destination(code: str, principal=None) -> str:
     like unknown codes, unless `principal` (the requester) may view that list.
     """
     redirect = ShortRedirect.objects.select_related("link__shared_list").filter(code=code).first()
-    if redirect is None:
-        raise NotFound()
+    if redirect is None or redirect.link.is_deleted:
+        raise NotFound()  # a deleted link keeps its code (tombstone) but no longer resolves
     shared_list = redirect.link.shared_list
     principal = principal or selectors.ANONYMOUS
     actor = selectors.actor_for(principal, shared_list)

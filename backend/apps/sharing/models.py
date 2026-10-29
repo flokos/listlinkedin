@@ -10,7 +10,10 @@ from apps.shortener.generators import SHORT_CODE_LENGTH
 from .policy import Role, Visibility
 
 PUBLIC_CODE_CONSTRAINT = "sharing_list_public_code_uniq"
-UNIQUE_DESTINATION_CONSTRAINT = "sharing_link_destination_per_list_uniq"
+# Live links only: a deleted link (tombstone) keeps its URL without blocking re-adding it.
+UNIQUE_DESTINATION_CONSTRAINT = "sharing_link_live_destination_uniq"
+LINK_POSITION_CONSTRAINT = "sharing_link_position_uniq"
+LINK_CREATION_KEY_CONSTRAINT = "sharing_link_creation_key_uniq"
 CREATION_KEY_CONSTRAINT = "sharing_list_creation_key_uniq"
 MEMBERSHIP_CONSTRAINT = "sharing_membership_list_user_uniq"
 
@@ -90,18 +93,60 @@ class SharedLink(models.Model):
     # Stored in normalized form (see domain.normalize_destination_url).
     destination_url = models.TextField()
     title = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (spec: nullable)
+    description = models.TextField(null=True, blank=True)  # noqa: DJ001 (spec: nullable)
+    icon = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (media, task 2.3)
+    # 0-based order among the list's live links (K3). NULL exactly when the link is deleted.
+    position = models.IntegerField(null=True, blank=True)
+    # Tombstone: the row, its id and its short code survive deletion (docs/v2/adr/ADR-013).
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    # The link this one was copied from (forks). A plain UUID on purpose: no FK (K5).
+    source_link_id = models.UUIDField(null=True, blank=True)
+    # Fetched values only, written by the metadata worker (task 7.3); never user fields.
+    metadata = models.JSONField(default=dict, blank=True)
+    metadata_fetched_at = models.DateTimeField(null=True, blank=True)
+    creation_key = models.UUIDField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["shared_list", "destination_url"], name=UNIQUE_DESTINATION_CONSTRAINT
+                fields=["shared_list", "destination_url"],
+                condition=Q(deleted_at__isnull=True),
+                name=UNIQUE_DESTINATION_CONSTRAINT,
+            ),
+            # Checked at commit, so a move can shift several positions in one statement.
+            # It can't be partial (Django refuses deferrable + condition), which is why
+            # tombstones have position NULL: NULLs never collide.
+            models.UniqueConstraint(
+                fields=["shared_list", "position"],
+                deferrable=models.Deferrable.DEFERRED,
+                name=LINK_POSITION_CONSTRAINT,
+            ),
+            models.CheckConstraint(
+                condition=Q(deleted_at__isnull=True, position__isnull=False)
+                | Q(deleted_at__isnull=False, position__isnull=True),
+                name="sharing_link_tombstone_position",
+            ),
+            models.CheckConstraint(
+                condition=Q(position__gte=0), name="sharing_link_position_not_negative"
+            ),
+            models.UniqueConstraint(
+                fields=["shared_list", "source_link_id"],
+                condition=Q(source_link_id__isnull=False, deleted_at__isnull=True),
+                name="sharing_link_live_source_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["shared_list", "creation_key"], name=LINK_CREATION_KEY_CONSTRAINT
             ),
         ]
 
     def __str__(self) -> str:
         return self.destination_url
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
 
 
 class ListMembership(models.Model):

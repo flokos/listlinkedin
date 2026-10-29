@@ -269,7 +269,7 @@ def test_short_urls_respect_the_lists_visibility(alice, bob):
     code = create(alice)["code"]
     shared_list = SharedList.objects.get(public_code=code)
     link = services.legacy.SharedLink.objects.create(
-        shared_list=shared_list, destination_url="https://example.com/"
+        shared_list=shared_list, destination_url="https://example.com/", position=0
     )
     from apps.shortener.services import create_redirect
 

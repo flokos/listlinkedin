@@ -45,7 +45,9 @@ def own_list(user, title="Mine") -> SharedList:
 
 def test_deleting_an_account_deletes_its_lists_and_signs_out(ada, bob):
     mine = own_list(ada)
-    link = SharedLink.objects.create(shared_list=mine, destination_url="https://example.com/")
+    link = SharedLink.objects.create(
+        shared_list=mine, destination_url="https://example.com/", position=0
+    )
     ShortRedirect.objects.create(link=link, code="Abc123Abc123Abc1")
     theirs = own_list(bob, "Bob's")
     ListMembership.objects.create(shared_list=theirs, user=ada, role="editor")

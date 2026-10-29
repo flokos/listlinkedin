@@ -13,15 +13,16 @@ from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied
 
-from apps.shortener.services import create_redirect, create_with_unique_code
+from apps.shortener.services import create_with_unique_code
 
 from .. import tokens
-from ..domain import LIST_LIFETIME, MAX_LINKS_PER_LIST, slug_for
+from ..domain import LIST_LIFETIME, slug_for
 from ..exceptions import Gone
 from ..models import PUBLIC_CODE_CONSTRAINT, SharedLink, SharedList
 from ..policy import Visibility
+from .links import add_link_on, delete_link_on, update_link_on
 
 logger = logging.getLogger(__name__)
 
@@ -75,38 +76,20 @@ def delete_list(shared_list: SharedList) -> None:
 
 @transaction.atomic
 def add_link(shared_list: SharedList, *, destination_url: str, title: str | None = None):
-    locked = _lock_active_list(shared_list)
-    if locked.links.count() >= MAX_LINKS_PER_LIST:
-        raise ValidationError(f"A list can contain at most {MAX_LINKS_PER_LIST} links.")
-    _ensure_not_duplicate(locked, destination_url)
-
-    link = SharedLink.objects.create(
-        shared_list=locked, destination_url=destination_url, title=title
-    )
-    create_redirect(link)
-    return link
+    """V1 appends too; the V1 API still lists links newest first (its contract)."""
+    return add_link_on(_lock_active_list(shared_list), destination_url=destination_url, title=title)
 
 
 @transaction.atomic
 def update_link(shared_list: SharedList, link_id: UUID, **changes) -> SharedLink:
     """Apply validated `title` / `destination_url` changes. The short code is never touched."""
-    locked = _lock_active_list(shared_list)
-    link = _get_link(locked, link_id)
-
-    new_destination = changes.get("destination_url")
-    if new_destination is not None and new_destination != link.destination_url:
-        _ensure_not_duplicate(locked, new_destination)
-
-    for field, value in changes.items():
-        setattr(link, field, value)
-    link.save(update_fields=[*changes, "updated_at"])
-    return link
+    return update_link_on(_lock_active_list(shared_list), link_id, changes)
 
 
 @transaction.atomic
 def delete_link(shared_list: SharedList, link_id: UUID) -> None:
-    locked = _lock_active_list(shared_list)
-    _get_link(locked, link_id).delete()  # cascades to its redirects
+    """A tombstone, as on v2: the short URL answers 404 from now on."""
+    delete_link_on(_lock_active_list(shared_list), link_id)
 
 
 def _lock_active_list(authorized: SharedList) -> SharedList:
@@ -123,16 +106,3 @@ def _lock_active_list(authorized: SharedList) -> SharedList:
     if locked.owner_token_hash != authorized.owner_token_hash:
         raise PermissionDenied("The owner token was rotated during this request.")
     return locked
-
-
-def _get_link(shared_list: SharedList, link_id: UUID) -> SharedLink:
-    # Scoped to the list, so a link id from another list is simply "not found".
-    link = shared_list.links.filter(pk=link_id).first()
-    if link is None:
-        raise NotFound()
-    return link
-
-
-def _ensure_not_duplicate(shared_list: SharedList, destination_url: str) -> None:
-    if shared_list.links.filter(destination_url=destination_url).exists():
-        raise ValidationError({"destination_url": ["This URL is already in the list."]})
