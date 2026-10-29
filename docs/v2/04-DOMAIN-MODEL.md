@@ -205,7 +205,9 @@ does ([05](05-DATABASE-DESIGN.md#constraints-by-invariant)).
 - **B7** Exclusions are keyed by source link identity, never by URL.
 
 **Group**
-- **G1** A list appears at most once per group. Positions are `0..n-1`.
+- **G1** A list appears at most once per group, and at most 100 lists per group. Positions are
+  unique and ordered. Deleting a list can leave a gap, which the group's next write closes;
+  nothing ever reads a raw position (order and indexes are computed after the display rule).
 - **G2** A group never grants access to a list and never copies its content.
 
 **Access and short URLs**

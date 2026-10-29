@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.common import errors
+from apps.groups.services import delete_groups_owned_by, remove_group_memberships_of
 from apps.sharing.services.lists import delete_lists_owned_by
 from apps.sharing.services.members import remove_memberships_of
 
@@ -69,17 +70,18 @@ def purge_deleted_accounts(now=None) -> int:
 def purge_account(user_id) -> bool:
     """Erase one account's personal data and everything it owns, keeping an anonymous row.
 
-    The lists it owns are deleted (links, short URLs, memberships and history with them), it
-    is taken off other people's lists, and its email addresses, name and password go. The row
-    stays, inactive, so the revisions it wrote on other lists keep an author ("Deleted
-    account") without the revision rows ever changing. Returns False if it was restored or
-    erased in the meantime.
+    The lists and groups it owns are deleted (links, short URLs, memberships and history with
+    them), it is taken off other people's lists and groups, and its email addresses, name and
+    password go. The row stays, inactive, so the revisions it wrote on other lists keep an
+    author ("Deleted account") without the revision rows ever changing. Returns False if it
+    was restored or erased in the meantime.
     """
     user = User.objects.select_for_update().filter(pk=user_id).first()
     if user is None or user.deleted_at is None or not user.is_active:
         return False
+    deleted_groups = delete_groups_owned_by(user)
     deleted_lists = delete_lists_owned_by(user)
-    removed = remove_memberships_of(user)
+    removed = remove_memberships_of(user) + remove_group_memberships_of(user)
     EmailAddress.objects.filter(user=user).delete()
     user.email = f"deleted-{user.pk}@deleted.invalid"  # frees the address for a new sign-up
     user.display_name = user.first_name = user.last_name = ""
@@ -87,8 +89,9 @@ def purge_account(user_id) -> bool:
     user.is_active = False
     user.save()
     logger.info(
-        "Erased user %s: %d lists deleted, %d memberships removed",
+        "Erased user %s: %d groups and %d lists deleted, %d memberships removed",
         user.pk,
+        deleted_groups,
         deleted_lists,
         removed,
     )

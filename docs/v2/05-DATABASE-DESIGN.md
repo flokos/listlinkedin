@@ -158,10 +158,12 @@ confirmations), and `django.contrib.sessions` adds `django_session`.
 
 - `groups_group`: `id`, `code` char(16) UNIQUE, `owner_id` FK PROTECT, `title`, `description`,
   `image`, `slug`, `visibility` (CHECK), `tags` (CHECK ≤10), `created_at`, `updated_at`.
+  Since 4.1, without `tags`, which arrives with list tags in 8.1.
 - `groups_grouplist`: `id`, `group_id` FK CASCADE, `shared_list_id` FK CASCADE, `position` int
   NOT NULL CHECK ≥0, `added_by_id` FK SET NULL, `created_at`. UNIQUE (`group_id`,
   `shared_list_id`). UNIQUE (`group_id`, `position`) DEFERRABLE INITIALLY DEFERRED. Index on
-  `shared_list_id`.
+  `shared_list_id`. A list's deletion cascades to its entries and can leave a position gap;
+  the group's next write renumbers (G1).
 - `groups_groupmembership`: same shape as `sharing_listmembership`.
 
 ### `versioning_*` (new)

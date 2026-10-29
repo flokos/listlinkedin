@@ -128,3 +128,84 @@ def can_set_visibility(actor: Actor, facts: ListFacts, visibility: Visibility) -
 def permissions(actor: Actor, facts: ListFacts) -> list[str]:
     """The actions this actor may take, for API representations (the UI shows only these)."""
     return [action.value for action in Action if can(actor, action, facts)]
+
+
+# Groups (docs/v2/12-AUTHORIZATION.md#group-permission-matrix). Group roles grant nothing on
+# the lists in a group, and list roles grant nothing on groups.
+
+
+class GroupAction(StrEnum):
+    VIEW = "view"
+    EDIT = "edit"  # title, description, image, order of lists, and removing lists
+    ADD_LIST = "add_list"  # also needs a share right on the list: see can_add_list()
+    VIEW_MEMBERS = "view_members"
+    SETTINGS = "settings"  # visibility
+    MEMBERS = "members"
+    DELETE = "delete"
+    LEAVE = "leave"
+
+
+@dataclass(frozen=True)
+class GroupFacts:
+    """What `can_group()` needs to know about one group, as seen by one actor."""
+
+    id: UUID
+    owner_id: UUID
+    visibility: Visibility
+    member_role: Role | None = None  # the actor's membership on this group, if any
+
+
+def group_role_of(actor: Actor, facts: GroupFacts) -> Role | None:
+    if actor.user_id is None:
+        return None
+    return Role.OWNER if facts.owner_id == actor.user_id else facts.member_role
+
+
+def can_group(actor: Actor, action: GroupAction, facts: GroupFacts) -> bool:
+    role = group_role_of(actor, facts)
+    match action:
+        case GroupAction.VIEW:
+            return facts.visibility is not Visibility.PRIVATE or role is not None
+        case GroupAction.EDIT | GroupAction.ADD_LIST | GroupAction.VIEW_MEMBERS:
+            return role in (Role.OWNER, Role.EDITOR)
+        case GroupAction.SETTINGS | GroupAction.MEMBERS | GroupAction.DELETE:
+            return role is Role.OWNER
+        case GroupAction.LEAVE:
+            return role in (Role.EDITOR, Role.VIEWER)
+    return False
+
+
+def can_set_group_visibility(actor: Actor, facts: GroupFacts, visibility: Visibility) -> bool:
+    """As for lists: the owner chooses, and public needs a verified email (D20)."""
+    if not can_group(actor, GroupAction.SETTINGS, facts):
+        return False
+    return visibility is not Visibility.PUBLIC or actor.email_verified
+
+
+def can_add_list(actor: Actor, group: GroupFacts, shared_list: ListFacts) -> bool:
+    """A group editor may add a list they could share themselves: one they edit or own, or a
+    public one. Nobody can put another person's unlisted or private list in their group."""
+    if not can_group(actor, GroupAction.ADD_LIST, group):
+        return False
+    role = role_of(actor, shared_list)
+    return role in (Role.OWNER, Role.EDITOR) or shared_list.visibility is Visibility.PUBLIC
+
+
+def shown_in_group(
+    *, has_list_role: bool, list_visibility: Visibility, group_visibility: Visibility
+) -> bool:
+    """Whether a group shows one of its lists to a viewer who can view the group
+    (docs/v2/12-AUTHORIZATION.md#which-lists-a-group-shows-to-a-viewer). A list that isn't
+    shown is omitted entirely: no title, no placeholder, no count.
+
+    `groups.selectors.shown_lists_q` is the same rule in SQL; a test checks they agree.
+    """
+    return (
+        has_list_role
+        or list_visibility is Visibility.PUBLIC
+        or (list_visibility is Visibility.UNLISTED and group_visibility is not Visibility.PUBLIC)
+    )
+
+
+def group_permissions(actor: Actor, facts: GroupFacts) -> list[str]:
+    return [action.value for action in GroupAction if can_group(actor, action, facts)]
