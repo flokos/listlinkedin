@@ -167,3 +167,14 @@ class LinkDetailSerializer(LinkSerializer):
         if self.instance is None and self.partial:  # PATCH
             raise serializers.ValidationError("Links are moved with the reorder endpoint.")
         return value
+
+
+class ReorderSerializer(serializers.Serializer):
+    link = serializers.UUIDField(help_text="The link to move.")
+    to_index = serializers.IntegerField(
+        min_value=0, help_text="Its new 0-based place among the live links (clamped to the end)."
+    )
+
+
+class MoveToListSerializer(serializers.Serializer):
+    list = serializers.CharField(max_length=32, help_text="The target list's code.")

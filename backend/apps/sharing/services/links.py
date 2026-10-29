@@ -8,6 +8,10 @@ changes (K1). V2 adds a stored order and tombstones:
 - Deleting a link keeps its row as a tombstone (`deleted_at` set, `position` NULL), so its id
   and short code survive for history and restore; its short URL answers 404. The positions
   after it close the gap.
+- Reordering is a *move* of one link to an index, applied to the current order under the
+  lock (docs/v2/adr/ADR-005), so concurrent moves never overwrite each other.
+- A link never changes list (K4): "move to another list" copies it there and tombstones it
+  here, in one transaction.
 
 The `*_on` functions work on a list the caller has already locked and authorized; both the
 v2 path below (policy, `Principal`) and the V1 owner-token path (`legacy`) call them.
@@ -79,6 +83,49 @@ def delete_link(principal: Principal, list_id: UUID, link_id: UUID) -> None:
     delete_link_on(_lock_for_edit(principal, list_id), link_id)
 
 
+@transaction.atomic
+def move_link(principal: Principal, list_id: UUID, link_id: UUID, to_index: int) -> bool:
+    """Move a link to `to_index` (0-based, clamped). Returns False if nothing moved."""
+    return move_link_on(_lock_for_edit(principal, list_id), link_id, to_index)
+
+
+@transaction.atomic
+def move_link_to_list(
+    principal: Principal, source_id: UUID, link_id: UUID, target_id: UUID
+) -> SharedLink:
+    """Copy the link to the end of another list (new short URL) and delete it here (K4).
+
+    Needs edit rights on both lists. Both rows are locked in ascending id order, like every
+    multi-list write, so two moves in opposite directions can't deadlock.
+    """
+    if source_id == target_id:
+        raise ValidationError({"list": ["The link is already in this list."]})
+    locked = {}
+    for list_id in sorted((source_id, target_id)):
+        locked[list_id] = _lock(principal, list_id)  # NotVisible for a list you can't see
+    source, source_actor, source_facts = locked[source_id]
+    target, target_actor, target_facts = locked[target_id]
+    if not can(source_actor, Action.EDIT, source_facts):
+        raise denied(principal, "You can't change this list.")
+    if not can(target_actor, Action.EDIT, target_facts):
+        raise denied(principal, "You can't add links to that list.")
+    link = get_live_link(source, link_id)
+    copy = add_link_on(
+        target,
+        destination_url=link.destination_url,
+        title=link.title,
+        description=link.description,
+    )
+    copy.icon, copy.metadata, copy.metadata_fetched_at = (
+        link.icon,
+        link.metadata,
+        link.metadata_fetched_at,
+    )
+    copy.save(update_fields=["icon", "metadata", "metadata_fetched_at"])
+    delete_link_on(source, link.pk)
+    return copy
+
+
 # Shared operations on a locked list.
 
 
@@ -135,6 +182,27 @@ def delete_link_on(locked: SharedList, link_id: UUID) -> None:
     link.position = None
     link.save(update_fields=["deleted_at", "position", "updated_at"])
     live_links(locked).filter(position__gt=gap).update(position=F("position") - 1)
+
+
+def move_link_on(locked: SharedList, link_id: UUID, to_index: int) -> bool:
+    link = get_live_link(locked, link_id)
+    last = live_links(locked).count() - 1
+    to, at = max(0, min(to_index, last)), link.position
+    if to == at:
+        return False
+    # Shift only the links between the old and new place; the position constraint is
+    # deferred, so the temporary duplicates are fine until commit.
+    if to > at:
+        live_links(locked).filter(position__gt=at, position__lte=to).update(
+            position=F("position") - 1
+        )
+    else:
+        live_links(locked).filter(position__gte=to, position__lt=at).update(
+            position=F("position") + 1
+        )
+    link.position = to
+    link.save(update_fields=["position", "updated_at"])
+    return True
 
 
 def get_live_link(shared_list: SharedList, link_id: UUID) -> SharedLink:
