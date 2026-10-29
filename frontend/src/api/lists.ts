@@ -221,3 +221,18 @@ export function uploadLinkIcon(code: string, id: string, file: File) {
 
 export const removeLinkIcon = (code: string, id: string) =>
   request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/icon/`), { method: 'DELETE' })
+
+/** Moves one link to `toIndex` (0-based, clamped) and returns the links in their new order. */
+export const reorderLinks = (code: string, linkId: string, toIndex: number, token?: string) =>
+  request<SharedLink[]>(v2(`/lists/${enc(code)}/reorder/`), {
+    method: 'POST',
+    body: { link: linkId, to_index: toIndex },
+    token,
+  })
+
+/** Moves a link to the end of another list you can edit; returns the new link there. */
+export const moveLinkToList = (code: string, id: string, targetCode: string) =>
+  request<SharedLink>(v2(`/lists/${enc(code)}/links/${enc(id)}/move-to-list/`), {
+    method: 'POST',
+    body: { list: targetCode },
+  })

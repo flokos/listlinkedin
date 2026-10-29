@@ -19,6 +19,7 @@
     "@mdi/js": "^7.4.47",
     "qrcode": "^1.5.4",
     "vue": "^3.5.44",
+    "vue-draggable-plus": "^0.6.1",
     "vue-router": "^5.4.0",
     "vuetify": "^4.3.1"
   },

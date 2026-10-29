@@ -84,6 +84,17 @@ export async function signUpThroughApi(page: Page, email: string, password = PAS
   expect(response.status(), await response.text()).toBe(200)
 }
 
+/** Creates an account list through the API as the page's signed-in user. */
+export async function createAccountList(page: Page, title: string): Promise<{ code: string }> {
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const response = await page.request.post('/api/v2/lists/', {
+    data: { title },
+    headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(201)
+  return response.json()
+}
+
 /**
  * Like signUpThroughApi, then verifies the address with the key from the emailed link and
  * sets a display name, all through the API (auth.spec tests the verification page itself).

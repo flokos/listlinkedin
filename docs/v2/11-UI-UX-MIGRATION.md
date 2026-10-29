@@ -104,9 +104,14 @@ lists you search for) → reorder in the sidebar → share the group link.
 
 Since task 2.4: tiles (with the site's name under the link's name), the list view, the
 remembered choice, **Details**, the ⋮ menu without the Move items (2.5), and the sort menu
-(Custom order, Newest, A–Z). Visitors get the ⋮ menu too, without Edit and Delete. Not yet:
-the mobile **Add link** button and the collapsible desktop card (the inline card is shown on
-every viewport, as in V1); it is scheduled with 2.5.
+(Custom order, Newest, A–Z). Visitors get the ⋮ menu too, without Edit and Delete.
+
+Since task 2.5: dragging (mouse, and a 250 ms long press on touch screens, so a swipe still
+scrolls), the ⋮ Move items, **Move to another list…** (a picker of your lists you can edit;
+full ones are disabled) and the live region ("Alpha moved to position 3 of 4."). Moves are
+offered only in Custom order without a search, since only then is the shown order the stored
+one. The add card is collapsible: on phones it starts closed once the list has links, with
+"Add a link" (a disclosure button, `aria-expanded`) opening it and focusing the URL.
 
 ## Groups workspace
 

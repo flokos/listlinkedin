@@ -13,7 +13,13 @@ import {
 import { computed, ref, toRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { errorMessage, type LinkInput, type SharedLink, type Visibility } from '../api'
+import {
+  errorMessage,
+  type LinkInput,
+  type ListDetail,
+  type SharedLink,
+  type Visibility,
+} from '../api'
 import AddLinkCard from '../components/AddLinkCard.vue'
 import ClaimTokenDialog from '../components/ClaimTokenDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
@@ -22,6 +28,9 @@ import LinkCollection from '../components/LinkCollection.vue'
 import LinkDetailsDialog from '../components/LinkDetailsDialog.vue'
 import LinkEditDialog from '../components/LinkEditDialog.vue'
 import ListHeader from '../components/ListHeader.vue'
+import ListPickerDialog from '../components/ListPickerDialog.vue'
+import LiveRegion from '../components/LiveRegion.vue'
+import MovePositionDialog from '../components/MovePositionDialog.vue'
 import ListToolbar, { type LinkSort } from '../components/ListToolbar.vue'
 import ShareDialog from '../components/ShareDialog.vue'
 import StatePanel from '../components/StatePanel.vue'
@@ -85,6 +94,42 @@ const visibleLinks = computed(() => {
     ).toLowerCase()
   return [...matches].sort((a, b) => key(a).localeCompare(key(b)))
 })
+
+// Moving links: by dragging or the ⋮ Move items, only while the stored order is shown.
+const reorderable = computed(() => sort.value === 'custom' && !search.value.trim())
+const canMoveToList = computed(() => isOwner.value && session.isSignedIn.value)
+const announcement = ref<{ text: string } | null>(null)
+
+async function moveLink(link: SharedLink, index: number) {
+  try {
+    await page.moveLink(link.id, index)
+    const at = links.value.findIndex((l) => l.id === link.id) + 1
+    announcement.value = {
+      text: `${shownTitle(link)} moved to position ${at} of ${links.value.length}.`,
+    }
+  } catch (error) {
+    notify.error(errorMessage(error))
+  }
+}
+const positionId = ref<string | null>(null)
+const positionOpen = computed({
+  get: () => positionId.value !== null,
+  set: (v) => !v && (positionId.value = null),
+})
+const positionLink = computed(() => byId(positionId.value))
+const pickerId = ref<string | null>(null)
+const pickerOpen = computed({
+  get: () => pickerId.value !== null,
+  set: (v) => !v && (pickerId.value = null),
+})
+const pickerLink = computed(() => byId(pickerId.value))
+async function moveToList(target: ListDetail) {
+  const link = pickerLink.value
+  if (!link) return
+  await page.moveToList(link.id, target.code)
+  notify.success(`Moved to “${target.title}”`)
+  announcement.value = { text: `${shownTitle(link)} moved to ${target.title}.` }
+}
 
 // Share dialog is reflected in the URL (?dialog=share) so the browser's Back button closes it.
 const shareOpen = computed({
@@ -369,9 +414,14 @@ function forgetHere() {
           :links="visibleLinks"
           :view="view"
           :can-edit="isOwner"
+          :reorderable="reorderable"
+          :can-move-to-list="canMoveToList"
           @details="detailsId = $event.id"
           @edit="editingId = $event.id"
           @delete="deleting = $event"
+          @move="moveLink"
+          @move-to-position="positionId = $event.id"
+          @move-to-list="pickerId = $event.id"
         />
         <StatePanel
           v-else-if="links.length"
@@ -402,6 +452,7 @@ function forgetHere() {
           </template>
         </StatePanel>
       </section>
+      <LiveRegion :message="announcement" />
 
       <p v-if="list.legacy && !isOwner && links.length && !ownerRevoked" class="text-center mt-10">
         <v-btn variant="text" size="small" :prepend-icon="mdiKeyOutline" @click="claimOpen = true">
@@ -439,6 +490,19 @@ function forgetHere() {
         :public-url="list.url"
       />
       <LinkDetailsDialog v-model="detailsOpen" :link="byId(detailsId)" />
+      <MovePositionDialog
+        v-model="positionOpen"
+        :title="positionLink ? shownTitle(positionLink) : ''"
+        :position="positionLink ? links.indexOf(positionLink) + 1 : 1"
+        :count="links.length"
+        @move="positionLink && moveLink(positionLink, $event)"
+      />
+      <ListPickerDialog
+        v-model="pickerOpen"
+        :title="pickerLink ? shownTitle(pickerLink) : ''"
+        :current-code="code"
+        :move="moveToList"
+      />
       <LinkEditDialog
         v-model="editOpen"
         :link="byId(editingId)"

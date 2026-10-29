@@ -10,8 +10,20 @@ import { displayHost } from '../utils/url'
 import LinkIcon from './LinkIcon.vue'
 import LinkMenu from './LinkMenu.vue'
 
-const props = defineProps<{ link: SharedLink; canEdit: boolean }>()
-const emit = defineEmits<{ details: []; edit: []; delete: [] }>()
+const props = defineProps<{
+  link: SharedLink
+  canEdit: boolean
+  place?: { index: number; count: number } | null
+  canMoveToList?: boolean
+}>()
+const emit = defineEmits<{
+  details: []
+  edit: []
+  delete: []
+  move: [index: number]
+  'move-to-position': []
+  'move-to-list': []
+}>()
 const { smAndUp } = useDisplay()
 
 const href = computed(() => props.link.short_url ?? props.link.destination_url)
@@ -34,9 +46,14 @@ const display = computed(
         :href="href"
         :short-url="link.short_url"
         :can-edit="canEdit"
+        :place="place"
+        :can-move-to-list="canMoveToList"
         @details="emit('details')"
         @edit="emit('edit')"
         @delete="emit('delete')"
+        @move="emit('move', $event)"
+        @move-to-position="emit('move-to-position')"
+        @move-to-list="emit('move-to-list')"
       />
     </div>
     <LinkIcon

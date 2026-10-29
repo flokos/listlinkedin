@@ -139,6 +139,42 @@ export function useListPage(code: Ref<string>) {
     return link
   }
 
+  /**
+   * Moves a link to `toIndex` in the stored order. The page shows the move at once; the
+   * server applies it to the current order under the list's lock and answers with that
+   * order, which replaces ours (it includes concurrent changes by others).
+   */
+  async function moveLink(id: string, toIndex: number) {
+    const before = links.value
+    const from = before.findIndex((l) => l.id === id)
+    if (from < 0) return
+    const to = Math.max(0, Math.min(toIndex, before.length - 1))
+    if (from === to) return
+    const next = [...before]
+    next.splice(to, 0, ...next.splice(from, 1))
+    links.value = next
+    const seq = ++moveSeq
+    try {
+      const order = await act((t) => api.reorderLinks(code.value, id, to, t))
+      // Quick successive moves: only the latest answer describes the order on screen.
+      if (seq === moveSeq) links.value = order
+      remember()
+    } catch (error) {
+      if (seq === moveSeq) void load() // our guess is wrong: show the server's order
+      throw error
+    }
+  }
+  let moveSeq = 0
+
+  /** Moves a link to another list (copied there with a new short link, deleted here). */
+  async function moveToList(id: string, targetCode: string) {
+    const link = await act(() => api.moveLinkToList(code.value, id, targetCode))
+    links.value = links.value.filter((l) => l.id !== id)
+    remember()
+    cache.delete(targetCode)
+    return link
+  }
+
   async function removeLink(id: string) {
     await act((t) => api.removeLink(code.value, id, t))
     links.value = links.value.filter((l) => l.id !== id)
@@ -208,6 +244,8 @@ export function useListPage(code: Ref<string>) {
     addLink,
     editLink,
     setLinkIcon,
+    moveLink,
+    moveToList,
     removeLink,
     rotate,
     claim,
