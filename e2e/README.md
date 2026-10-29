@@ -23,7 +23,8 @@ It exits non-zero if any test fails.
 - To step through a trace (DOM, network and console at every action):
   `docker run --rm -it -p 9323:9323 -v "$PWD/e2e":/e2e -w /e2e listlinkedin-e2e show-report report --host 0.0.0.0`,
   then open http://localhost:9323.
-- In CI, the report is uploaded as the `e2e-report` artifact when the job fails.
+- In CI, the report and traces are uploaded as the `e2e-report` artifact whenever a test
+  failed, including flaky tests that passed on retry (download it from the run's summary page).
 
 ## Writing tests
 
