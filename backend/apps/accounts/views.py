@@ -1,6 +1,6 @@
 from django.middleware.csrf import get_token
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -8,7 +8,7 @@ from apps.sharing.permissions import WriteRateThrottle
 
 from . import services
 from .authentication import SessionAuthentication
-from .serializers import MeSerializer, SessionSerializer
+from .serializers import DeleteAccountSerializer, MeSerializer, SessionSerializer
 
 NOT_SIGNED_IN = OpenApiResponse(description="Not signed in.")
 
@@ -49,3 +49,21 @@ class MeViewSet(viewsets.ViewSet):
         display_name = serializer.validated_data.get("display_name", request.user.display_name)
         user = services.update_profile(request.user, display_name=display_name)
         return Response(MeSerializer(user).data)
+
+    @extend_schema(
+        request=DeleteAccountSerializer,
+        responses={
+            204: None,
+            400: OpenApiResponse(description="The email doesn't match."),
+            401: NOT_SIGNED_IN,
+        },
+        summary="Delete your account and the lists you own",
+    )
+    def destroy(self, request):
+        """Deletes the lists you own (for everyone), your memberships and the account, then
+        ends this session. Type your email address in `confirm`."""
+        serializer = DeleteAccountSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.delete_account(request.user, confirm=serializer.validated_data["confirm"])
+        request.session.flush()  # sign out here; other sessions no longer resolve to a user
+        return Response(status=status.HTTP_204_NO_CONTENT)

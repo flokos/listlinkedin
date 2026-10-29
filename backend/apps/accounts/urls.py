@@ -7,7 +7,9 @@ urlpatterns = [
     path("session/", views.SessionViewSet.as_view({"get": "retrieve"}), name="session"),
     path(
         "me/",
-        views.MeViewSet.as_view({"get": "retrieve", "patch": "partial_update"}),
+        views.MeViewSet.as_view(
+            {"get": "retrieve", "patch": "partial_update", "delete": "destroy"}
+        ),
         name="me",
     ),
 ]

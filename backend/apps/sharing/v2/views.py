@@ -80,14 +80,29 @@ class ListViewSet(viewsets.ViewSet):
     def throttle_scope(self) -> str:
         return "list_create" if self.action == "create" else "list_manage"
 
-    @extend_schema(responses={200: ListDetailSerializer(many=True), 401: ERRORS[401]})
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "role",
+                str,
+                enum=[r.value for r in Role],
+                required=False,
+                description="Only lists where you have this role.",
+            )
+        ],
+        responses={200: ListDetailSerializer(many=True), 401: ERRORS[401]},
+    )
     def list(self, request):
         """Lists you own or are a member of, most recently changed first."""
         principal = principal_of(request)
         if principal.user is None:
             raise errors.AuthenticationRequired("Sign in to see your lists.")
+        role = request.query_params.get("role")
+        if role is not None and role not in {r.value for r in Role}:
+            raise serializers.ValidationError({"role": ["Use owner, editor or viewer."]})
+        lists = selectors.lists_of(principal.user, role=Role(role) if role else None)
         paginator = self.pagination_class()
-        page = paginator.paginate_queryset(selectors.lists_of(principal.user), request, view=self)
+        page = paginator.paginate_queryset(lists, request, view=self)
         access = {lst.pk: selectors.access_in_listing(principal.user, lst) for lst in page}
         data = ListDetailSerializer(page, many=True, context={"access": access}).data
         return paginator.get_paginated_response(data)

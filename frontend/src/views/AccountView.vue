@@ -1,9 +1,22 @@
 <script setup lang="ts">
-import { mdiCheckDecagramOutline, mdiEmailAlertOutline, mdiLogout } from '@mdi/js'
-import { ref } from 'vue'
+import {
+  mdiAccountRemoveOutline,
+  mdiCheckDecagramOutline,
+  mdiEmailAlertOutline,
+  mdiLogout,
+} from '@mdi/js'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { ApiError, changePassword, errorMessage, resendVerification } from '../api'
+import {
+  ApiError,
+  changePassword,
+  deleteAccount,
+  errorMessage,
+  ownedListCount,
+  resendVerification,
+} from '../api'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PasswordField from '../components/PasswordField.vue'
 import { useNotify } from '../composables/useNotify'
 import { useSession } from '../composables/useSession'
@@ -81,6 +94,42 @@ async function savePassword() {
   } finally {
     changingPassword.value = false
   }
+}
+
+// Deleting the account deletes the lists it owns, for everyone (docs/v2/04-DOMAIN-MODEL.md).
+const deleteOpen = ref(false)
+const ownedCount = ref<number>()
+const preparingDelete = ref(false)
+async function startDelete() {
+  preparingDelete.value = true
+  try {
+    ownedCount.value = await ownedListCount()
+    deleteOpen.value = true
+  } catch (error) {
+    if (!(await handleSignedOut(error))) notify.error(errorMessage(error))
+  } finally {
+    preparingDelete.value = false
+  }
+}
+const deleteText = computed(() => {
+  const n = ownedCount.value ?? 0
+  const lists =
+    n === 0
+      ? "You don't own any lists."
+      : `The ${n === 1 ? 'list' : `${n} lists`} you own, with all ${n === 1 ? 'its' : 'their'} links and short links, will be deleted for everyone.`
+  return `${lists} You'll be removed from lists others shared with you. This can't be undone.`
+})
+async function confirmDelete() {
+  if (!user.value) return
+  try {
+    await deleteAccount(user.value.email)
+  } catch (error) {
+    notify.error(errorMessage(error))
+    throw error
+  }
+  await session.refresh()
+  notify.success('Your account was deleted')
+  await router.replace({ name: 'home' })
 }
 
 const leave = useSignOut()
@@ -179,6 +228,31 @@ async function signOut() {
           Change password
         </v-btn>
       </v-form>
+    </section>
+
+    <section class="ll-account-section" aria-labelledby="delete-heading">
+      <h2 id="delete-heading" class="text-title-large mb-1">Delete account</h2>
+      <p class="text-body-medium text-medium-emphasis mb-4">
+        Deletes your account and the lists you own, for everyone. Lists only saved on this device
+        with an edit link aren't affected.
+      </p>
+      <v-btn
+        variant="tonal"
+        color="error"
+        :prepend-icon="mdiAccountRemoveOutline"
+        :loading="preparingDelete"
+        @click="startDelete"
+      >
+        Delete account…
+      </v-btn>
+      <ConfirmDialog
+        v-model="deleteOpen"
+        title="Delete your account?"
+        :text="deleteText"
+        action="Delete account"
+        :confirm-text="user.email"
+        :on-confirm="confirmDelete"
+      />
     </section>
   </div>
 </template>

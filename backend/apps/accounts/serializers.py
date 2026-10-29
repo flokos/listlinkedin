@@ -21,5 +21,11 @@ class MeSerializer(serializers.ModelSerializer):
         return has_verified_email(user)
 
 
+class DeleteAccountSerializer(serializers.Serializer):
+    confirm = serializers.CharField(
+        max_length=254, help_text="Your email address, typed to confirm the deletion."
+    )
+
+
 class SessionSerializer(serializers.Serializer):
     user = MeSerializer(allow_null=True, help_text="The signed-in user, or null when signed out.")
