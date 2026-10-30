@@ -62,8 +62,10 @@ _REDIRECTS = frozenset({301, 302, 303, 307, 308})
 _CHUNK = 16 * 1024
 
 # Never fetched, whatever `is_global` says (it already excludes all of these; listed so the
-# rule doesn't depend on one library flag).
-_DENIED_NETWORKS = tuple(
+# rule doesn't depend on one library flag). A fixed floor in code, not a setting: a typo or a
+# missing variable must never unblock cloud metadata or loopback. Deployments add their own
+# ranges with FETCH_BLOCKED_NETWORKS (`denied_networks()`), never remove these.
+BUILT_IN_DENIED_NETWORKS = tuple(
     ipaddress.ip_network(n)
     for n in (
         "0.0.0.0/8",
@@ -210,9 +212,16 @@ def is_public(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         )
         if embedded is not None:
             return is_public(embedded)
-    if any(address in network for network in _DENIED_NETWORKS):
+    if any(address in network for network in denied_networks()):
         return False
     return address.is_global and not address.is_multicast
+
+
+def denied_networks() -> tuple:
+    """The built-in ranges plus settings.FETCH_BLOCKED_NETWORKS. Raises ValueError for an
+    invalid entry (checked at startup, apps.metadata.apps)."""
+    extra = tuple(ipaddress.ip_network(n) for n in settings.FETCH_BLOCKED_NETWORKS)
+    return BUILT_IN_DENIED_NETWORKS + extra
 
 
 def _teredo_client(address: ipaddress.IPv6Address):

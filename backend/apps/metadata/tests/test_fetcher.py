@@ -252,3 +252,30 @@ def test_one_request_per_host_per_interval(web, monkeypatch):
 )
 def test_is_public(address, public):
     assert fetcher.is_public(ipaddress.ip_address(address)) is public
+
+
+def test_deployments_can_block_more_networks_but_never_fewer(web, settings):
+    web.page("/", HTML)
+    settings.FETCH_BLOCKED_NETWORKS = ["93.184.215.0/24"]  # PUBLIC is in it
+    with pytest.raises(FetchRefused, match="non-public"):
+        fetcher.fetch("http://site.test/")
+    assert web.dialed == []
+
+    # Listing a built-in range again changes nothing, and nothing can remove one.
+    settings.FETCH_BLOCKED_NETWORKS = ["169.254.0.0/16"]
+    assert fetcher.is_public(ipaddress.ip_address("169.254.169.254")) is False
+    settings.FETCH_BLOCKED_NETWORKS = []
+    assert fetcher.is_public(ipaddress.ip_address("169.254.169.254")) is False
+    assert fetcher.fetch("http://site.test/").body == HTML.encode()
+
+
+def test_an_invalid_extra_network_stops_the_app_at_startup(settings):
+    from django.apps import apps
+    from django.core.exceptions import ImproperlyConfigured
+
+    settings.FETCH_BLOCKED_NETWORKS = ["10.0.0.0/33"]
+    with pytest.raises(ImproperlyConfigured, match="FETCH_BLOCKED_NETWORKS"):
+        apps.get_app_config("metadata").ready()
+    settings.FETCH_BLOCKED_NETWORKS = ["192.168.1.1/24"]  # host bits set: a likely typo
+    with pytest.raises(ImproperlyConfigured):
+        apps.get_app_config("metadata").ready()

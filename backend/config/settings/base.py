@@ -179,6 +179,10 @@ TASKS = {"default": {"BACKEND": "django_tasks_db.DatabaseBackend", "QUEUES": ["d
 # A task must finish well within this. `check_worker` reports a queue that waits longer, and
 # `recover_stuck_tasks` takes back tasks running longer (their worker died).
 TASK_STALE_AFTER = timedelta(minutes=10)
+# Extra address ranges the metadata fetcher never connects to, on top of its built-in ones
+# (private, loopback, link-local and cloud metadata, apps.metadata.fetcher), e.g. a company's
+# own public range or a VPN. Comma-separated CIDRs; additions only, nothing here can unblock.
+FETCH_BLOCKED_NETWORKS = env_list("FETCH_BLOCKED_NETWORKS")
 # Fetching link metadata (task 7.3). Off for locked-down deployments.
 METADATA_FETCH_ENABLED = os.environ.get("METADATA_FETCH_ENABLED", "true").lower() != "false"
 

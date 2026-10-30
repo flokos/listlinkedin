@@ -60,7 +60,10 @@ follows OWASP's "Case 2" guidance for arbitrary external destinations [R12]:
    (`64:ff9b::/96`) IPv6 addresses unwrapped first and judged by the IPv4 address they carry.
    NAT64 matters: Python counts the prefix as global, but `64:ff9b::7f00:1` reaches 127.0.0.1
    through a NAT64 gateway (found by a test in task 7.2). Explicit denies cover `0.0.0.0/8`, `127.0.0.0/8`, RFC 1918, `100.64.0.0/10`,
-   `169.254.0.0/16` (cloud metadata), `fc00::/7`, `fe80::/10`, multicast and `::1`. Any
+   `169.254.0.0/16` (cloud metadata), `fc00::/7`, `fe80::/10`, multicast and `::1`. These
+   are a fixed floor in code; a deployment can only **add** ranges, with
+   `FETCH_BLOCKED_NETWORKS` (for internal services on public addresses, such as a company's
+   own range). An invalid entry stops the app at startup. Any
    non-global answer rejects the URL. A blocklist is the only option for open-ended
    destinations, and OWASP calls it necessary but not sufficient, hence the steps below.
 3. **Pin the connection** to the validated address. Use the original hostname for the `Host`
