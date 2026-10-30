@@ -26,6 +26,7 @@ x-app-env: &app-env
   THROTTLE_RESTORE: ${THROTTLE_RESTORE:-120/hour}  # restoring earlier revisions
   THROTTLE_METADATA_REFRESH: ${THROTTLE_METADATA_REFRESH:-60/hour}  # per user
   THROTTLE_DIRECTORY: ${THROTTLE_DIRECTORY:-600/hour}  # directory searches, per client IP
+  THROTTLE_REPORT: ${THROTTLE_REPORT:-10/hour}  # reports to the operator, per user or IP
   # Outgoing mail: account verification and password-reset links.
   EMAIL_HOST: ${EMAIL_HOST:-localhost}
   EMAIL_PORT: ${EMAIL_PORT:-587}
@@ -33,6 +34,9 @@ x-app-env: &app-env
   EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
   EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
   DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+  EMAIL_TIMEOUT: ${EMAIL_TIMEOUT:-10}  # seconds; mail is sent during the request
+  # Where reports of abuse go (docs/v2/13-SECURITY.md#moderation). Empty: only logged.
+  MODERATION_EMAIL: ${MODERATION_EMAIL:-}
 
 x-app: &app
   build:

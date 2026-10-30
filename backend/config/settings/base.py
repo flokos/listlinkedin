@@ -89,9 +89,10 @@ USE_I18N = False
 
 # Accounts. A custom user from the first auth migration on (docs/v2/adr/ADR-007).
 AUTH_USER_MODEL = "accounts.User"
+# Both refuse suspended accounts (apps.accounts.backends), at sign-in and on every request.
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend",
+    "apps.accounts.backends.ModelBackend",
+    "apps.accounts.backends.AuthenticationBackend",
 ]
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": f"django.contrib.auth.password_validation.{name}"}
@@ -117,6 +118,8 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_UNIQUE_EMAIL = True
 # Signing in doesn't need a verified address; making things public will (docs/v2/13).
 ACCOUNT_EMAIL_VERIFICATION = "optional"
+# Refuses suspended accounts at sign-in (apps.accounts.adapter).
+ACCOUNT_ADAPTER = "apps.accounts.adapter.AccountAdapter"
 ACCOUNT_PREVENT_ENUMERATION = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[listlinkedin] "
 HEADLESS_ONLY = True
@@ -148,6 +151,11 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
 DEFAULT_FROM_EMAIL = (
     os.environ.get("DEFAULT_FROM_EMAIL") or f"listlinkedin <no-reply@{_public.hostname}>"
 )
+# Mail is sent during the request (allauth's, and reports): a relay that hangs must not hold a
+# Gunicorn worker until its own timeout.
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT") or "10")
+# Where reports of abuse go (docs/v2/13-SECURITY.md#moderation). Empty: reports are only logged.
+MODERATION_EMAIL = os.environ.get("MODERATION_EMAIL", "")
 
 # Requests carry at most a title and a URL; reject anything much larger.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 16 * 1024
@@ -229,6 +237,8 @@ REST_FRAMEWORK = {
         "metadata_refresh": os.environ.get("THROTTLE_METADATA_REFRESH", "60/hour"),
         # Per client IP, signed in or not: directory searches and tag facets.
         "directory": os.environ.get("THROTTLE_DIRECTORY", "600/hour"),
+        # Per user or client IP: each report emails the operator.
+        "report": os.environ.get("THROTTLE_REPORT", "10/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.

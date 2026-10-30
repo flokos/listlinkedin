@@ -44,7 +44,7 @@ Trust boundaries: browser ↔ nginx (TLS), nginx ↔ api (internal network), wor
 | **Sensitive data leakage** | No tokens, session ids, CSRF tokens or email addresses in logs. Emails are visible only to their owner. Owner names only on public lists. History only for editors ([12](12-AUTHORIZATION.md#leak-analysis)) | log-capture tests (V1 has one for tokens) |
 | **Expired and deleted resources** | V1 semantics: 410 from expiry, purge, tombstoned links 404, deleted lists 404, sync status for orphaned children | V1 tests + new ones |
 | **Concurrent permission changes** | Authorization re-checked under the aggregate lock. Membership changes take the same lock ([12](12-AUTHORIZATION.md#concurrent-permission-changes)) | concurrency test: revoke during a write |
-| **Phishing via public lists or directory** | V1 denylist (applied on write and on redirect). Making something public needs a **verified email**. Operator commands to unpublish or delete. A report button is a later enhancement | tests for the verified-email gate |
+| **Phishing via public lists or directory** | V1 denylist (applied on write and on redirect). Making something public needs a **verified email**. Since 9.0: **Report…** on lists and groups emails the operator, whose commands unpublish or delete them, find links to a host and suspend accounts ([Moderation](#moderation)) | tests for the verified-email gate; report and command tests (`test_v2_moderation.py`, `groups/tests/test_moderation.py`, `accounts/tests/test_suspension.py`); e2e `report.spec.ts` |
 
 ## SSRF-safe fetcher
 
@@ -173,6 +173,7 @@ These are initial values. Tune them from logs.
 | Sync apply (postponed), restore, claim | 120/h per user |
 | Directory search | 600/h per IP, signed in or not (`directory`, `ReadRateThrottle`, since 8.1) |
 | Adding members by email | 60/h per user |
+| Reports to the operator | 10/h per user or IP (`report`, since 9.0) |
 
 Groups have their own scopes since 4.2, `group_create` and `group_manage`, with the same
 configured values as `list_create` and `list_manage` (30/h and 600/h).
@@ -184,12 +185,43 @@ session or CSRF values, or email addresses (use the user id). V1's test that tok
 appear in logs is extended to sessions and claim. Secrets stay environment-only. New secrets
 are SMTP credentials and optionally `SENTRY_DSN` ([14](14-INFRASTRUCTURE.md)).
 
+## Moderation
+
+Since task 9.0 (D29, which answers Q10): reports from the people who see a list or group, and
+management commands for the operator. There is no Django admin.
+
+**Reports.** **Report…** is in the ⋮ menu of a list or group for anyone who can view it except
+its owner, signed in or not (the API is in [09](09-API-DESIGN.md#moderation)). It asks what
+is wrong (phishing or malware, spam, illegal content, something else) and for optional
+details. The report is emailed to `MODERATION_EMAIL` from the api, during the request, with a
+10 s `EMAIL_TIMEOUT`. It doesn't go through the worker, whose egress firewall may block an
+internal mail relay. The email gives the reporter's user id at most, never an address or IP;
+the owner isn't told. Without `MODERATION_EMAIL` reports are only logged, without the
+reporter's words, so production sets it.
+
+**Commands.** Run them in the api container, for example
+`docker compose -f compose.prod.yaml exec api python manage.py unpublish_list <code> --reason "phishing"`:
+
+| Command | Effect |
+|---|---|
+| `unpublish_list <code> --reason …` | The list becomes private: only its owner and the people it's shared with can open it, and its short URLs answer 404 to everyone else. A legacy list must stay unlisted (CHECK L3): delete it instead |
+| `delete_list <code> --reason … --yes` | Deletes the list with its links, short URLs and memberships. Without `--yes` it only shows what it would delete |
+| `find_links <host>` | Every live link to a host or its subdomains, with its list: for sweeping a phishing domain. Then add the host to `BLOCKED_DESTINATION_HOSTS`, which also stops its existing short URLs (410) |
+| `unpublish_group <code> --reason …` | The group becomes private |
+| `delete_group <code> --reason … --yes` | Deletes the group and its memberships; its lists are untouched |
+| `suspend_account <email or id> --reason … [--unpublish]` | The account can't sign in, and its sessions end on every device ([12](12-AUTHORIZATION.md#operator-actions)). With `--unpublish`, its public and unlisted lists and groups become private |
+| `unsuspend_account <email or id> --reason …` | It can sign in again. What was unpublished stays private until its owner changes it |
+
+Every command logs the ids and the reason.
+
 ## Residual risks (accepted)
 
 - Account enumeration when an owner adds a member by email (verified owners only, rate-limited,
   one generic answer for unknown and unverified addresses).
 - Media isn't access-controlled (unguessable names).
+- Reports from people who aren't signed in can be used to fill the operator's mailbox; they
+  are limited to 10/h per IP.
 - Rate limits are per IP for anonymous users (V1 limitation, unchanged).
-- Phishing through public lists is reduced (verified email, denylist, operator unpublish) but
-  not solved. There is no automated reputation check. That is a later option for a fully
+- Phishing through public lists is reduced (verified email, denylist, reports and operator
+  commands) but not solved. There is no automated reputation check. That is a later option for a fully
   public launch (V1 `docs/security.md` reasoning still holds).

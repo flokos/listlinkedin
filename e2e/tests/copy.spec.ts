@@ -40,10 +40,12 @@ test('the owner allows copies and someone else makes one', async ({ page, browse
   const friend = await otherDevice(browser, baseURL)
   await signUpThroughApi(friend.page, uniqueEmail('copier'))
 
-  // Copies aren't allowed yet: a visitor has no list options at all.
+  // Copies aren't allowed yet: a visitor's only list option is to report it (since 9.0).
   await friend.page.goto(`/l/${code}`)
   await expect(friend.page.getByRole('heading', { level: 1, name: 'Dev tools' })).toBeVisible()
-  await expect(friend.page.getByRole('button', { name: 'List options' })).toBeHidden()
+  await friend.page.getByRole('button', { name: 'List options' }).click()
+  await expect(friend.page.getByRole('menuitem')).toHaveText(['Report…'])
+  await friend.page.keyboard.press('Escape')
 
   await page.goto(`/l/${code}`)
   await page.getByRole('button', { name: 'Share', exact: true }).click()

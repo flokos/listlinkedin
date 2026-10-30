@@ -1,6 +1,7 @@
 """Write operations on accounts. Sign-up, sign-in and passwords are handled by allauth."""
 
 import logging
+import uuid
 
 from allauth.account.models import EmailAddress
 from django.db import transaction
@@ -8,9 +9,14 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.common import errors
-from apps.groups.services import delete_groups_owned_by, remove_group_memberships_of
+from apps.groups.services import (
+    delete_groups_owned_by,
+    make_groups_private_owned_by,
+    remove_group_memberships_of,
+)
 from apps.sharing.services.lists import delete_lists_owned_by
 from apps.sharing.services.members import remove_memberships_of
+from apps.sharing.services.moderation import make_lists_private_owned_by
 
 from .models import DELETION_GRACE, User
 
@@ -96,3 +102,52 @@ def purge_account(user_id) -> bool:
         removed,
     )
     return True
+
+
+# Moderation (docs/v2/13-SECURITY.md#moderation): the operator's management commands.
+
+
+def find_account(email_or_id: str) -> User:
+    """The account with this email address or user id (as report emails show it)."""
+    value = email_or_id.strip()
+    try:
+        user = User.objects.filter(pk=uuid.UUID(value)).first()
+    except ValueError:
+        user = User.objects.filter(email__iexact=value).first()
+    if user is None:
+        raise errors.NotVisible(f"There is no account {value}.")
+    return user
+
+
+@transaction.atomic
+def suspend_account(user: User, *, reason: str, unpublish: bool = False) -> tuple[int, int]:
+    """Stop an account from signing in, and end its sessions on every device. With
+    `unpublish`, its public and unlisted lists and groups become private too. Returns how
+    many lists and groups were unpublished. Suspending again changes nothing more."""
+    locked = User.objects.select_for_update().get(pk=user.pk)
+    if locked.suspended_at is None:
+        locked.suspended_at = locked.sessions_revoked_at = timezone.now()
+        locked.save(update_fields=["suspended_at", "sessions_revoked_at"])
+    lists = groups = 0
+    if unpublish:
+        lists = make_lists_private_owned_by(locked)
+        groups = make_groups_private_owned_by(locked)
+    logger.info(
+        "Operator suspended user %s (%d lists and %d groups unpublished): %s",
+        locked.pk,
+        lists,
+        groups,
+        reason,
+    )
+    return lists, groups
+
+
+@transaction.atomic
+def unsuspend_account(user: User, *, reason: str) -> None:
+    """Let the account sign in again. Sessions ended by the suspension stay ended, and
+    unpublished lists and groups stay private: their owner decides again."""
+    locked = User.objects.select_for_update().get(pk=user.pk)
+    if locked.suspended_at is not None:
+        locked.suspended_at = None
+        locked.save(update_fields=["suspended_at"])
+    logger.info("Operator unsuspended user %s: %s", locked.pk, reason)

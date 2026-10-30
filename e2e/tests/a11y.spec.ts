@@ -141,6 +141,15 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
       await page.keyboard.press('Escape')
 
+      // Reporting (since 9.0), with the error for a missing reason showing.
+      await page.getByRole('button', { name: 'List options' }).click()
+      await page.getByRole('menuitem', { name: 'Report…' }).click()
+      const report = page.getByRole('dialog', { name: 'Report this list' })
+      await report.getByRole('button', { name: 'Send report' }).click()
+      await expect(report.getByText('Choose what is wrong.')).toBeVisible()
+      await expectNoA11yViolations(page)
+      await report.getByRole('button', { name: 'Cancel' }).click()
+
       await openAsOwner(page, list)
       await expectNoA11yViolations(page)
 

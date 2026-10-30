@@ -48,6 +48,7 @@ map to 503 `temporarily_unavailable` with `Retry-After`, never to raw 500 text.
 | `StalePreview`, `ParentUnavailable`, `NotABranch`, `Conflict` | 409 | as named |
 | `InvalidDecisions`, `LinkLimit`, `DuplicateUrl`, `IdempotencyKeyReused`, validation | 422 or 400 | as named (field errors stay 400, as in V1) |
 | `RateLimited` | 429 | `throttled` + `Retry-After` |
+| `Unavailable` (since 9.0: the mail relay failed while sending a report) | 503 | `unavailable` |
 
 ## URLs and slugs
 
@@ -274,6 +275,26 @@ Since task 8.1:
   link; not versioned.
 
 Search inside a list stays client-side (≤100 links, V1 behaviour).
+
+## Moderation
+
+Since task 9.0 ([13](13-SECURITY.md#moderation)):
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/v2/lists/{code}/report/` | Anyone who can view the list, signed in or not, except its owner and the holder of its edit link (`report` in `permissions`). `{reason, details?}` → 202 |
+| POST | `/api/v2/groups/{code}/report/` | The same for groups: anyone who can view the group except its owner |
+
+- `reason` is `phishing` (phishing or malware), `spam`, `illegal` or `other`; `details` has at
+  most 1000 characters.
+- As for any request on the resource: 404 when it isn't visible to you, 410 for an expired
+  list. 403 for its owner.
+- The report emails `MODERATION_EMAIL` at once, from the api. The email names the reporter by
+  user id only, never by address or IP, and lists the operator commands that act on it.
+  Without `MODERATION_EMAIL` the report is logged, without its details, and still answered
+  202. A failing mail relay answers 503 `unavailable`.
+- Rate limit `report`: 10/h per user or IP (`THROTTLE_REPORT`).
+- The operator has no endpoints: moderation is done with management commands.
 
 ## Uploads
 

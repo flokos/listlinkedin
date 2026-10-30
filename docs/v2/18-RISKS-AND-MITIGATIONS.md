@@ -37,7 +37,7 @@ numbers. Rows 31–35 were added by this planning.
 | 21 | Malicious redirects / open redirect | L | H | `/r/` only to stored validated URLs; denylist re-checked at redirect time; `next` validation | V1 redirect tests + `next` tests |
 | 1 | Accidental changes to `main` | L | H | Rulesets on `main` (PR + `checks` required, no force-push or deletion), CLAUDE.md rules | verified by `gh api …/rules/branches/main` (task 0.3) |
 | 2 | V2 PRs targeting `main` | M | M | `gh-merge-base` / `--base v2`, the CI guard (blocking through the required `checks`), CLAUDE.md | the guard's shell logic tested locally in 0.3; visible on any wrong PR |
-| 33 | Phishing or abuse via public lists and the directory | M | M | Verified email required for `public`; denylist; operator unpublish; `noindex` | gate tests; operator command test |
+| 33 | Phishing or abuse via public lists and the directory | M | M | Verified email required for `public`; denylist; `noindex`; since 9.0 a report button that emails the operator, and operator commands to unpublish, delete, find links to a host and suspend accounts ([13](13-SECURITY.md#moderation)) | gate tests; report and command tests; e2e `report.spec.ts` |
 
 ## P3: medium and low
 

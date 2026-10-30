@@ -8,6 +8,7 @@ import {
   mdiContentCopy,
   mdiDeleteOutline,
   mdiDotsVertical,
+  mdiFlagOutline,
   mdiHistory,
   mdiKeyChange,
   mdiLogout,
@@ -46,6 +47,7 @@ const emit = defineEmits<{
   leave: []
   delete: []
   copy: []
+  report: []
 }>()
 
 const renaming = ref(false)
@@ -86,6 +88,17 @@ async function saveRename() {
 /** Anything on the settings page this reader may change. */
 const hasSettings = computed(() =>
   ['edit', 'upload', 'tags', 'settings', 'delete'].some((p) => props.can(p)),
+)
+/** The menu's upper part (working on the list), above the divider. */
+const hasUpperItems = computed(
+  () =>
+    props.canEdit ||
+    hasSettings.value ||
+    props.can('view_history') ||
+    props.can('fork') ||
+    Boolean(props.signInToCopy) ||
+    props.hasToken ||
+    props.can('rotate_token'),
 )
 
 defineExpose({ startRename, stopRename: () => (renaming.value = false) })
@@ -194,10 +207,7 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
         >
           Share
         </v-btn>
-        <v-menu
-          v-if="canEdit || hasSettings || can('leave') || can('fork') || signInToCopy"
-          location="bottom end"
-        >
+        <v-menu v-if="hasUpperItems || can('leave') || can('report')" location="bottom end">
           <template #activator="{ props: menu }">
             <v-btn v-bind="menu" :icon="mdiDotsVertical" variant="text" aria-label="List options" />
           </template>
@@ -251,7 +261,14 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               title="Replace edit link"
               @click="emit('rotate')"
             />
-            <v-divider class="my-1" />
+            <v-divider v-if="hasUpperItems" class="my-1" />
+            <v-list-item
+              v-if="can('report')"
+              role="menuitem"
+              :prepend-icon="mdiFlagOutline"
+              title="Report…"
+              @click="emit('report')"
+            />
             <v-list-item
               v-if="hasToken"
               role="menuitem"

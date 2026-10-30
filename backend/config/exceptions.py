@@ -20,6 +20,7 @@ STATUS_BY_ERROR: dict[type[errors.DomainError], int] = {
     errors.RevisionMismatch: status.HTTP_412_PRECONDITION_FAILED,
     errors.PreconditionRequired: status.HTTP_428_PRECONDITION_REQUIRED,
     errors.Unprocessable: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    errors.Unavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 

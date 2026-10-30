@@ -73,7 +73,13 @@ Repositories and services (prompt 13.2):
   limits, content types) and a stubbed resolver (private IPs, mixed answers, **rebinding**:
   first answer public, second private → the connection still goes to the validated IP).
   Parser fixtures. Image pipeline (polyglot, bomb, wrong type, EXIF). Stale-result guard (URL
-  changed → no write). Since 8.1 (`apps/sharing/tests/test_v2_directory.py`): tag rules and
+  changed → no write). Since 9.0 (`apps/sharing/tests/test_v2_moderation.py`,
+  `apps/groups/tests/test_moderation.py`, `apps/accounts/tests/test_suspension.py`): who may
+  report what (visitors and people on a list may, owners and edit links may not; private 404,
+  expired 410), the operator's email (reason, details, commands; the reporter as an id, never
+  an address or IP), no address set (logged without the details), a failing relay (503), the
+  rate limit, and each operator command, including a suspended account signed out at once and
+  refused by allauth's sign-in like a wrong password. Since 8.1 (`apps/sharing/tests/test_v2_directory.py`): tag rules and
   permissions, the list and group directories showing public resources only (unlisted,
   private, expired and leaving owners' never, for anyone), counts of only what the reader may
   see, search (words, phrases, exclusions, partial titles, relevance), tag filters, orderings,
@@ -185,6 +191,11 @@ the phone projects run the journeys marked ★.
    409, merge failure 500.
 10. a11y: axe on every new page (V1 `a11y.spec.ts` extended). Keyboard spec extended to tiles,
     ⋮ menus and decisions.
+11. Reporting (`e2e/tests/report.spec.ts`, since task 9.0): a signed-out visitor reports a
+    public list and a public group through **Report…**, and the operator's email arrives in
+    Mailpit; the owner has nothing to report. Axe on the report dialog in `a11y.spec.ts`. V1's
+    `ownership.spec.ts` and `copy.spec.ts` now expect a visitor's ⋮ menu to hold only
+    **Report…** (they expected no menu at all before).
 
 ## V1 regression checklist
 

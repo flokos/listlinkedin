@@ -36,6 +36,7 @@ class Action(StrEnum):
     FORK = "fork"
     BRANCH = "branch"
     LEAVE = "leave"
+    REPORT = "report"  # tell the operator about abuse: anyone who can view it but its owner
 
 
 @dataclass(frozen=True)
@@ -116,6 +117,8 @@ def can(actor: Actor, action: Action, facts: ListFacts) -> bool:
             )
         case Action.LEAVE:
             return role in (Role.EDITOR, Role.VIEWER)
+        case Action.REPORT:
+            return can_view(actor, facts) and role is not Role.OWNER and not token
     return False
 
 
@@ -144,6 +147,7 @@ class GroupAction(StrEnum):
     MEMBERS = "members"
     DELETE = "delete"
     LEAVE = "leave"
+    REPORT = "report"  # as for lists: anyone who can view the group but its owner
 
 
 @dataclass(frozen=True)
@@ -173,6 +177,8 @@ def can_group(actor: Actor, action: GroupAction, facts: GroupFacts) -> bool:
             return role is Role.OWNER
         case GroupAction.LEAVE:
             return role in (Role.EDITOR, Role.VIEWER)
+        case GroupAction.REPORT:
+            return can_group(actor, GroupAction.VIEW, facts) and role is not Role.OWNER
     return False
 
 

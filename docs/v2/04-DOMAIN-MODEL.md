@@ -213,8 +213,8 @@ does ([05](05-DATABASE-DESIGN.md#constraints-by-invariant)).
 - **G1** A list appears at most once per group, and at most 100 lists per group. Positions are
   unique and ordered. Deleting a list can leave a gap, which the group's next write closes;
   nothing ever reads a raw position (order and indexes are computed after the display rule).
-  Whether to keep positions strictly `0..n-1` instead is open question
-  [Q17](20-DECISIONS-AND-OPEN-QUESTIONS.md), postponed to the end of V2.
+  Keeping positions strictly `0..n-1` with a trigger was considered and declined (Q17, decided
+  as D30 in [20](20-DECISIONS-AND-OPEN-QUESTIONS.md)).
 - **G2** A group never grants access to a list and never copies its content.
 
 **Access and short URLs**

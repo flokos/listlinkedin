@@ -75,7 +75,9 @@ test("visitors can't change anything, and an edit link gets only what it may cha
   const visitor = await otherDevice(browser, baseURL)
   await visitor.page.goto(`/l/${code}`)
   await expect(visitor.page.getByRole('heading', { level: 1, name: 'Open list' })).toBeVisible()
-  await expect(visitor.page.getByRole('button', { name: 'List options' })).toBeHidden()
+  await visitor.page.getByRole('button', { name: 'List options' }).click()
+  await expect(visitor.page.getByRole('menuitem')).toHaveText(['Report…']) // no Settings
+  await visitor.page.keyboard.press('Escape')
   await visitor.page.goto(`/l/${code}/settings`)
   await expect(visitor.page.getByRole('heading', { name: "You can't change this list's settings" })).toBeVisible()
 

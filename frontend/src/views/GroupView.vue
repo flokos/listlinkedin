@@ -10,6 +10,7 @@ import {
   mdiAlertCircleOutline,
   mdiDeleteOutline,
   mdiDotsVertical,
+  mdiFlagOutline,
   mdiFolderMultipleOutline,
   mdiFolderOffOutline,
   mdiLogout,
@@ -40,6 +41,8 @@ import {
   removeGroupList,
   removeMember,
   reorderGroupLists,
+  reportGroup,
+  type ReportInput,
   uploadGroupImage,
   type Visibility,
 } from '../api'
@@ -48,6 +51,7 @@ import GroupAddListDialog from '../components/GroupAddListDialog.vue'
 import GroupFormDialog from '../components/GroupFormDialog.vue'
 import GroupSidebar, { type SidebarMode } from '../components/GroupSidebar.vue'
 import LiveRegion from '../components/LiveRegion.vue'
+import ReportDialog from '../components/ReportDialog.vue'
 import ShareDialog from '../components/ShareDialog.vue'
 import StatePanel from '../components/StatePanel.vue'
 import { useNotify } from '../composables/useNotify'
@@ -189,6 +193,10 @@ async function setVisibility(visibility: Visibility) {
   }
 }
 
+// Anyone who can see the group, except its owner, may report it (task 9.0).
+const reportOpen = ref(false)
+const sendReport = (input: ReportInput) => reportGroup(props.code, input)
+
 const deleteOpen = ref(false)
 async function confirmDelete() {
   try {
@@ -305,7 +313,7 @@ async function confirmLeave() {
           >Share</v-btn
         >
         <v-menu
-          v-if="can('edit') || can('add_list') || can('leave') || can('delete')"
+          v-if="can('edit') || can('add_list') || can('leave') || can('delete') || can('report')"
           location="bottom end"
         >
           <template #activator="{ props: menu }">
@@ -337,6 +345,13 @@ async function confirmLeave() {
               :prepend-icon="mdiTuneVariant"
               title="Settings"
               @click="settingsOpen = true"
+            />
+            <v-list-item
+              v-if="can('report')"
+              role="menuitem"
+              :prepend-icon="mdiFlagOutline"
+              title="Report…"
+              @click="reportOpen = true"
             />
             <v-list-item
               v-if="can('leave')"
@@ -425,6 +440,14 @@ async function confirmLeave() {
         :group-title="group.title"
         :in-group="lists.map((l) => l.code)"
         :add="addList"
+      />
+      <ReportDialog
+        v-if="can('report')"
+        v-model="reportOpen"
+        kind="group"
+        :title="group.title"
+        :send="sendReport"
+        @sent="notify.success('Thanks. We\'ve received your report.')"
       />
       <GroupFormDialog
         v-model="settingsOpen"

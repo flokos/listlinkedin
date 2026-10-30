@@ -80,6 +80,8 @@ export const LIMITS = {
   urlBytes: 2048,
   /** Uploaded images (docs/v2/09-API-DESIGN.md#uploads). */
   imageBytes: 2 * 1024 * 1024,
+  /** What someone may add to a report (docs/v2/09-API-DESIGN.md#moderation). */
+  reportDetailsLength: 1000,
 } as const
 
 const enc = encodeURIComponent
@@ -269,6 +271,22 @@ export const changeLink = (
 
 export const removeLink = (code: string, id: string, token?: string, opts?: WriteOptions) =>
   request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token, ...opts })
+
+// Reports to the operator (docs/v2/09-API-DESIGN.md#moderation), for lists and groups.
+
+/** `phishing` covers malware too. */
+export type ReportReason = 'phishing' | 'spam' | 'illegal' | 'other'
+
+export interface ReportInput {
+  reason: ReportReason
+  /** At most 1000 characters. */
+  details?: string
+}
+
+/** Tells the operator about a list (anyone who can view it, except its owner). Answers 202;
+ * 429 when sent too often, 503 when the report couldn't be sent. */
+export const reportList = (code: string, input: ReportInput) =>
+  request<null>(v2(`/lists/${enc(code)}/report/`), { method: 'POST', body: input })
 
 /** Sets the list's image (PNG, JPEG, WebP or GIF ≤2 MB; re-encoded to fit 512×512). An
  * account's right (owner or editor), never an edit link's. Not versioned. */

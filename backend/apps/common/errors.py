@@ -62,3 +62,11 @@ class PreconditionRequired(DomainError):
 class Unprocessable(DomainError):
     code = "unprocessable"
     default_message = "The request can't be applied."
+
+
+class Unavailable(DomainError):
+    """Something the request depends on, such as the mail relay, isn't working right now.
+    Trying again later may succeed."""
+
+    code = "unavailable"
+    default_message = "This isn't available right now. Please try again later."

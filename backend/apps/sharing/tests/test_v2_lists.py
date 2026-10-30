@@ -191,7 +191,7 @@ def test_legacy_lists_are_readable_and_editable_with_their_token(legacy):
     data = client_for().get(url).json()
     assert data["legacy"] is True
     assert data["visibility"] == "unlisted"
-    assert data["permissions"] == ["view"]
+    assert data["permissions"] == ["view", "report"]  # report: since 9.0
 
     holder = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
     assert set(holder.get(url).json()["permissions"]) >= {"edit", "delete", "rotate_token"}
