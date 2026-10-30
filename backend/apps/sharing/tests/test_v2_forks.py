@@ -18,6 +18,7 @@ from apps.sharing.services import forks as fork_services
 from apps.sharing.services import links as link_services
 from apps.sharing.services import lists as list_services
 from apps.sharing.services import media as media_services
+from apps.sharing.services import restore as restore_services
 from apps.shortener.models import ShortRedirect
 from apps.versioning.models import ListRevision
 from apps.versioning.services import head_snapshot
@@ -373,3 +374,74 @@ def test_v1_reads_dont_show_copies(alice):
     source = make_source(alice, visibility=Visibility.UNLISTED, allow_fork=True, links=0)
     copy, _ = fork_services.fork_list(Principal(user=alice), source.public_code)
     assert client_for().get(f"/api/v1/lists/{copy.public_code}/").status_code == 404
+
+
+def resolves(user, code):
+    """Status and Location of /r/{code} for `user` (a session, as in the browser)."""
+    client = APIClient()
+    if user:
+        client.force_login(user)
+    response = client.get(f"/r/{code}")
+    return response.status_code, response.get("Location")
+
+
+def code_of(link) -> str:
+    return ShortRedirect.objects.get(link=link).code
+
+
+def test_short_urls_of_a_copy_and_its_source_stay_apart(alice, bob, settings):
+    """Every short URL keeps pointing at its own link, under its own list's visibility, through
+    edits, deletes, restores, a deleted source and a copy of a copy."""
+    source = make_source(alice, visibility=Visibility.UNLISTED, allow_fork=True, links=2)
+    original = source.links.get(position=0)
+    copy, _ = fork_services.fork_list(Principal(user=bob), source.public_code)
+    copied = copy.links.get(position=0)
+    source_code, copy_code = code_of(original), code_of(copied)
+
+    # The API shows each link's own short URL.
+    links = client_for(bob).get(f"{URL}{copy.public_code}/links/").json()["results"]
+    assert links[0]["short_url"].endswith(f"/r/{copy_code}")
+    assert copy_code != source_code
+
+    # Each answers with its own list's visibility: the copy is private, the source unlisted.
+    assert resolves(None, source_code) == (302, "https://example.com/0")
+    assert resolves(None, copy_code)[0] == 404
+    assert resolves(alice, copy_code)[0] == 404  # the source's owner has no access to the copy
+    assert resolves(bob, copy_code) == (302, "https://example.com/0")
+    list_services.update_list(Principal(user=bob), copy.pk, {"visibility": "unlisted"})
+    assert resolves(None, copy_code) == (302, "https://example.com/0")
+
+    # Changing a URL in one list changes only that list's short URL; the code stays (K1).
+    link_services.update_link(
+        Principal(user=bob), copy.pk, copied.pk, {"destination_url": "https://mine.example/"}
+    )
+    assert resolves(None, copy_code) == (302, "https://mine.example/")
+    assert resolves(None, source_code) == (302, "https://example.com/0")
+
+    # Deleting in the source doesn't touch the copy, and restoring brings the same code back.
+    link_services.delete_link(Principal(user=alice), source.pk, original.pk)
+    assert resolves(None, source_code)[0] == 404
+    assert resolves(None, copy_code)[0] == 302
+    source.refresh_from_db()
+    restore_services.restore_revision(
+        Principal(user=alice),
+        source.pk,
+        source.head_revision - 1,
+        expected_head=source.head_revision,
+    )
+    assert resolves(None, source_code) == (302, "https://example.com/0")
+
+    # A copy of the copy gets new codes again; deleting the source keeps the copy working.
+    SharedList.objects.filter(pk=copy.pk).update(allow_fork=True)
+    second, _ = fork_services.fork_list(Principal(user=alice), copy.public_code)
+    second_code = code_of(second.links.get(position=0))
+    assert second_code not in {source_code, copy_code}
+    assert resolves(alice, second_code) == (302, "https://mine.example/")
+    list_services.delete_list(Principal(user=alice), source.pk)
+    assert resolves(None, source_code)[0] == 404
+    assert resolves(None, copy_code) == (302, "https://mine.example/")
+
+    # A host blocked later is refused through every list's short URL.
+    settings.BLOCKED_DESTINATION_HOSTS = ["mine.example"]
+    assert resolves(None, copy_code)[0] == 410
+    assert resolves(alice, second_code)[0] == 410
