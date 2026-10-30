@@ -109,7 +109,12 @@ list, the short code, `source_link_id` and the history.
   these are versioned and synchronized.
 - Fetched fields: `metadata` (JSON: title, description, site name, icon and image paths, status)
   and `metadata_fetched_at`. They are written only by the metadata worker and **never
-  overwrite user fields**. Display precedence is `title ?? metadata.title ?? host`.
+  overwrite user fields**. Display precedence is `title ?? metadata.title ?? host`. Since
+  task 7.3 the JSON is `{link_url, status: ready|unavailable, title, description, site_name,
+  icon, image, final_url, error}`, and its values count only while `link_url` is the link's
+  current URL, so a URL edit never shows the old page's details. Storing is a conditional
+  UPDATE in `sharing.services.metadata.store` (the app that owns links), called by the
+  worker's task; it writes no revision and leaves `updated_at` alone.
 - `position`: 0-based order among live links. `deleted_at`: tombstone; a deleted link has
   `position = NULL`, its short URL answers 404, and restoring a revision revives the same row.
 - `source_link_id`: the parent Link's `id` it was copied from. A plain UUID with no FK, so it

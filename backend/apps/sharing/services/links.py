@@ -34,6 +34,7 @@ from ..domain import MAX_LINKS_PER_LIST
 from ..models import SharedLink, SharedList
 from ..policy import Action, can
 from ..selectors import Principal
+from . import metadata
 from .lists import _lock, check_head, denied
 
 DUPLICATE_URL = "This URL is already in the list."
@@ -163,6 +164,7 @@ def move_link_to_list(
         destination_url=link.destination_url,
         title=link.title,
         description=link.description,
+        fetch_metadata=False,  # the fetched values come along
     )
     copy.icon, copy.metadata, copy.metadata_fetched_at = (
         link.icon,
@@ -170,6 +172,7 @@ def move_link_to_list(
         link.metadata_fetched_at,
     )
     copy.save(update_fields=["icon", "metadata", "metadata_fetched_at"])
+    metadata.request_if_stale(copy)
     delete_link_on(source, link.pk)
     _versioned(target, principal)  # one revision in each list
     _versioned(source, principal)
@@ -191,6 +194,7 @@ def add_link_on(
     description: str | None = None,
     position: int | None = None,
     creation_key: UUID | None = None,
+    fetch_metadata: bool = True,
 ) -> SharedLink:
     count = live_links(locked).count()
     if count >= MAX_LINKS_PER_LIST:
@@ -209,6 +213,8 @@ def add_link_on(
         creation_key=creation_key,
     )
     create_redirect(link)
+    if fetch_metadata:
+        metadata.request_fetch(link.pk, link.destination_url)
     return link
 
 
@@ -216,11 +222,14 @@ def update_link_on(locked: SharedList, link_id: UUID, changes: dict) -> SharedLi
     """The link keeps its id and short code when its URL changes (K1)."""
     link = get_live_link(locked, link_id)
     new_destination = changes.get("destination_url")
-    if new_destination is not None and new_destination != link.destination_url:
+    url_changed = new_destination is not None and new_destination != link.destination_url
+    if url_changed:
         _ensure_not_duplicate(locked, new_destination)
     for field, value in changes.items():
         setattr(link, field, value)
     link.save(update_fields=[*changes, "updated_at"])
+    if url_changed:  # the stored metadata describes the old URL
+        metadata.request_if_stale(link)
     return link
 
 

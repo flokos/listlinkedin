@@ -1,5 +1,6 @@
 # Additions to compose.prod.yaml for the end-to-end suite only (e2e/run.sh): a Mailpit
-# server that catches account emails, so tests can open verification and reset links.
+# server that catches account emails, so tests can open verification and reset links, and a
+# fixture site whose details the worker fetches (http://fixture.test/).
 services:
   api:
     environment:
@@ -10,6 +11,20 @@ services:
       AUTH_RATE_LIMITS: "off"
       # Specs about edit links still create V1 (legacy) lists; production answers 410.
       LEGACY_LIST_CREATION: "on"
+
+  worker:
+    environment:
+      # Lets the fetcher reach the fixture site on the private compose network, for the
+      # `.test` name only (apps.metadata.fetcher.test_hosts). Never set in production.
+      FETCH_TEST_HOSTS: "fixture.test=fixture"
+      # Nothing else: tests never reach the internet, and a link to example.com keeps its
+      # host as its title instead of turning into "Example Domain" mid-test.
+      FETCH_BLOCKED_NETWORKS: "0.0.0.0/0,::/0"
+
+  fixture:
+    image: nginx:1.30-alpine  # the same base as the production frontend image
+    volumes:
+      - ./e2e/fixture-site:/usr/share/nginx/html:ro
 
   mailpit:
     image: axllent/mailpit:v1.31

@@ -48,4 +48,13 @@ describe('LinkTile', () => {
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.find('.ll-domain-avatar').text()).toBe('E')
   })
+
+  it('says when the page details are still being fetched', () => {
+    const pending = mountTile({ link: { ...link, metadata_status: 'pending' } })
+    expect(pending.find('article').attributes('aria-busy')).toBe('true')
+    expect(pending.text()).toContain('Fetching details…')
+    const ready = mountTile({ link: { ...link, metadata_status: 'ready' } })
+    expect(ready.find('article').attributes('aria-busy')).toBe('false')
+    expect(ready.text()).not.toContain('Fetching details…')
+  })
 })

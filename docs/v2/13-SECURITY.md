@@ -92,7 +92,13 @@ follows OWASP's "Case 2" guidance for arbitrary external destinations [R12]:
    control characters removed, and truncated to field limits. HTML is never stored.
 9. **Throughput and abuse:** worker concurrency 2. At most one refresh per link per hour. Link
    creation is already throttled. One request per host per second per worker.
-10. **Network layer (defence in depth, recommended):** a host firewall rule (`DOCKER-USER`
+10. **End-to-end tests only:** `FETCH_TEST_HOSTS` (`name=service`) lets the fetcher reach a
+    fixture site on the private compose network. Only names under `.test` (reserved by
+    RFC 2606, so they never exist on the internet) are accepted, only the public-address check
+    is skipped for them, and the app logs a warning at startup when it is set. The e2e stack
+    also sets `FETCH_BLOCKED_NETWORKS=0.0.0.0/0,::/0`, so tests never reach the internet.
+    Production never sets either.
+11. **Network layer (defence in depth, recommended):** a host firewall rule (`DOCKER-USER`
     chain) that drops worker egress to private ranges and `169.254.169.254`. It is optional,
     because the application-layer pinning is the primary control
     ([14](14-INFRASTRUCTURE.md#worker-egress)).

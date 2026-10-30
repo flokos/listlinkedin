@@ -187,6 +187,8 @@ def check_url(url: str) -> Target:
 
 def public_address(hostname: str, port: int) -> str:
     """Step 2: resolve once; every address must be public. Returns the one to connect to."""
+    if (target := test_hosts().get(hostname)) is not None:  # e2e fixture sites only
+        return system_resolver(target, port)[0]
     try:
         addresses = [ipaddress.ip_address(hostname)]  # an IP literal: nothing to resolve
     except ValueError:
@@ -199,6 +201,19 @@ def public_address(hostname: str, port: int) -> str:
     # IPv4 first: containers often have no IPv6 route.
     addresses.sort(key=lambda a: a.version)
     return str(addresses[0])
+
+
+def test_hosts() -> dict[str, str]:
+    """settings.FETCH_TEST_HOSTS as {name: compose service}. Raises ValueError for an entry
+    that isn't `name=service` with a `.test` name (checked at startup, apps.metadata.apps)."""
+    hosts = {}
+    for entry in settings.FETCH_TEST_HOSTS:
+        name, _, target = entry.partition("=")
+        name, target = name.strip().lower(), target.strip()
+        if not target or not name.endswith(".test"):
+            raise ValueError(f"{entry!r}: use name=service, with a name ending in .test")
+        hosts[name] = target
+    return hosts
 
 
 def is_public(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:

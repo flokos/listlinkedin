@@ -23,6 +23,7 @@ from ..domain import slug_for
 from ..models import SharedLink
 from ..policy import Action, can
 from ..selectors import Principal
+from . import metadata
 from .lists import _lock, check_head, denied
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,11 @@ def restore_revision(
             deleted_at=None,
             updated_at=now,
         )
+    # Metadata isn't restored: a link whose URL changed asks for a fresh fetch.
+    for link in target["links"]:
+        row = rows[link["id"]]
+        if not metadata.describes(row.metadata, link["url"]):
+            metadata.request_fetch(row.pk, link["url"])
     # 4. The list's own content.
     content = target["list"]
     if (locked.title, locked.description) != (content["title"], content["description"]):

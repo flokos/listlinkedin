@@ -39,7 +39,7 @@ const display = computed(
 </script>
 
 <template>
-  <article class="ll-tile pa-3 pa-sm-4">
+  <article class="ll-tile pa-3 pa-sm-4" :aria-busy="link.metadata_status === 'pending'">
     <div class="ll-tile__menu">
       <LinkMenu
         :heading="display.title"
@@ -60,6 +60,7 @@ const display = computed(
       :url="link.destination_url"
       :icon-url="display.icon_url"
       :size="smAndUp ? 128 : 72"
+      :pending="link.metadata_status === 'pending'"
       class="ll-tile__icon"
     />
     <a

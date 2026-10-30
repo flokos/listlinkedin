@@ -542,7 +542,11 @@ function forgetHere() {
         :title="list.title"
         :public-url="list.url"
       />
-      <LinkDetailsDialog v-model="detailsOpen" :link="byId(detailsId)" />
+      <LinkDetailsDialog
+        v-model="detailsOpen"
+        :link="byId(detailsId)"
+        :refresh="isOwner && !list.legacy ? () => page.refreshMetadata(detailsId!) : undefined"
+      />
       <MovePositionDialog
         v-model="positionOpen"
         :title="positionLink ? shownTitle(positionLink) : ''"

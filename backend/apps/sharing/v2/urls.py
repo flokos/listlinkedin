@@ -18,6 +18,7 @@ link = LinkViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
 members = MemberViewSet.as_view({"get": "list", "post": "create"})
 member = MemberViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
 move_link = LinkViewSet.as_view({"post": "move_to_list"})
+refresh_metadata = LinkViewSet.as_view({"post": "refresh_metadata"})
 # Upload routes: config.middleware.UPLOAD_PATH and nginx allow them larger bodies.
 list_image = ListImageViewSet.as_view({"put": "update", "delete": "destroy"})
 link_icon = LinkIconViewSet.as_view({"put": "update", "delete": "destroy"})
@@ -30,6 +31,11 @@ urlpatterns = [
         "lists/<str:code>/links/<uuid:link_id>/move-to-list/",
         move_link,
         name="v2-link-move-to-list",
+    ),
+    path(
+        "lists/<str:code>/links/<uuid:link_id>/refresh-metadata/",
+        refresh_metadata,
+        name="v2-link-refresh-metadata",
     ),
     path("lists/<str:code>/image/", list_image, name="v2-list-image"),
     path("lists/<str:code>/links/<uuid:link_id>/icon/", link_icon, name="v2-link-icon"),

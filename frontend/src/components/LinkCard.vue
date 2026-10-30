@@ -35,10 +35,14 @@ const description = computed(() => props.link.display?.description ?? props.link
 </script>
 
 <template>
-  <article class="ll-link-card d-flex align-center ga-3 ga-sm-4 pa-3 pa-sm-4">
+  <article
+    class="ll-link-card d-flex align-center ga-3 ga-sm-4 pa-3 pa-sm-4"
+    :aria-busy="link.metadata_status === 'pending'"
+  >
     <LinkIcon
       :url="link.destination_url"
       :icon-url="link.display?.icon_url ?? link.icon_url"
+      :pending="link.metadata_status === 'pending'"
       :size="40"
     />
     <div class="flex-grow-1 ll-link-card__body">

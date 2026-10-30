@@ -17,7 +17,7 @@ Rules for every task:
 - **Temporary failures** (a timeout, a 5xx answer) raise `TemporaryFailure`; the task then
   calls `retry_or_give_up`. Any other exception fails the task for good, as a bug.
 
-Task 7.3 adds `fetch_link_metadata` and `enqueue_metadata_fetch(link_id, url)` here.
+Tasks: `fetch_link_metadata` (queued with `enqueue_metadata_fetch`, since task 7.3).
 """
 
 import functools
@@ -104,3 +104,41 @@ def retry_or_give_up(task, attempt: int, *args, **kwargs) -> bool:
     later = task.using(run_after=timezone.now() + RETRY_DELAYS[attempt - 1])
     enqueue_on_commit(later, *args, attempt=attempt + 1, **kwargs)
     return True
+
+
+# Link metadata (task 7.3). The links app decides when to fetch and stores the result
+# (apps.sharing.services.metadata); this app only fetches.
+
+
+def enqueue_metadata_fetch(link_id, url: str) -> None:
+    enqueue_on_commit(fetch_link_metadata, str(link_id), url)
+
+
+@background_task
+def fetch_link_metadata(link_id: str, url: str, attempt: int = 1) -> str:
+    """Fetch the page at `url` for the link `link_id` and store what it says. Returns what
+    happened, kept in the task's record."""
+    from django.conf import settings
+
+    from apps.sharing.services import metadata as link_metadata
+
+    from . import extraction, fetcher
+
+    if not settings.METADATA_FETCH_ENABLED:
+        return "disabled"
+    if not link_metadata.still_wanted(link_id, url):
+        return "skipped: the link was deleted or its URL changed"
+    error = None
+    try:
+        values = extraction.extract(url)
+    except TemporaryFailure as exc:
+        if retry_or_give_up(fetch_link_metadata, attempt, link_id, url):
+            return f"retrying: {exc}"
+        values, error = None, "unreachable"
+    except fetcher.FetchRefused:
+        values, error = None, "refused"
+    except fetcher.FetchFailed:
+        values, error = None, "failed"
+    stored = link_metadata.store(link_id, url, values, error=error)
+    outcome = "ready" if values is not None else f"unavailable ({error})"
+    return outcome if stored else f"{outcome}, not stored: the link changed meanwhile"

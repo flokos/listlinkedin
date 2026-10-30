@@ -156,6 +156,15 @@ Link representation (V1 fields kept, new fields added):
 }
 ```
 
+Since task 7.3: `metadata_status` and `fetched` (`{title, description, icon_url, site_name}`
+or null: what the page itself says, offered as suggestions and never copied into the link's
+fields) are in the representation. Fetched values count only when they were fetched for the
+link's **current** URL; after a URL change the link is `pending` again and shows the host.
+`refresh-metadata` answers 202 and queues a fetch, 429 with `Retry-After` within an hour of
+the last one, 409 `metadata_disabled` when fetching is off, 404 for a deleted link; it needs
+edit rights. Fetches are queued on create, on a URL change, and for restored, moved or copied
+links whose stored metadata is for another URL.
+
 `display` applies the precedence rule user > fetched > fallback, so clients don't reimplement
 it: `title` = title, else the fetched title, else the host (lowercase, no `www.`, punycode kept);
 `description` = description, else the fetched one, else null; `icon_url` = the uploaded icon,
