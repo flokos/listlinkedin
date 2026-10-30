@@ -57,6 +57,10 @@ class User(AbstractUser):
     # When every session of the account was last ended (deleting the account does this).
     # Part of the session hash, and never cleared: restoring doesn't revive old sessions.
     sessions_revoked_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Set by the operator (`suspend_account`): the account can't sign in, and its sessions
+    # have ended. Its lists and groups stay unless the operator unpublishes them too.
+    # Separate from is_active, which marks an erased account (purge_account).
+    suspended_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS: list[str] = []

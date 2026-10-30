@@ -104,7 +104,8 @@ def test_unlisted_and_public_groups_can_be_viewed_by_anyone_with_the_code(alice)
     public = create(alice, visibility="public")
     for group in (unlisted, public):
         body = client_for().get(f"{URL}{group['code']}/").json()
-        assert body["permissions"] == ["view"] and body["my_role"] is None
+        # Visitors may report a group to the operator (since 9.0).
+        assert body["permissions"] == ["view", "report"] and body["my_role"] is None
     # Owner names: on public groups only, for people without a role.
     assert client_for().get(f"{URL}{unlisted['code']}/").json()["owner"] is None
     assert client_for().get(f"{URL}{public['code']}/").json()["owner"] == {"display_name": "alice"}

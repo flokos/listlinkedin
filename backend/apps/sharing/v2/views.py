@@ -40,6 +40,7 @@ from ..services import lists as services
 from ..services import media as media_services
 from ..services import members as member_services
 from ..services import metadata as metadata_services
+from ..services import moderation as moderation_services
 from ..services import restore as restore_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
@@ -54,6 +55,7 @@ from .serializers import (
     MemberSerializer,
     MoveToListSerializer,
     ReorderSerializer,
+    ReportSerializer,
 )
 
 IF_MATCH = OpenApiParameter(
@@ -99,6 +101,7 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     restore=extend_schema(parameters=[CODE]),
     claim=extend_schema(parameters=[CODE]),
     reorder=extend_schema(parameters=[CODE]),
+    report=extend_schema(parameters=[CODE]),
 )
 class ListViewSet(viewsets.ViewSet):
     # The owner-token authenticator comes first so 401 answers name the Bearer scheme it
@@ -111,7 +114,12 @@ class ListViewSet(viewsets.ViewSet):
 
     @property
     def throttle_scope(self) -> str:
-        scopes = {"create": "list_create", "fork": "list_create", "restore": "restore"}
+        scopes = {
+            "create": "list_create",
+            "fork": "list_create",
+            "restore": "restore",
+            "report": "report",
+        }
         return scopes.get(self.action, "list_manage")
 
     @extend_schema(
@@ -303,6 +311,24 @@ class ListViewSet(viewsets.ViewSet):
         )
         data = RestoreResultSerializer({"revision": head, "changed": changed}).data
         return with_etag(Response(data), head)
+
+    @extend_schema(
+        request=ReportSerializer,
+        responses={
+            202: OpenApiResponse(description="The operator has been told."),
+            503: OpenApiResponse(description="The report couldn't be sent; try again later."),
+            **ERRORS,
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def report(self, request, code=None):
+        """Report a list to the operator, for example phishing or spam. Anyone who can view
+        the list may, signed in or not, except its owner. Rate-limited per user or IP."""
+        principal = principal_of(request)
+        serializer = ReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        moderation_services.report_list(principal, code, **serializer.validated_data)
+        return Response(status=status.HTTP_202_ACCEPTED)
 
     def _detail(self, principal, code: str, status_code: int = 200) -> Response:
         shared_list, access = selectors.get_list_for(principal, code)

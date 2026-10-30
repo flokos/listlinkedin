@@ -9,6 +9,7 @@ id order (docs/v2/04-DOMAIN-MODEL.md#aggregates-and-consistency-boundaries).
 import logging
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
@@ -28,6 +29,7 @@ from apps.sharing.policy import (
 )
 from apps.sharing.selectors import Principal, list_id_of
 from apps.sharing.services.lists import denied, lock_list
+from apps.sharing.services.moderation import Reason, notify_operator
 from apps.shortener.services import create_with_unique_code
 
 from .models import (
@@ -37,7 +39,7 @@ from .models import (
     GroupList,
     GroupMembership,
 )
-from .selectors import entries_for, group_actor, group_facts_for
+from .selectors import entries_for, get_group_for, group_actor, group_facts_for
 
 logger = logging.getLogger(__name__)
 
@@ -298,6 +300,77 @@ def _membership(group: Group, user_id: UUID) -> GroupMembership:
     if membership is None:
         raise errors.NotVisible("This person isn't in the group.")
     return membership
+
+
+# Moderation (docs/v2/13-SECURITY.md#moderation). Reports go through the policy; the
+# operator's actions run from management commands and don't (shell access authorizes them).
+
+
+def report_group(principal: Principal, code: str, *, reason: Reason, details: str = "") -> None:
+    """Tell the operator about a group. Anyone who can view it may, except its owner."""
+    group, access = get_group_for(principal, code)
+    if not can_group(access.actor, GroupAction.REPORT, access.facts):
+        raise errors.Forbidden("You can't report your own group.")
+    notify_operator(
+        kind="group",
+        title=group.title,
+        url=f"{settings.PUBLIC_BASE_URL}/g/{group.code}/{group.slug}",
+        code=group.code,
+        visibility=group.visibility,
+        owner=f"user {group.owner_id}",
+        reporter=principal.user,
+        reason=reason,
+        details=details,
+        actions=[
+            f"python manage.py unpublish_group {group.code} --reason '…'",
+            f"python manage.py delete_group {group.code} --reason '…' --yes",
+            f"python manage.py suspend_account {group.owner_id} --reason '…' --unpublish",
+        ],
+        object_id=group.pk,
+    )
+
+
+@transaction.atomic
+def unpublish_group(code: str, *, reason: str) -> Group:
+    """Make a group private: only its owner and members can still open it."""
+    locked = _lock_by_code(code)
+    if locked.visibility != Visibility.PRIVATE.value:
+        locked.visibility = Visibility.PRIVATE.value
+        locked.save(update_fields=["visibility", "updated_at"])
+    logger.info("Operator unpublished group %s: %s", locked.pk, reason)
+    return locked
+
+
+@transaction.atomic
+def delete_group_by_operator(code: str, *, reason: str) -> None:
+    """Delete a group, its entries and its memberships. The lists in it are untouched."""
+    locked = _lock_by_code(code)
+    group_id = locked.pk
+    locked.delete()
+    logger.info("Operator deleted group %s: %s", group_id, reason)
+
+
+@transaction.atomic
+def make_groups_private_owned_by(user) -> int:
+    """Unpublish every public or unlisted group the user owns (suspending an account)."""
+    ids = list(
+        Group.objects.select_for_update()
+        .filter(owner=user)
+        .exclude(visibility=Visibility.PRIVATE.value)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    for group in Group.objects.filter(pk__in=ids):
+        group.visibility = Visibility.PRIVATE.value
+        group.save(update_fields=["visibility", "updated_at"])
+    return len(ids)
+
+
+def _lock_by_code(code: str) -> Group:
+    locked = Group.objects.select_for_update().filter(code=code).first()
+    if locked is None:
+        raise errors.NotVisible(f"There is no group with the code {code}.")
+    return locked
 
 
 # Account erasure (apps.accounts.services.purge_account).

@@ -194,7 +194,7 @@ def test_listed_items_show_owner_counts_and_your_role(alice, bob):
     anonymous = directory().json()["results"][0]
     assert anonymous["owner"] == {"display_name": alice.display_name}
     assert anonymous["link_count"] == 1 and anonymous["tags"] == ["dev"]
-    assert anonymous["my_role"] is None and anonymous["permissions"] == ["view"]
+    assert anonymous["my_role"] is None and anonymous["permissions"] == ["view", "report"]
     assert directory(user=bob).json()["results"][0]["my_role"] == "editor"
 
 

@@ -28,6 +28,7 @@ from apps.sharing.v2.serializers import (
     ImageUploadSerializer,
     MemberAddSerializer,
     MemberRoleSerializer,
+    ReportSerializer,
     TagCountSerializer,
 )
 from apps.sharing.v2.views import NOT_AN_IMAGE, ImageUploadViewSet, ListPagination
@@ -84,6 +85,7 @@ def group_lists(principal: Principal, group) -> Response:
     partial_update=extend_schema(parameters=[CODE]),
     destroy=extend_schema(parameters=[CODE]),
     reorder=extend_schema(parameters=[CODE]),
+    report=extend_schema(parameters=[CODE]),
 )
 class GroupViewSet(viewsets.ViewSet):
     authentication_classes = [SessionAuthentication]
@@ -94,7 +96,8 @@ class GroupViewSet(viewsets.ViewSet):
 
     @property
     def throttle_scope(self) -> str:
-        return "group_create" if self.action == "create" else "group_manage"
+        scopes = {"create": "group_create", "report": "report"}
+        return scopes.get(self.action, "group_manage")
 
     @extend_schema(
         parameters=[
@@ -184,6 +187,23 @@ class GroupViewSet(viewsets.ViewSet):
             serializer.validated_data["to_index"],
         )
         return group_lists(principal, group)
+
+    @extend_schema(
+        request=ReportSerializer,
+        responses={
+            202: OpenApiResponse(description="The operator has been told."),
+            503: OpenApiResponse(description="The report couldn't be sent; try again later."),
+            **ERRORS,
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def report(self, request, code=None):
+        """Report a group to the operator. Anyone who can view the group may, signed in or
+        not, except its owner. Rate-limited per user or IP."""
+        serializer = ReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.report_group(principal_of(request), code, **serializer.validated_data)
+        return Response(status=status.HTTP_202_ACCEPTED)
 
 
 @extend_schema_view(

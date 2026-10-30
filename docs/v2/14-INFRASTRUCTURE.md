@@ -87,11 +87,18 @@ compose, Django's console backend is the base-settings default. The e2e stack al
 `AUTH_RATE_LIMITS=off`, because every browser there shares one client IP. Production keeps
 allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit-link lists.
 
+Since task 9.0, mail is sent with `EMAIL_TIMEOUT` (10 s by default), so a relay that hangs no
+longer holds a Gunicorn worker until its own 30 s timeout. Reports of abuse go to
+`MODERATION_EMAIL` ([13](13-SECURITY.md#moderation)); the e2e stack sets it to a Mailpit
+address.
+
 ## Environment variables (new)
 
 | Variable | Used by | Default (dev) |
 |---|---|---|
 | `DJANGO_EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | api | console backend in development, SMTP in production (since task 1.1) |
+| `EMAIL_TIMEOUT` | api | `10` seconds for every SMTP connection (since task 9.0) |
+| `MODERATION_EMAIL` | api | empty: reports are only logged. Set in production (since task 9.0) |
 | `LEGACY_LIST_CREATION` | api | `off`: `POST /api/v1/lists/` answers 410. `on` only in backend tests and the e2e stack, which still seed legacy lists (since task 1.4; removed in 9.6) |
 | `MEDIA_ROOT` | api, cleanup, worker | `/srv/media` (since task 2.3) |
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
@@ -100,7 +107,7 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 | `FETCH_TEST_HOSTS` | worker (e2e only) | empty. `fixture.test=fixture` in `e2e/compose.e2e.yaml` only ([13](13-SECURITY.md#ssrf-safe-fetcher)); a warning is logged when set (since task 7.3) |
 | `WORKER_REPLICAS` | compose (production) | `2`: task processes, each running one task at a time (since task 7.1) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
-| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2; `THROTTLE_METADATA_REFRESH` 60/hour per user and `THROTTLE_DIRECTORY` 600/hour per IP since task 8.1 |
+| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2; `THROTTLE_METADATA_REFRESH` 60/hour per user and `THROTTLE_DIRECTORY` 600/hour per IP since task 8.1; `THROTTLE_REPORT` 10/hour per user or IP since task 9.0 |
 
 ## Scheduled jobs
 

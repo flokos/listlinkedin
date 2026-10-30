@@ -156,8 +156,9 @@ itself (tiles, adding and editing links, its own Share and ⋮); deleting or lea
 returns to the group. The group's name is the page's `<h1>` only while the group is empty.
 The header has the group's **Share** (who can see the group and its People, as for lists, with
 "Each list in the group is shown only to people who may see that list") and ⋮ with **Add
-lists**, **Reorder lists**, **Settings** (name, description, image), **Leave group** and
-**Delete group** (type the name; the lists stay). The rail shows two letters per list and
+lists**, **Reorder lists**, **Settings** (name, description, image), **Report…** (since 9.0,
+for everyone but the owner), **Leave group** and **Delete group** (type the name; the lists
+stay). The rail shows two letters per list and
 expands on keyboard focus or its **Show list names** toggle, not on hover (a click on the
 toggle would otherwise open and close it at once). Lists you see only through your own role
 on them carry a crossed-out eye and "not everyone in the group sees this list" for screen
@@ -305,6 +306,17 @@ permission; the server checks every change again.
 Anyone else sees "You can't change this list's settings". The list header now shows the
 image and the description (line breaks kept). The create form stays a single name field: the
 description is added here.
+
+## Reporting
+
+Since task 9.0 ([13](13-SECURITY.md#moderation)). **Report…** is in the ⋮ menu of a list and
+of a group for anyone who can view it except its owner, signed in or not, so visitors get a
+⋮ menu with this single item. It sits below the divider, next to **Leave** and **Delete**.
+`ReportDialog` asks "What's wrong with this list?" (Phishing or malware, Spam, Illegal content,
+Something else, each with a one-line hint) and for details, which "Something else" requires
+("What is wrong?"). It says the report goes to the people who run listlinkedin, not to the
+owner. **Send report** closes it with the toast "Thanks. We've received your report."; a
+refusal (too many reports, the mail relay down) stays in the dialog.
 
 ## Responsive behaviour
 

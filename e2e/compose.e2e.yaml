@@ -11,6 +11,8 @@ services:
       AUTH_RATE_LIMITS: "off"
       # Specs about edit links still create V1 (legacy) lists; production answers 410.
       LEGACY_LIST_CREATION: "on"
+      # Reports reach Mailpit (e2e/tests/report.spec.ts).
+      MODERATION_EMAIL: moderation@example.test
 
   worker:
     environment:

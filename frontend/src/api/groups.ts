@@ -2,7 +2,7 @@
 // only: an edit link grants nothing on groups. A group shows each viewer only the lists they
 // may see; hidden lists are left out entirely, also from `list_count`.
 import { request } from './client'
-import type { ListDetail, ListRole, Page, Visibility } from './lists'
+import type { ListDetail, ListRole, Page, ReportInput, Visibility } from './lists'
 
 export interface GroupDetail {
   id: string
@@ -22,7 +22,8 @@ export interface GroupDetail {
   /** The lists this group shows you. */
   list_count: number
   my_role: ListRole | null
-  /** `view`, `edit`, `add_list`, `view_members`, `settings`, `members`, `delete`, `leave`. */
+  /** `view`, `edit`, `add_list`, `view_members`, `settings`, `members`, `delete`, `leave`,
+   * `report`. */
   permissions: string[]
 }
 
@@ -87,3 +88,7 @@ export function uploadGroupImage(code: string, file: File) {
 
 export const removeGroupImage = (code: string) =>
   request<null>(groups(`${enc(code)}/image/`), { method: 'DELETE' })
+
+/** Tells the operator about a group (anyone who can view it, except its owner). */
+export const reportGroup = (code: string, input: ReportInput) =>
+  request<null>(groups(`${enc(code)}/report/`), { method: 'POST', body: input })

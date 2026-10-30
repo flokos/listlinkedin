@@ -120,9 +120,18 @@ def test_making_a_list_public_needs_the_owner_with_a_verified_email():
 
 
 def test_permissions_list_what_the_ui_may_offer():
-    assert permissions(ANON, facts(Visibility.UNLISTED)) == ["view"]
+    # Visitors may also report a list to the operator (since 9.0).
+    assert permissions(ANON, facts(Visibility.UNLISTED)) == ["view", "report"]
     assert "settings" in permissions(OWNER_ACTOR, facts())
     assert "leave" in permissions(SIGNED_IN, facts(role=Role.VIEWER))
+
+
+def test_anyone_who_can_view_may_report_except_the_owner_and_the_edit_link():
+    assert can(ANON, Action.REPORT, facts(Visibility.PUBLIC))
+    assert can(SIGNED_IN, Action.REPORT, facts(Visibility.UNLISTED))
+    assert can(SIGNED_IN, Action.REPORT, facts(role=Role.VIEWER))  # people on a private list
+    assert not can(SIGNED_IN, Action.REPORT, facts(Visibility.PRIVATE))
+    assert not can(OWNER_ACTOR, Action.REPORT, facts(Visibility.PUBLIC))
 
 
 def test_policy_module_does_not_depend_on_django():

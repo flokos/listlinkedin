@@ -15,6 +15,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import {
   errorMessage,
+  reportList,
+  type ReportInput,
   type LinkInput,
   type ListDetail,
   type SharedLink,
@@ -32,6 +34,7 @@ import ListHeader from '../components/ListHeader.vue'
 import ListPickerDialog from '../components/ListPickerDialog.vue'
 import LiveRegion from '../components/LiveRegion.vue'
 import MovePositionDialog from '../components/MovePositionDialog.vue'
+import ReportDialog from '../components/ReportDialog.vue'
 import ListToolbar, { type LinkSort } from '../components/ListToolbar.vue'
 import ShareDialog from '../components/ShareDialog.vue'
 import StatePanel from '../components/StatePanel.vue'
@@ -307,6 +310,10 @@ async function setVisibility(visibility: Visibility) {
   }
 }
 
+// Anyone who can see the list, except its owner, may report it to the operator (task 9.0).
+const reportOpen = ref(false)
+const sendReport = (input: ReportInput) => reportList(props.code, input)
+
 // Members may leave a list they were added to.
 const leaveOpen = ref(false)
 async function confirmLeave() {
@@ -419,6 +426,7 @@ function forgetHere() {
         @leave="leaveOpen = true"
         @delete="deleteListOpen = true"
         @copy="startCopy"
+        @report="reportOpen = true"
       />
 
       <v-alert
@@ -522,6 +530,14 @@ function forgetHere() {
         @change-allow-fork="setAllowFork"
       />
       <CopyListDialog v-model="copyOpen" :list="list" @copied="openCopy" />
+      <ReportDialog
+        v-if="page.can('report')"
+        v-model="reportOpen"
+        kind="list"
+        :title="list.title"
+        :send="sendReport"
+        @sent="notify.success('Thanks. We\'ve received your report.')"
+      />
       <EditLinkReveal
         v-if="token"
         v-model="reveal.open"

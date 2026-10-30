@@ -57,6 +57,7 @@ lists are `unlisted`, which is exactly their V1 semantics.
 | Remove an exclusion | — | — | — | ✓ on the child | ✓ | — |
 | Detach a branch, *postponed* | — | — | — | — | ✓ (child owner) | — |
 | Create a list | — | ✓ | | | | — (no anonymous creation, [ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) |
+| Report to the operator (`report`, since 9.0) | if can view | if can view | ✓ | ✓ | — | — |
 
 A view-only capability never grants editing. In V2 the share URL (`/l/{code}`) is only ever a
 *view* capability. The single exception is the V1 edit link, a separate secret that works only
@@ -72,6 +73,7 @@ collaborators are added by account.
 | Add a list | — | — | ✓ **and** (list Editor or above, or the list is `public`) | same |
 | Remove a list from the group | — | — | ✓ | ✓ |
 | Visibility, members, delete | — | — | — | ✓ |
+| Report to the operator (`report`, since 9.0) | if the group's visibility allows | ✓ | ✓ | — |
 
 Since 4.1 the group rules live next to the list rules in `sharing/policy.py` (`can_group`,
 `can_add_list`, `shown_in_group`), and `groups/selectors.py` applies the display rule in SQL
@@ -162,6 +164,18 @@ existence**.
 - Membership changes lock the list row too, so they serialize with writes on that list.
 - Reads use committed state at statement time. A read that races a revocation may return the
   pre-revocation state once. That is acceptable and matches how revocation works on the web.
+
+## Operator actions
+
+Since task 9.0 the operator moderates with management commands
+([13](13-SECURITY.md#moderation)). They run in a shell on the server, and shell access is
+their authorization, so they don't go through the policy. Like every write, they lock the rows
+they change, and they log the ids and the reason given.
+
+A suspended account (`User.suspended_at`) can't sign in and its sessions end at once: both
+authentication backends refuse it (`apps/accounts/backends.py`, at sign-in and whenever a
+session is loaded), and so does allauth's sign-in (`apps/accounts/adapter.py`), which answers
+as for a wrong password. `is_active` stays reserved for erased accounts ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)).
 
 ## Implementation notes
 

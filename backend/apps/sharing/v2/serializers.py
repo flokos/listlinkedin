@@ -19,6 +19,7 @@ from ..selectors import (
 )
 from ..serializers import LinkSerializer
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
+from ..services.moderation import MAX_DETAILS_LENGTH, Reason
 
 
 class ListOwnerSerializer(serializers.Serializer):
@@ -179,6 +180,25 @@ class ForkSerializer(serializers.Serializer):
     title = serializers.CharField(
         max_length=255, required=False, help_text='Default: "{the list\'s title} (copy)".'
     )
+
+
+class ReportSerializer(serializers.Serializer):
+    """A report to the operator about a list or group (docs/v2/09-API-DESIGN.md#moderation)."""
+
+    reason = serializers.ChoiceField(
+        choices=[r.value for r in Reason],
+        help_text="phishing (or malware), spam, illegal, or other.",
+    )
+    details = serializers.CharField(
+        max_length=MAX_DETAILS_LENGTH,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Anything that helps the operator decide.",
+    )
+
+    def validate_reason(self, value: str) -> Reason:
+        return Reason(value)
 
 
 def email_hint(email: str) -> str:
