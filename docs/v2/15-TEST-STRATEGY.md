@@ -55,7 +55,12 @@ Repositories and services (prompt 13.2):
 - Revision persistence: every mutation writes one revision, no-ops write none, the head
   equals the live state (R4) after randomized operation sequences, the UPDATE trigger
   rejects changes, and a forced failure mid-transaction leaves neither a change nor a revision.
-- Branch creation: atomic (inject a failure after copying half the links → nothing remains),
+- Fork creation (since 5.1, `test_v2_forks.py`): atomic (a failure while writing revision 1
+  leaves no list, link or short URL), copied from the head revision, permissions per
+  [12](12-AUTHORIZATION.md#list-permission-matrix), `origin` never naming a source the reader
+  can't view, idempotent `creation_key` (also under 8 concurrent retries), and copies made
+  while the source is edited each equal one of its revisions (real PostgreSQL threads).
+- Branch creation (postponed): atomic (inject a failure after copying half the links → nothing remains),
   consistent snapshot, `source_link_id` and short codes, idempotent `creation_key`.
 - Merge application: each decision type against real rows, revivals keep `id` and short code,
   URL swap cycles, link cap, base advancement, exclusions upsert and pending re-inclusions,

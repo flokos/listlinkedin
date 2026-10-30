@@ -18,6 +18,23 @@ class ListOwnerSerializer(serializers.Serializer):
     display_name = serializers.CharField()
 
 
+class ListRefSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    title = serializers.CharField()
+
+
+# How a list came from another one. Only copies (forks) for now: synced copies are postponed.
+ORIGIN_KIND_CHOICES = [("fork", "Fork")]
+
+
+class OriginSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=ORIGIN_KIND_CHOICES)
+    parent = ListRefSerializer(
+        allow_null=True,
+        help_text="The list this is a copy of; null if you can't view it (or it is gone).",
+    )
+
+
 class ListDetailSerializer(serializers.ModelSerializer):
     """A list as the requesting user sees it. `my_role` and `permissions` come from the
     policy (docs/v2/12-AUTHORIZATION.md), so clients never re-derive the rules."""
@@ -33,6 +50,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    origin = serializers.SerializerMethodField()
 
     class Meta:
         model = SharedList
@@ -56,6 +74,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
             "link_count",
             "my_role",
             "permissions",
+            "origin",
         ]
         read_only_fields = fields
 
@@ -87,6 +106,15 @@ class ListDetailSerializer(serializers.ModelSerializer):
     def get_permissions(self, shared_list: SharedList) -> list[str]:
         return permissions(*self._pair(shared_list))
 
+    @extend_schema_field(OriginSerializer(allow_null=True))
+    def get_origin(self, shared_list: SharedList) -> dict | None:
+        """Null for an ordinary list. For a copy, the list it was copied from, if the viewer
+        may see it (`fork_sources` in the context: selectors.fork_sources)."""
+        if shared_list.forked_from_id is None:
+            return None
+        parent = self.context["fork_sources"].get(shared_list.forked_from_id)
+        return {"kind": "fork", "parent": parent}
+
     def _pair(self, shared_list: SharedList):
         access = self._access(shared_list)
         return access.actor, access.facts
@@ -116,6 +144,12 @@ class ListWriteSerializer(serializers.Serializer):
         if value is not None and value <= timezone.now():
             raise serializers.ValidationError("Choose a time in the future.")
         return value
+
+
+class ForkSerializer(serializers.Serializer):
+    title = serializers.CharField(
+        max_length=255, required=False, help_text='Default: "{the list\'s title} (copy)".'
+    )
 
 
 def email_hint(email: str) -> str:

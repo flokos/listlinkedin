@@ -56,6 +56,9 @@ class SharedList(models.Model):
     )
     allow_fork = models.BooleanField(default=False)
     allow_branch = models.BooleanField(default=False)
+    # The list this one is a copy of (a fork). Attribution only: a plain UUID, no FK, so the
+    # copy outlives its source and never receives its changes.
+    forked_from_id = models.UUIDField(null=True, blank=True, editable=False)
     # Idempotency-Key of the request that created the list (a retried create returns it).
     creation_key = models.UUIDField(null=True, blank=True, editable=False)
     # The number of the list's latest revision (apps.versioning); 0 before the first one.

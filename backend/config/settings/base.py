@@ -211,6 +211,8 @@ SPECTACULAR_SETTINGS = {
     # The same editor/viewer choices appear on members and in requests: one named enum.
     "ENUM_NAME_OVERRIDES": {
         "MemberRoleEnum": "apps.sharing.models.MEMBER_ROLE_CHOICES",
+        "OriginKindEnum": "apps.sharing.v2.serializers.ORIGIN_KIND_CHOICES",
+        "RevisionKindEnum": "apps.versioning.models.RevisionKind",
         "VisibilityEnum": "apps.sharing.models.VISIBILITY_CHOICES",
     },
     "TITLE": "Temporary Link Sharing API",

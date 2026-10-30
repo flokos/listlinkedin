@@ -34,6 +34,7 @@ from .. import selectors
 from ..permissions import WriteRateThrottle
 from ..policy import Action, Role, can
 from ..serializers import OwnerTokenSerializer
+from ..services import forks as fork_services
 from ..services import links as link_services
 from ..services import lists as services
 from ..services import media as media_services
@@ -41,6 +42,7 @@ from ..services import members as member_services
 from ..services import restore as restore_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
+    ForkSerializer,
     ImageUploadSerializer,
     LinkDetailSerializer,
     ListDetailSerializer,
@@ -91,6 +93,7 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     partial_update=extend_schema(parameters=[CODE]),
     destroy=extend_schema(parameters=[CODE]),
     rotate_token=extend_schema(parameters=[CODE]),
+    fork=extend_schema(parameters=[CODE]),
     restore=extend_schema(parameters=[CODE]),
     claim=extend_schema(parameters=[CODE]),
     reorder=extend_schema(parameters=[CODE]),
@@ -106,7 +109,8 @@ class ListViewSet(viewsets.ViewSet):
 
     @property
     def throttle_scope(self) -> str:
-        return {"create": "list_create", "restore": "restore"}.get(self.action, "list_manage")
+        scopes = {"create": "list_create", "fork": "list_create", "restore": "restore"}
+        return scopes.get(self.action, "list_manage")
 
     @extend_schema(
         parameters=[
@@ -131,8 +135,11 @@ class ListViewSet(viewsets.ViewSet):
         lists = selectors.lists_of(principal.user, role=Role(role) if role else None)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(lists, request, view=self)
-        access = {lst.pk: selectors.access_in_listing(principal.user, lst) for lst in page}
-        data = ListDetailSerializer(page, many=True, context={"access": access}).data
+        context = {
+            "access": {lst.pk: selectors.access_in_listing(principal.user, lst) for lst in page},
+            "fork_sources": selectors.fork_sources(principal.user, page),
+        }
+        data = ListDetailSerializer(page, many=True, context=context).data
         return paginator.get_paginated_response(data)
 
     @extend_schema(
@@ -211,6 +218,30 @@ class ListViewSet(viewsets.ViewSet):
         return self._detail(selectors.Principal(user=principal.user), code)
 
     @extend_schema(
+        request=ForkSerializer,
+        parameters=[IDEMPOTENCY_KEY],
+        responses={201: ListDetailSerializer, 200: ListDetailSerializer, **ERRORS},
+    )
+    @action(detail=True, methods=["post"])
+    def fork(self, request, code=None):
+        """Make a copy: a new private list you own, with this list's title, description, image
+        and links (new short URLs). It's independent: later changes to either list don't reach
+        the other. Allowed to the owner, and to anyone signed in who can view the list when its
+        owner allows copies. Retrying with the same `Idempotency-Key` returns the first copy."""
+        principal = principal_of(request)
+        serializer = ForkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        fork, created = fork_services.fork_list(
+            principal,
+            code,
+            title=serializer.validated_data.get("title"),
+            creation_key=_idempotency_key(request),
+        )
+        return self._detail(
+            principal, fork.public_code, status.HTTP_201_CREATED if created else 200
+        )
+
+    @extend_schema(
         request=ReorderSerializer,
         parameters=[IF_MATCH],
         responses={200: LinkDetailSerializer(many=True), **ERRORS},
@@ -273,7 +304,9 @@ class ListViewSet(viewsets.ViewSet):
 
     def _detail(self, principal, code: str, status_code: int = 200) -> Response:
         shared_list, access = selectors.get_list_for(principal, code)
-        data = ListDetailSerializer(shared_list, context={"access": {shared_list.pk: access}}).data
+        data = ListDetailSerializer(
+            shared_list, context=detail_context(principal, shared_list, access)
+        ).data
         return with_etag(Response(data, status=status_code), shared_list.head_revision)
 
 
@@ -420,7 +453,9 @@ class ListImageViewSet(ImageUploadViewSet):
         shared_list, _ = selectors.get_list_for(principal, code)
         media_services.set_list_image(principal, shared_list.pk, self._file(request))
         shared_list, access = selectors.get_list_for(principal, code)
-        data = ListDetailSerializer(shared_list, context={"access": {shared_list.pk: access}}).data
+        data = ListDetailSerializer(
+            shared_list, context=detail_context(principal, shared_list, access)
+        ).data
         return Response(data)
 
     def destroy(self, request, code=None):
@@ -581,6 +616,14 @@ class MemberViewSet(viewsets.ViewSet):
         if principal.user is None:
             raise errors.AuthenticationRequired("Sign in to see who a list is shared with.")
         return principal
+
+
+def detail_context(principal, shared_list, access) -> dict:
+    """The serializer context for one list as `principal` sees it."""
+    return {
+        "access": {shared_list.pk: access},
+        "fork_sources": selectors.fork_sources(principal.user, [shared_list]),
+    }
 
 
 def _idempotency_key(request) -> uuid.UUID | None:

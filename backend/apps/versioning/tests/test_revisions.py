@@ -173,7 +173,8 @@ def test_concurrent_writers_get_consecutive_numbers():
 
 
 BEFORE = [("sharing", "0007_head_revision"), ("versioning", "0002_revision_immutable_trigger")]
-AFTER = [("versioning", "0003_baseline_revisions")]
+# Later sharing migrations too, so the current SharedList model can read the rows.
+AFTER = [("versioning", "0003_baseline_revisions"), ("sharing", "0008_list_forked_from")]
 
 
 @pytest.mark.django_db(transaction=True)

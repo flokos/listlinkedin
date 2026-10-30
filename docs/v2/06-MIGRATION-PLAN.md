@@ -42,6 +42,7 @@ in development. Production rollback is covered [below](#rollback).
 | 3 | `versioning.0003_baseline_revisions`: for every list with `head_revision = 0`, `number = 1`, `kind = 'migrated'`, snapshot of the current state built in SQL; `head_revision = 1` | data (one `INSERT … SELECT` per 500 lists, inside the migration's transaction like `sharing.0004`) | reverse deletes `migrated` revisions and resets those heads to 0 | [Revision initialization](#revision-initialization) |
 | 3 | `versioning.0005_baselines_for_new_lists` (task 3.2): the same baseline for lists created between 3.1 and 3.2 (still at head 0) | data | no-op reverse | A no-op on databases that never ran 3.1 without 3.2 |
 | 4 | `groups` tables | schema | yes | |
+| 5 | `sharing.0008_list_forked_from` (task 5.1): nullable `forked_from_id` (a plain UUID, no FK) on lists | schema | yes | Existing lists are no copies: NULL |
 | 5–6 | `ListBranch`, `BranchExclusion`, `SyncRecord`: **postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)), not created in V2 | schema | yes | |
 | 7 | django-tasks-db tables | schema (third-party) | yes | |
 | 8 | `pg_trgm` extension, generated search column, GIN indexes | schema | yes | `CREATE EXTENSION` needs the DB owner role. The compose `POSTGRES_USER` is the owner |

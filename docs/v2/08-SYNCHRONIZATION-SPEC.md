@@ -26,6 +26,7 @@ Ground rules ([ADR-004](adr/ADR-004-three-way-merge.md)):
 | Allowed when | the actor is signed in and is the owner, or can view the parent and `allow_fork` is set | the actor is signed in and is the owner, or can view the parent and `allow_branch` is set |
 | Initial revision | `forked` (number 1) | `branched` (number 1) |
 | Defaults | visibility `private`, `allow_fork`/`allow_branch` false, no expiry, title "{parent title} (copy)" | same |
+| Copied | title (unless given), description, list image, links with their user fields and icons (media files are shared by path; `cleanup_media` counts every reference), fetched metadata of links whose URL equals the snapshot's. **Not** copied: members, visibility, expiry, history | same |
 
 `allow_branch` controls only **creating** branches. An existing branch keeps syncing while its
 child's editors can still **view** the parent, because visibility is the real security
@@ -42,7 +43,7 @@ becomes `parent_inaccessible` ([12](12-AUTHORIZATION.md#synchronization)).
    is immutable, so this is a consistent copy without locking the parent.
 3. In one transaction: create the child list (code retry), copy every snapshot link (new `id`,
    `position` as in the parent, `source_link_id` = the parent link `id`, and `metadata` copied
-   from the parent row when it still exists), create a short code per link, write revision 1,
+   from the parent row when it still exists with the snapshot's URL: metadata describes a URL), create a short code per link, write revision 1,
    and for branches create `ListBranch(base_revision = parent head)`.
 4. Any failure rolls everything back. There is never a half-created branch.
 

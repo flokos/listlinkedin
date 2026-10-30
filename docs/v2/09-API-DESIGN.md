@@ -117,6 +117,12 @@ List detail:
 only when the viewer may see it ([12](12-AUTHORIZATION.md#leak-analysis)). `origin` is
 null for ordinary lists. `parent` is null when the viewer can't view the parent.
 
+Since task 5.1 `origin` is `{"kind": "fork", "parent": {"code", "title"} | null}` for a copy
+(the `branch` kind and `sync` are postponed). `parent` is null when the source was deleted,
+has expired or isn't viewable to the reader *now*, so a copy never reveals a list its reader
+can't open. It is in every list representation (detail, My lists, a group's lists), resolved
+with one query per response (`selectors.fork_sources`).
+
 ## Links
 
 | Method | Path | Who | Notes |
@@ -185,7 +191,7 @@ Since task 3.3:
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/api/v2/lists/{code}/fork/` | see [12](12-AUTHORIZATION.md#list-permission-matrix) | `{title?}` → 201 new list. `Idempotency-Key` optional |
+| POST | `/api/v2/lists/{code}/fork/` | see [12](12-AUTHORIZATION.md#list-permission-matrix) | `{title?}` → 201 the new list (detail). `Idempotency-Key` optional: a retry answers 200 with the first copy; the key used for another source, or by another user → 409 `idempotency_key_reused`. Signed out 401; not viewable 404; copies not allowed 403; expired 410. Rate limit `list_create` |
 | POST | `/api/v2/lists/{code}/branches/` | same, with `allow_branch` | `{title?}` → 201 new child |
 | GET | `/api/v2/lists/{code}/branches/` | can view | Children the viewer can view (others omitted) |
 | POST | `/api/v2/lists/{code}/detach/` | child owner | Removes the sync relationship (irreversible) |
