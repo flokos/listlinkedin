@@ -94,6 +94,19 @@ the switching PR, remove each item, in this order where it matters:
 7. **If 7.1 took the fallback** (our own `metadata_fetch_job` table instead of
    django-tasks-db): its loop command, and a migration dropping the table, replace items 2–5.
 
+### Background work from earlier phases
+
+No phase before 7 uses a task queue: V1 and phases 1–5 run everything either in the request
+or as scheduled management commands. A move to Celery (or Redis arriving with it) doesn't have
+to change any of them, but each is a candidate, and none should move silently:
+
+| Work | Today | If Celery (or Redis) arrives |
+|---|---|---|
+| Scheduled jobs: `cleanup_expired` (daily 03:00), `clearsessions` (03:20), `purge_deleted_accounts` (03:40), `cleanup_media` (Sundays 04:00), and `prune_db_task_results` from 7.1 | supercronic in the `cleanup` container, `backend/docker/crontab` | **Default: stay on cron.** Moving them to Celery beat is optional: each task calls the same command logic, and beat must run as exactly one instance. Only `cleanup_expired` holds a single-instance advisory lock today; the others rely on one `cleanup` container. The `cleanup` container goes only if every line moves |
+| Email: verification, password reset (allauth) | sent synchronously in the request through `EMAIL_BACKEND` (SMTP in production) | A candidate for a background task (through an enqueue point, as above), so a slow relay doesn't hold a Gunicorn worker. **Gap (2026-10-30):** no `EMAIL_TIMEOUT` is set, so a hanging relay holds the request until Gunicorn's 30 s timeout; setting one is a small, separate fix |
+| Image uploads (list and group images, link icons) | re-encoded synchronously in the request, outside the row lock ([ADR-012](ADR-012-media-and-images.md)); ≤2 MB | Stays synchronous: the user waits for the result and the work is bounded |
+| Rate-limit counters, sessions | PostgreSQL `DatabaseCache` with advisory locks (exact under concurrency, V1); database sessions | Not Celery. If Redis arrives, moving either is a separate decision with its own ADR, and must keep the throttles exact under concurrency |
+
 Unchanged by a switch: the fetcher, parser and store step; `SharedLink.metadata` and the
 stale-result guard; the `refresh-metadata` endpoint and its throttle; `backfill_metadata`;
 `METADATA_FETCH_ENABLED`; the worker's egress restrictions.
