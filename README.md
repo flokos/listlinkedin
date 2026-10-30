@@ -344,7 +344,9 @@ you must run rootless, use the `slirp4netns` port driver.
 
 **Background worker (V2).** The `worker` service runs background tasks; from task 7.3 it
 fetches the pages behind links (titles, descriptions, icons), and it is the only process that
-contacts other sites. `METADATA_FETCH_ENABLED=false` turns fetching off; `WORKER_REPLICAS`
+contacts other sites. `METADATA_FETCH_ENABLED=false` turns fetching off;
+`FETCH_BLOCKED_NETWORKS` adds address ranges it must never reach (internal services on public
+addresses, such as your company's range); `WORKER_REPLICAS`
 sets how many tasks run at once (default 2). Check it with
 `docker compose -f compose.prod.yaml ps worker` (healthy) and see the queue with
 `docker compose -f compose.prod.yaml exec worker python manage.py check_worker`. Two optional

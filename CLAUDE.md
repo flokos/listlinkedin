@@ -45,7 +45,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 | `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
 | `groups` | `Group`, `GroupList`, `GroupMembership`, since 4.1. Group rules are in `sharing/policy.py`; the display rule in SQL is `groups/selectors.shown_lists_q` |
 | `versioning` | `ListRevision`, `record_revision`, snapshots and diffs in `versioning/domain/`, which has **no Django imports** (an AST test enforces it). `ListBranch`, `BranchExclusion`, `SyncRecord` and the merge engine are **postponed** ([ADR-015](docs/v2/adr/ADR-015-postpone-synchronization.md)) |
-| `metadata` | The image pipeline (`images.py`: re-encoding, storage) and `cleanup_media`, since 2.3. The task queue since 7.1: `tasks.py` is the only place that queues work (`enqueue_on_commit`, `retry_or_give_up`), plus `check_worker` and `recover_stuck_tasks`. Planned: safe URL fetching, metadata parsing (worker tasks) |
+| `metadata` | The image pipeline (`images.py`: re-encoding, storage) and `cleanup_media`, since 2.3. The task queue since 7.1: `tasks.py` is the only place that queues work (`enqueue_on_commit`, `retry_or_give_up`), plus `check_worker` and `recover_stuck_tasks`. Since 7.2: `fetcher.py` (the only code that fetches user URLs), `parser.py`, `extraction.py`. Planned: storing metadata on links (7.3) |
 
 - DRF ViewSets handle HTTP only. Services own transactions and row locks. Selectors own reads.
   One app never writes another app's models directly; it calls that app's services.

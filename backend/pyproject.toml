@@ -16,12 +16,16 @@ dependencies = [
     "idna>=3.7",  # IDNA2008/UTS46 host encoding, as browsers do (the stdlib codec is IDNA2003)
     "pillow>=13.0,<14",  # media: every uploaded or fetched image is re-encoded (ADR-012)
     "psycopg[binary]>=3.2",
+    # The SSRF-safe fetcher (apps.metadata.fetcher) opens connections to a validated address
+    # with the original host name for SNI and certificate checks (docs/v2/13-SECURITY.md).
+    "urllib3>=2.8,<3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-django>=4.9",
+    "trustme>=1.2",  # a test CA, so fetcher tests run a local HTTPS server
     "ruff>=0.7",
 ]
 

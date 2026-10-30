@@ -49,6 +49,8 @@ writable. A host path needs `chown 10001` instead.
   library inserts the row at once). Temporary failures retry through `retry_or_give_up`
   (3 attempts, pauses of 30 s and 5 min). Since task 7.1, with what the library does and
   doesn't do recorded in [ADR-008](adr/ADR-008-background-metadata-extraction.md#verified-in-task-71).
+- **Hard time limit** (since 7.2): tasks are declared with `@background_task`; one running
+  past 120 s ends the worker process (exit 70), compose restarts it and the task runs again.
 - **Tasks left running by a dead worker** (the library never recovers them) are run again by
   `recover_stuck_tasks` every 5 minutes, or failed after 3 runs. A task must finish well within
   `TASK_STALE_AFTER` (10 minutes).
@@ -94,6 +96,7 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 | `MEDIA_ROOT` | api, cleanup, worker | `/srv/media` (since task 2.3) |
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | api, worker | `true` (`false` disables fetching, for locked-down deployments; read from task 7.3) |
+| `FETCH_BLOCKED_NETWORKS` | worker | empty: comma-separated CIDRs the fetcher never connects to, **added** to its built-in private and metadata ranges, which nothing can remove; checked at startup (since task 7.2) |
 | `WORKER_REPLICAS` | compose (production) | `2`: task processes, each running one task at a time (since task 7.1) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
 | `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2 |
@@ -127,7 +130,11 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
   7.1): it exits non-zero if a ready task has waited, or a task has been running, longer than
   10 minutes. The library has no heartbeat, so the queue itself is the signal; a worker that
   crashes exits and is restarted. `deploy/smoke-test.sh` checks that every replica is healthy
-  and runs a task through it.
+  and runs a task through it. A task that hangs ends its worker (the hard time limit above).
+  **Compose never restarts an unhealthy container, and nothing alerts**: a worker that hangs
+  outside a task stays hung until someone looks. Task 9.4 documents the recommended remedy
+  (restart unhealthy containers, e.g. an autoheal container or the host's systemd, and alert
+  on `check_worker`); adding a service for it needs an ADR.
 - **Structured logging:** keep stdout logging and add a JSON formatter in production, plus a
   request-id middleware (`X-Request-ID` set by nginx, echoed back and attached to log
   records), so an api log line and the task it enqueued can be correlated.

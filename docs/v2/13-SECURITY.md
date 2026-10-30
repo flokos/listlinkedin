@@ -56,9 +56,14 @@ follows OWASP's "Case 2" guidance for arbitrary external destinations [R12]:
    and 443 only**: links on other ports simply get no metadata, which removes internal-service
    probing on odd ports.
 2. **Resolve** A and AAAA records. **Every** address must be globally routable:
-   `ipaddress.ip_address(a).is_global`, with IPv4-mapped and 6to4 IPv6 addresses unwrapped
-   first. Explicit denies cover `0.0.0.0/8`, `127.0.0.0/8`, RFC 1918, `100.64.0.0/10`,
-   `169.254.0.0/16` (cloud metadata), `fc00::/7`, `fe80::/10`, multicast and `::1`. Any
+   `ipaddress.ip_address(a).is_global`, with IPv4-mapped, 6to4, Teredo and NAT64
+   (`64:ff9b::/96`) IPv6 addresses unwrapped first and judged by the IPv4 address they carry.
+   NAT64 matters: Python counts the prefix as global, but `64:ff9b::7f00:1` reaches 127.0.0.1
+   through a NAT64 gateway (found by a test in task 7.2). Explicit denies cover `0.0.0.0/8`, `127.0.0.0/8`, RFC 1918, `100.64.0.0/10`,
+   `169.254.0.0/16` (cloud metadata), `fc00::/7`, `fe80::/10`, multicast and `::1`. These
+   are a fixed floor in code; a deployment can only **add** ranges, with
+   `FETCH_BLOCKED_NETWORKS` (for internal services on public addresses, such as a company's
+   own range). An invalid entry stops the app at startup. Any
    non-global answer rejects the URL. A blocklist is the only option for open-ended
    destinations, and OWASP calls it necessary but not sufficient, hence the steps below.
 3. **Pin the connection** to the validated address. Use the original hostname for the `Host`
@@ -67,7 +72,12 @@ follows OWASP's "Case 2" guidance for arbitrary external destinations [R12]:
    2.x connection pools opened on the IP with `server_hostname` and `assert_hostname` set to
    the original host. The surveyed SSRF wrapper libraries (drawbridge, ssrfguard,
    httpx-secure, Champion/Advocate) have unverified maintenance [R30], so we own about 150
-   lines with exhaustive tests instead.
+   lines with exhaustive tests instead. Since task 7.2: `apps/metadata/fetcher.py`; one pool
+   per hop, closed after it; a 4xx, an unknown name, a TLS failure or an unacceptable body
+   raise `FetchFailed`, the policy `FetchRefused` (neither retried), and timeouts, connection
+   errors, 429 and 5xx `TemporaryFailure` (retried by the task). `parser.py` reads the page,
+   and `extraction.py` fetches the icon (up to 3 candidates, then `/favicon.ico`) and the
+   `og:image` through the image pipeline, within a 30 s budget for images.
 4. **Redirects off.** Follow up to 3 manually. Each hop re-runs steps 1–3. A relative hop
    resolves against the current URL.
 5. **Limits:** connect 3 s, read 5 s, 10 s wall clock per URL. HTML ≤512 KB and images ≤1 MB,
