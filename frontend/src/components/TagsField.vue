@@ -8,6 +8,9 @@ import { normalizeTag, popularTags, TAG_LIMITS } from '../api'
 const tags = defineModel<string[]>({ required: true })
 defineProps<{ errorMessages?: string[] }>()
 
+const box = ref<{ focus: () => void }>()
+defineExpose({ focus: () => box.value?.focus() })
+
 const suggestions = ref<string[]>([])
 const search = ref('')
 
@@ -32,6 +35,7 @@ function update(values: string[]) {
 
 <template>
   <v-combobox
+    ref="box"
     v-model:search="search"
     :model-value="tags"
     :items="suggestions"

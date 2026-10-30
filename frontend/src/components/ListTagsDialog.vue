@@ -18,6 +18,7 @@ const FIELDS = ['tags'] as const
 const chosen = ref<string[]>([])
 const errors = ref(noErrors(FIELDS))
 const busy = ref(false)
+const field = ref<{ focus: () => void }>()
 
 watch(
   open,
@@ -44,7 +45,7 @@ async function submit() {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="520" aria-label="Tags">
+  <v-dialog v-model="open" max-width="520" aria-label="Tags" @after-enter="field?.focus()">
     <v-card class="pa-2" title="Tags">
       <v-form @submit.prevent="submit">
         <v-card-text>
@@ -55,7 +56,7 @@ async function submit() {
                 : 'Tags are shown on the list. They help people find it in Explore once it is public.'
             }}
           </p>
-          <TagsField v-model="chosen" :error-messages="errors.fields.tags" autofocus />
+          <TagsField ref="field" v-model="chosen" :error-messages="errors.fields.tags" />
           <v-alert
             v-if="errors.form"
             type="error"
