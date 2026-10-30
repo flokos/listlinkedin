@@ -73,7 +73,11 @@ Repositories and services (prompt 13.2):
   limits, content types) and a stubbed resolver (private IPs, mixed answers, **rebinding**:
   first answer public, second private → the connection still goes to the validated IP).
   Parser fixtures. Image pipeline (polyglot, bomb, wrong type, EXIF). Stale-result guard (URL
-  changed → no write).
+  changed → no write). Since 7.2 (`apps/metadata/tests/`): the local servers speak HTTP and
+  HTTPS (a `trustme` test CA, so pinning is checked with real certificates), the stub resolver
+  and the dial hook record every lookup and connection, and each rule of
+  [13](13-SECURITY.md#ssrf-safe-fetcher) has a test, including IPv4-mapped, 6to4, Teredo and
+  NAT64 addresses, a compression bomb, a trickling server and a certificate for another name.
 - Migrations: a test applies V1's migration state, inserts V1-shaped rows, migrates to head,
   and asserts the data mapping in [06](06-MIGRATION-PLAN.md#data-mapping) (ids, codes, token
   hashes, positions, `unlisted`, `migrated` revisions).

@@ -65,6 +65,14 @@ Read in the pinned wheels' source (2026-10-30) and confirmed on the running stac
 
 The library is adopted; the fallback (a job table of our own) isn't needed.
 
+Added in task 7.2: a **hard time limit**. Every task is declared with
+`apps.metadata.tasks.background_task`, which runs it under a timer thread: past
+`HARD_TIME_LIMIT` (120 s) the worker process exits with status 70. That covers a hang the
+fetcher's own timeouts can't, such as a DNS lookup stuck in C code; compose restarts the
+worker (`restart: unless-stopped`) and `recover_stuck_tasks` runs the task again. Compose
+itself never restarts an *unhealthy* container, so a hang outside any task is still only
+reported; phase 9 adds a recommendation (task 9.4).
+
 ## Consequences
 
 - One new long-running service, plus queue pruning in `cleanup`.
@@ -107,9 +115,10 @@ As built in task 7.1. In the switching PR, remove each item, in this order where
 3. **Settings** (`config/settings/base.py`): `django_tasks` and `django_tasks_db` in
    `INSTALLED_APPS`, and `TASKS`. `TASK_STALE_AFTER` and `METADATA_FETCH_ENABLED` stay if
    their uses do.
-4. **Code:** `enqueue_on_commit` and `retry_or_give_up` in `apps/metadata/tasks.py` rewritten
-   for Celery (its own retries can replace the helper); the `@task` decorators there and in
-   `apps/metadata/tests/sample_tasks.py`; the management commands `check_worker` and
+4. **Code:** `enqueue_on_commit`, `retry_or_give_up` and `background_task` (django-tasks'
+   `task` plus the hard time limit) in `apps/metadata/tasks.py`, rewritten for Celery (its own
+   retries and time limits can replace them); the `@background_task` declarations there and
+   in `apps/metadata/tests/sample_tasks.py`; the management commands `check_worker` and
    `recover_stuck_tasks` (`apps/metadata/management/commands/`), which read the queue table,
    rewritten for Celery or removed; and `run_worker()` in `apps/metadata/tests/test_tasks.py`.
 5. **Dependencies:** `django-tasks` and `django-tasks-db[compat]` from `pyproject.toml`, then

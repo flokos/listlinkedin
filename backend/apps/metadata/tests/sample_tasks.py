@@ -1,17 +1,15 @@
 """Tasks used only by test_tasks.py. The worker imports a task by its module path, so they
 live in a module of their own."""
 
-from django_tasks import task
-
-from apps.metadata.tasks import TemporaryFailure, retry_or_give_up
+from apps.metadata.tasks import TemporaryFailure, background_task, retry_or_give_up
 
 
-@task()
+@background_task
 def echo(value: str) -> str:
     return value
 
 
-@task()
+@background_task()
 def flaky(fail_times: int, attempt: int = 1) -> str:
     """Fails temporarily on its first `fail_times` attempts, retrying as tasks should."""
     try:

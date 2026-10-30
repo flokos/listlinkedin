@@ -49,6 +49,8 @@ writable. A host path needs `chown 10001` instead.
   library inserts the row at once). Temporary failures retry through `retry_or_give_up`
   (3 attempts, pauses of 30 s and 5 min). Since task 7.1, with what the library does and
   doesn't do recorded in [ADR-008](adr/ADR-008-background-metadata-extraction.md#verified-in-task-71).
+- **Hard time limit** (since 7.2): tasks are declared with `@background_task`; one running
+  past 120 s ends the worker process (exit 70), compose restarts it and the task runs again.
 - **Tasks left running by a dead worker** (the library never recovers them) are run again by
   `recover_stuck_tasks` every 5 minutes, or failed after 3 runs. A task must finish well within
   `TASK_STALE_AFTER` (10 minutes).
@@ -127,7 +129,11 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
   7.1): it exits non-zero if a ready task has waited, or a task has been running, longer than
   10 minutes. The library has no heartbeat, so the queue itself is the signal; a worker that
   crashes exits and is restarted. `deploy/smoke-test.sh` checks that every replica is healthy
-  and runs a task through it.
+  and runs a task through it. A task that hangs ends its worker (the hard time limit above).
+  **Compose never restarts an unhealthy container, and nothing alerts**: a worker that hangs
+  outside a task stays hung until someone looks. Task 9.4 documents the recommended remedy
+  (restart unhealthy containers, e.g. an autoheal container or the host's systemd, and alert
+  on `check_worker`); adding a service for it needs an ADR.
 - **Structured logging:** keep stdout logging and add a JSON formatter in production, plus a
   request-id middleware (`X-Request-ID` set by nginx, echoed back and attached to log
   records), so an api log line and the task it enqueued can be correlated.
