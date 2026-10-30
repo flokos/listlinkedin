@@ -48,11 +48,12 @@ flowchart LR
   T23 --> T71[7.1 Task worker]
   T71 --> T72[7.2 Safe fetcher] --> T73[7.3 Link metadata]
   T21 --> T73
-  T15 --> T81[8.1 Search + directory API] --> T82[8.2 Explore UI]
+  T15 --> T81[8.1 Search + directory API] --> T82[8.2 Explore UI] --> T83[8.3 List settings page]
+  T23 --> T83
   T52 --> T9[9 Hardening + release]
   T43 --> T9
   T73 --> T9
-  T82 --> T9
+  T83 --> T9
   T34 --> T9
   classDef postponed stroke-dasharray: 5 5
   class T61,T62,T63 postponed
@@ -241,6 +242,7 @@ input. **Dependencies:** 2.1, 2.3. **Read:** [ADR-008](adr/ADR-008-background-me
 |---|---|---|---|---|
 | [x] **8.1** Search and directory API | `feature/search-index` | `pg_trgm`, generated search column (verify the Django expression, otherwise a trigger), GIN indexes, tag validation and editing, directory endpoints, throttles, leak tests. Done: `sharing.0009` and `groups.0002` (`pg_trgm`, `tags`, the generated `search` column, verified: no trigger needed, GIN on search and tags, a trigram index on titles, a partial index for public rows, a tag-count CHECK; reversible); `domain.normalize_tags`, `Action.TAGS` (owners and editors, not an edit link), tags in list and group writes and representations, unversioned; `/api/v2/directory/lists/`, `…/groups/` and `…/tags/` (`selectors.search_and_order`, `public_lists`, `groups.selectors.public_groups`, `popular_tags`), public only and per-viewer group counts; `ReadRateThrottle` and `directory` (600/h per IP); the `metadata_refresh` scope (60/h per user) that 7.3 missed; tests in `test_v2_directory.py`; frontend types gain `tags` | 1.5 | M |
 | [x] **8.2** Explore UI | `feature/explore-ui` | `/explore`, search, tag chips, sort, empty states, tag editing in settings. Done: `ExploreView` at `/explore` in the main menu (tabs for lists and groups, search as you type, Sort by, popular and chosen tags as toggle buttons, cards with owner, size, age and tags, Show more, empty, no-match and error states, a polite result count), its state in the address (`utils/explore.ts`), `api/directory.ts`; tags edited by owners and editors with `TagsField`: lists in ⋮ **Tags…** (no list settings page exists yet: [11](11-UI-UX-MIGRATION.md#screen-inventory)), groups in Settings; a list's tags link to Explore; creating a list or group with `tags` no longer answers 500; found while testing: closing the Share or Copy dialog with its button went Back twice (or opened it again), fixed in `useQueryDialog`; unit tests, `explore.spec.ts`, axe on Explore and the Tags dialog; `THROTTLE_DIRECTORY` raised in `e2e/run.sh` | 8.1 | M |
+| [ ] **8.3** List settings page | `feature/list-settings` | `/l/:code/settings` as planned in [11](11-UI-UX-MIGRATION.md#screen-inventory), added 2026-10-30 because no task built it. What exists already stays where it is and is linked or reused: visibility, copies and people in the Share dialog, rename in the header, tags (8.2), delete and leave in ⋮, "Keep permanently" after a claim. New: the **description** (versioned content: sent with `If-Match`, 412 handled as in 3.4; shown under the list's title; optional in the create form), the **list image** (`PUT`/`DELETE …/image/` from 2.3, through `ImageUploadField`, shown in the header and Explore), **expiry** (set, change or remove a date; owners only, legacy lists keep theirs), tags and a danger zone (delete) on the page; ⋮ **Settings** for owners and editors, each section only with its permission. No API change expected; check the policy for each field. Unit tests, e2e (edit each setting, a viewer can't open the page, a stale description is refused), axe on the page | 8.2, 2.3 | M |
 
 ---
 

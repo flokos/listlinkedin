@@ -29,7 +29,7 @@ vocabulary stays out of the UI.
 | `/l/:code/manage#t=` | Edit-link claim | **Kept** (legacy) | Saves the token to the device, then offers "Add to my account" if signed in |
 | `/l/:code/history` | — | **New** | Version timeline, diff, restore |
 | `/l/:code/sync` | — | **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)) | Review updates (merge preview) |
-| `/l/:code/settings` | — (owner menu) | **New**, not built yet | Visibility, people, copy permissions, expiry, tags, image, delete. Until it exists, visibility, copies and people are in the Share dialog and tags in ⋮ **Tags…** (task 8.2); the list's description and image have no UI yet |
+| `/l/:code/settings` | — (owner menu) | **New**, task 8.3 | Visibility, people, copy permissions, expiry, tags, image, delete. Until it exists, visibility, copies and people are in the Share dialog and tags in ⋮ **Tags…** (task 8.2); the list's description and image have no UI yet |
 | `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
 | `/explore` | — | **New** (task 8.2) | Public directory: search, tags, sort. See [Explore](#explore) |
 | `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** (task 1.2) | Kept minimal (prompt 8.8). Emailed links are `/verify-email#key=…` and `/reset-password#key=…`. The key travels in the fragment and is removed from the address bar on arrival |
