@@ -47,6 +47,7 @@ contains Links** stays the core of the model.
 | 18 | [Risks and mitigations](18-RISKS-AND-MITIGATIONS.md) | Prioritized risk register |
 | 19 | [Research references](19-RESEARCH-REFERENCES.md) | Sources, dates, what was verified and how |
 | 20 | [Decisions and open questions](20-DECISIONS-AND-OPEN-QUESTIONS.md) | Decision log, open questions |
+| 21 | [Security review](21-SECURITY-REVIEW.md) | ASVS 5.0 L1/L2 review before release (task 9.1): every requirement, fixes, accepted deviations, logging, sessions, crypto and data inventories |
 | — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-014 |
 
 Diagrams are Mermaid blocks inside the documents (GitHub renders them), so there is no separate

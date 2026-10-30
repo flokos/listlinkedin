@@ -106,7 +106,7 @@ address.
 | `FETCH_BLOCKED_NETWORKS` | worker | empty: comma-separated CIDRs the fetcher never connects to, **added** to its built-in private and metadata ranges, which nothing can remove; checked at startup (since task 7.2) |
 | `FETCH_TEST_HOSTS` | worker (e2e only) | empty. `fixture.test=fixture` in `e2e/compose.e2e.yaml` only ([13](13-SECURITY.md#ssrf-safe-fetcher)); a warning is logged when set (since task 7.3) |
 | `WORKER_REPLICAS` | compose (production) | `2`: task processes, each running one task at a time (since task 7.1) |
-| `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
+| `LOG_FORMAT` | api, worker, cleanup (production) | `json`: one JSON object per log line; `text` for the development format (since task 9.1) |
 | `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2; `THROTTLE_METADATA_REFRESH` 60/hour per user and `THROTTLE_DIRECTORY` 600/hour per IP since task 8.1; `THROTTLE_REPORT` 10/hour per user or IP since task 9.0 |
 
 ## Scheduled jobs
@@ -143,17 +143,23 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
   outside a task stays hung until someone looks. Task 9.4 documents the recommended remedy
   (restart unhealthy containers, e.g. an autoheal container or the host's systemd, and alert
   on `check_worker`); adding a service for it needs an ADR.
-- **Structured logging:** keep stdout logging and add a JSON formatter in production, plus a
-  request-id middleware (`X-Request-ID` set by nginx, echoed back and attached to log
-  records), so an api log line and the task it enqueued can be correlated.
+- **Structured logging** (since task 9.1): nginx gives each request an id (`$request_id`),
+  writes it in its access log (`requests` format) and sends it as `X-Request-ID`;
+  `config.middleware.request_id` adopts it (or makes one), echoes it back, and every api
+  record carries it and the user id (`config/logging.py`). Production writes one JSON object
+  per line (`LOG_FORMAT=text` keeps the development format). The api logs each task it queues
+  with the task's id, which the worker's lines show, so a request can be followed into the
+  worker. Container logs rotate at 5 × 20 MB (`compose.prod.yaml`). The inventory is in
+  [21](21-SECURITY-REVIEW.md#logging).
 - **Merge diagnostics:** every apply logs `{branch_id, fingerprint, decisions_count, outcome,
   error_code, duration_ms}`. Failures keep the request's fingerprint and the current one.
   `SyncRecord` keeps the successful ones.
 - **Background task visibility:** `check_worker` prints the number of ready and running tasks
   and how long the oldest has waited on every check; `docker inspect` keeps the last few
   (since 7.1, instead of a separate `task_stats` command).
-- **Error reporting:** optional `sentry-sdk` when `SENTRY_DSN` is set. Not a hard dependency.
-  Without it, errors go to logs, as in V1.
+- **Error reporting:** errors go to the logs (with tracebacks and request ids), as in V1.
+  Nothing reports them elsewhere: a deployment that wants Sentry or similar adds it later
+  (`sentry-sdk` isn't a dependency, and nothing reads a `SENTRY_DSN`).
 - No Prometheus or Grafana stack (prompt 15.3).
 
 ## Performance targets (initial)

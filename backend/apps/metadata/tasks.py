@@ -92,7 +92,13 @@ def enqueue_on_commit(task, *args, **kwargs) -> None:
     committed yet. The task library inserts its row immediately, so this is the only safe way
     to queue from a request.
     """
-    transaction.on_commit(lambda: task.enqueue(*args, **kwargs))
+
+    def enqueue() -> None:
+        result = task.enqueue(*args, **kwargs)
+        # Logged with the request's id, so a request can be followed into the worker's log.
+        logger.info("Queued task %s (%s)", result.id, getattr(task, "name", task))
+
+    transaction.on_commit(enqueue)
 
 
 def retry_or_give_up(task, attempt: int, *args, **kwargs) -> bool:

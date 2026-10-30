@@ -48,6 +48,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "config.middleware.health_check",  # first: must bypass host checks and HTTPS redirect
+    "config.middleware.request_id",  # before anything that logs
+    "config.middleware.no_store",
+    "config.middleware.content_security_policy",
     "django.middleware.security.SecurityMiddleware",
     "config.middleware.request_size_limit",
     "config.middleware.noindex",
@@ -58,13 +61,14 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "config.middleware.log_user",  # after authentication: who, on every log record
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Needed only for the Swagger UI / ReDoc pages served by drf-spectacular.
+# Needed for the Swagger UI page served by drf-spectacular (config.docs) and allauth's emails.
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -94,15 +98,22 @@ AUTHENTICATION_BACKENDS = [
     "apps.accounts.backends.ModelBackend",
     "apps.accounts.backends.AuthenticationBackend",
 ]
+# At least 8 characters, not a common password, not like the email address, not the site's
+# name; any characters allowed (ASVS V6.2.5: no composition rules, so Django's
+# NumericPasswordValidator is left out; common all-digit passwords are on the common list).
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": f"django.contrib.auth.password_validation.{name}"}
-    for name in (
-        "UserAttributeSimilarityValidator",
-        "MinimumLengthValidator",
-        "CommonPasswordValidator",
-        "NumericPasswordValidator",
-    )
+    *(
+        {"NAME": f"django.contrib.auth.password_validation.{name}"}
+        for name in (
+            "UserAttributeSimilarityValidator",
+            "MinimumLengthValidator",
+            "CommonPasswordValidator",
+        )
+    ),
+    {"NAME": "apps.accounts.validators.ContextWordsValidator"},
 ]
+# Password-reset links work once and for an hour (Django's default is three days).
+PASSWORD_RESET_TIMEOUT = 60 * 60
 
 # The SPA is served from the same origin as the API, so the session cookie stays
 # first-party. The CSRF cookie must be readable by the SPA (sent back as X-CSRFToken).
@@ -132,8 +143,11 @@ HEADLESS_FRONTEND_URLS = {
     "account_reset_password_from_key": f"{PUBLIC_BASE_URL}/reset-password#key={{key}}",
     "account_signup": f"{PUBLIC_BASE_URL}/signup",
 }
-# allauth's own rate limits (failed sign-ins, sign-ups, reset requests) stay on. The
-# end-to-end suite turns them off for its throwaway stack, where every browser shares one IP.
+# allauth's own rate limits (failed sign-ins, sign-ups, reset requests) stay on, with its
+# defaults except for sign-ups: 10 per hour per IP (docs/v2/13-SECURITY.md#rate-limits) instead
+# of 20 a minute. The end-to-end suite turns them off for its throwaway stack, where every
+# browser shares one IP.
+ACCOUNT_RATE_LIMITS = {"signup": "10/h/ip"}
 if os.environ.get("AUTH_RATE_LIMITS", "on") == "off":
     ACCOUNT_RATE_LIMITS = False
 
@@ -266,16 +280,28 @@ SPECTACULAR_SETTINGS = {
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Served by config.docs from this origin, never from a CDN.
+    "SWAGGER_UI_DIST": "/api/docs/assets",
+    "SWAGGER_UI_FAVICON_HREF": "/api/docs/assets/favicon-32x32.png",
 }
 
+# Every record carries its request's id (config.logging); production logs JSON instead.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {"request_id": {"()": "config.logging.RequestIdFilter"}},
     "formatters": {
-        "default": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+        "default": {
+            "format": "%(asctime)s %(levelname)s %(name)s [%(request_id)s %(user_id)s] %(message)s"
+        },
+        "json": {"()": "config.logging.JsonFormatter"},
     },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "default"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "filters": ["request_id"],
+        },
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }

@@ -96,6 +96,14 @@ describe('request', () => {
     expect(headers['X-CSRFToken']).toBe('abc123')
   })
 
+  it("reads production's __Host- CSRF cookie first", async () => {
+    setCookie('csrftoken=stale; __Host-csrftoken=secure123')
+    respond(200, {})
+    await request('/api/v2/me/', { method: 'PATCH', body: { display_name: 'Ada' } })
+    const headers = vi.mocked(fetch).mock.calls[0]![1]!.headers as Record<string, string>
+    expect(headers['X-CSRFToken']).toBe('secure123')
+  })
+
   it('fetches the session first when there is no CSRF cookie yet', async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url === '/api/v2/session/') setCookie('csrftoken=fresh')

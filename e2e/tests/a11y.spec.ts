@@ -12,6 +12,9 @@ import {
   uniqueEmail,
 } from './fixtures'
 
+// Each test runs several axe scans, which take seconds each on a busy machine.
+test.describe.configure({ timeout: 120_000 })
+
 for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`${colorScheme} theme`, () => {
     test.use({ colorScheme })

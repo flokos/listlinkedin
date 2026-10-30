@@ -4,6 +4,12 @@
 
 server_tokens off;
 
+# nginx's default access-log format plus the request id ($request_id), which is also sent to
+# Django as X-Request-ID and appears in its logs (docs/v2/14-INFRASTRUCTURE.md#health-checks-and-observability).
+log_format requests '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" "$http_user_agent" '
+                    'request_id=$request_id';
+
 # Requests carry a title and a URL; Django rejects bodies over 16 KB with a JSON 413.
 # This only stops anything far larger before it reaches a worker. The image upload routes
 # get 3 MB below (Django: 2 MB per file).
@@ -38,6 +44,13 @@ server {
         root /var/www/acme;
     }
 
+    # API and account requests over plain HTTP are refused, not redirected: a client that
+    # sent a token or password in the clear must notice, rather than silently succeed after
+    # a redirect (ASVS V4.1.2). Browsers are on HTTPS anyway (HSTS).
+    location ~ ^/(api|_allauth)/ {
+        return 403;
+    }
+
     location / {
         return 301 https://$host$request_uri;
     }
@@ -47,6 +60,7 @@ server {
     listen 443 ssl;
     http2 on;
     server_name ${SERVER_NAME};
+    access_log /var/log/nginx/access.log requests;
 
     ssl_certificate /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
@@ -73,6 +87,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Request-ID $request_id;
         proxy_connect_timeout 5s;
         proxy_read_timeout 35s;
         proxy_send_timeout 35s;
@@ -89,7 +104,7 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         add_header X-Content-Type-Options nosniff always;
-        add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+        add_header Content-Security-Policy "default-src 'none'; sandbox; frame-ancestors 'none'" always;
         add_header Referrer-Policy no-referrer always;
         add_header X-Robots-Tag "noindex, nofollow" always;
     }
@@ -102,6 +117,7 @@ server {
         # (DJANGO_NUM_PROXIES=1) always sees the address nginx actually received.
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Request-ID $request_id;
         proxy_connect_timeout 5s;
         # A little above Gunicorn's 30 s worker timeout.
         proxy_read_timeout 35s;
@@ -113,6 +129,9 @@ server {
     location / {
         root /usr/share/nginx/html;
         try_files $uri /index.html;
+        # text/html, JavaScript and CSS declare UTF-8 (ASVS V4.1.1).
+        charset utf-8;
+        charset_types text/css text/javascript application/javascript application/manifest+json;
 
         add_header Cache-Control $static_cache_control always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -120,6 +139,10 @@ server {
         # List URLs are capabilities: never leak them in a Referer.
         add_header Referrer-Policy no-referrer always;
         add_header X-Robots-Tag "noindex, nofollow" always;
+        # Django sends the same opener policy on its responses (SECURE_CROSS_ORIGIN_OPENER_POLICY).
+        add_header Cross-Origin-Opener-Policy same-origin always;
+        # The app uses none of these; sharing and the clipboard stay allowed.
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
         # Vuetify injects its theme as a <style> element, hence 'unsafe-inline' for styles.
         add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
 

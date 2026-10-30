@@ -157,8 +157,8 @@ the full test suite against PostgreSQL, a production image build with
 
 ## API
 
-Interactive docs: **http://localhost:8000/api/docs/** (Swagger) ·
-**/api/redoc/** · raw schema: **/api/schema/**
+Interactive docs: **http://localhost:8000/api/docs/** (Swagger) · raw schema:
+**/api/schema/**
 
 | Method | Path | Access |
 |---|---|---|

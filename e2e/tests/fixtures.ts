@@ -69,13 +69,21 @@ export function linkIn(text: string, path: string): string {
   return match![0]
 }
 
+/** Django's CSRF token from the page's cookies: `__Host-csrftoken` on the production stack
+ * the suite runs against (backend/config/settings/production.py), `csrftoken` in development. */
+export async function csrfOf(page: Page): Promise<string> {
+  const cookies = await page.context().cookies()
+  const named = (name: string) => cookies.find((c) => c.name === name)?.value
+  return named('__Host-csrftoken') ?? named('csrftoken') ?? ''
+}
+
 /**
  * Creates an account through the API and leaves this browser signed in to it: page.request
  * shares the page's cookies. For tests about signed-in pages rather than sign-up itself.
  */
 export async function signUpThroughApi(page: Page, email: string, password = PASSWORD) {
   await page.request.get('/api/v2/session/') // sets the CSRF cookie
-  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const csrf = await csrfOf(page)
   const response = await page.request.post('/_allauth/browser/v1/auth/signup', {
     data: { email, password },
     // Browsers send Origin on these requests themselves; Django checks it over HTTPS.
@@ -86,7 +94,7 @@ export async function signUpThroughApi(page: Page, email: string, password = PAS
 
 /** Creates an account list through the API as the page's signed-in user. */
 export async function createAccountList(page: Page, title: string): Promise<{ code: string }> {
-  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const csrf = await csrfOf(page)
   const response = await page.request.post('/api/v2/lists/', {
     data: { title },
     headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
@@ -97,7 +105,7 @@ export async function createAccountList(page: Page, title: string): Promise<{ co
 
 /** A session-authenticated API write as the page's signed-in user; returns the JSON body. */
 export async function apiAs(page: Page, method: 'POST' | 'PATCH', path: string, data: object, status = 201) {
-  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const csrf = await csrfOf(page)
   const response = await page.request.fetch(path, {
     method,
     data,
@@ -116,7 +124,7 @@ export async function signUpVerified(page: Page, email: string, displayName: str
   await signUpThroughApi(page, email)
   const link = linkIn(await emailTo(page.request, email, /confirm/i), '/verify-email')
   const key = decodeURIComponent(new URL(link).hash.replace(/^#key=/, ''))
-  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const csrf = await csrfOf(page)
   const headers = { 'X-CSRFToken': csrf, Origin: ORIGIN }
   const verified = await page.request.post('/_allauth/browser/v1/auth/email/verify', {
     data: { key },

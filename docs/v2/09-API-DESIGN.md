@@ -340,8 +340,13 @@ V1 limits. Since task 2.3:
 
 ## OpenAPI
 
-- One schema per version (`SPECTACULAR_SETTINGS` + `?version=`). The cookie/CSRF scheme and
-  the legacy `OwnerToken` bearer scheme are both declared. Public reads are marked
-  unauthenticated, as V1 tests already assert.
-- The frontend's TypeScript types are generated from the v2 schema with `openapi-typescript`
-  ([10](10-FRONTEND-ARCHITECTURE.md#api-integration)). CI fails if the generated file is stale.
+- One schema, `/api/schema/`, for `/api/v1/` and `/api/v2/`. The cookie/CSRF scheme and the
+  legacy `OwnerToken` bearer scheme are both declared. Public reads are marked
+  unauthenticated, as V1 tests already assert. CI validates it (`spectacular --validate
+  --fail-on-warn`).
+- `/api/docs/` is Swagger UI, served from this origin (`config/docs.py`, files from
+  `drf-spectacular-sidecar`) with a CSP that allows nothing else, since task 9.1. It used to
+  load `swagger-ui-dist@latest` from a CDN. `/api/redoc/` is gone.
+- The frontend's TypeScript types are written by hand in `frontend/src/api/` and changed with
+  the endpoints they describe. Generating them with `openapi-typescript`
+  ([10](10-FRONTEND-ARCHITECTURE.md#api-integration)) wasn't adopted; it stays a later option.

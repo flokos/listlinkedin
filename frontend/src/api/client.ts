@@ -93,14 +93,19 @@ export function describeStatus(status: number): string {
   }
 }
 
-export const CSRF_COOKIE = 'csrftoken'
+/** Django's CSRF cookie: `__Host-csrftoken` in production (HTTPS only), `csrftoken` in
+ * development (backend/config/settings/production.py). */
+export const CSRF_COOKIES = ['__Host-csrftoken', 'csrftoken'] as const
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /** Django's CSRF token from its cookie (readable by design; sent back as a header). */
 export function csrfToken(): string | undefined {
-  const prefix = `${CSRF_COOKIE}=`
-  const cookie = document.cookie.split('; ').find((part) => part.startsWith(prefix))
-  return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : undefined
+  const parts = document.cookie.split('; ')
+  for (const name of CSRF_COOKIES) {
+    const cookie = parts.find((part) => part.startsWith(`${name}=`))
+    if (cookie) return decodeURIComponent(cookie.slice(name.length + 1))
+  }
+  return undefined
 }
 
 export interface RequestOptions {
