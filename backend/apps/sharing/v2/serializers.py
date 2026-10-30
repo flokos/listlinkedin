@@ -9,7 +9,7 @@ from apps.metadata import images
 from ..domain import MAX_DESCRIPTION_LENGTH, display_host
 from ..models import MEMBER_ROLE_CHOICES, VISIBILITY_CHOICES, ListMembership, SharedList
 from ..policy import Visibility, permissions, role_of
-from ..selectors import Access
+from ..selectors import Access, current_metadata, metadata_status
 from ..serializers import LinkSerializer
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
 
@@ -194,12 +194,22 @@ class LinkDisplaySerializer(serializers.Serializer):
     site_name = serializers.CharField()
 
 
+class LinkFetchedSerializer(serializers.Serializer):
+    title = serializers.CharField(allow_null=True)
+    description = serializers.CharField(allow_null=True)
+    icon_url = serializers.CharField(allow_null=True)
+    site_name = serializers.CharField(allow_null=True)
+
+
+METADATA_STATUSES = ["pending", "ready", "unavailable", "disabled"]
+
+
 def link_display(link) -> dict:
     """What to show for a link: the user's own fields win, then fetched metadata, then a
     fallback (docs/v2/04-DOMAIN-MODEL.md, invariant 6). Computed here so clients don't
-    re-implement the precedence. Metadata keys: `title`, `description`, `icon` (a media path)
-    and `site_name`, filled by the metadata worker from task 7.3."""
-    fetched = link.metadata or {}
+    re-implement the precedence. Fetched values count only when they describe the link's
+    current URL (selectors.current_metadata)."""
+    fetched = current_metadata(link) or {}
     host = display_host(link.destination_url)
     return {
         "title": link.title or fetched.get("title") or host,
@@ -229,6 +239,14 @@ class LinkDetailSerializer(LinkSerializer):
     )
 
     display = serializers.SerializerMethodField()
+    fetched = serializers.SerializerMethodField(
+        help_text="What the page itself says (null until fetched): offered as suggestions. "
+        "Never copied into the link's own fields."
+    )
+    metadata_status = serializers.SerializerMethodField(
+        help_text="pending (being fetched), ready, unavailable (couldn't be fetched) or "
+        "disabled (fetching is off on this server)."
+    )
 
     class Meta(LinkSerializer.Meta):
         fields = [
@@ -236,6 +254,8 @@ class LinkDetailSerializer(LinkSerializer):
             "description",
             "icon_url",
             "display",
+            "fetched",
+            "metadata_status",
             "position",
             "source_link_id",
         ]
@@ -247,6 +267,22 @@ class LinkDetailSerializer(LinkSerializer):
     @extend_schema_field(LinkDisplaySerializer)
     def get_display(self, link) -> dict:
         return link_display(link)
+
+    @extend_schema_field(LinkFetchedSerializer(allow_null=True))
+    def get_fetched(self, link) -> dict | None:
+        fetched = current_metadata(link)
+        if fetched is None:
+            return None
+        return {
+            "title": fetched.get("title"),
+            "description": fetched.get("description"),
+            "icon_url": images.url_for(fetched.get("icon")),
+            "site_name": fetched.get("site_name"),
+        }
+
+    @extend_schema_field(serializers.ChoiceField(choices=METADATA_STATUSES))
+    def get_metadata_status(self, link) -> str:
+        return metadata_status(link)
 
     def validate_description(self, value: str | None) -> str | None:
         return (value or "").strip() or None  # one representation of "no description"

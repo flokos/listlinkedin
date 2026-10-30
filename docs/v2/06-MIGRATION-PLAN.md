@@ -66,7 +66,7 @@ data migration fails only on real problems.
 | `ShortRedirect` row | Unchanged, so every `/r/{code}` keeps resolving |
 | Owner tokens (client side) | Unchanged in users' browsers (`ll:owned-lists`) and backup files. They keep working on unclaimed lists |
 | Rate-limit cache rows | Unchanged (transient) |
-| "Existing metadata" | V1 has none beyond the user's title. After launch, `manage.py backfill_metadata` enqueues fetches for live links of unexpired lists, at most N per minute |
+| "Existing metadata" | V1 has none beyond the user's title. After launch, `manage.py backfill_metadata` (task 7.3) queues fetches for live links of unexpired lists whose metadata doesn't describe their URL, `--limit` per run (default 1000; `--dry-run` counts). The worker paces them: two processes, one request per host per second. Safe to run again |
 
 ## Revision initialization
 

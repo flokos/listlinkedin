@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 
 from allauth.account.utils import has_verified_email
+from django.conf import settings
 from django.db.models import (
     CharField,
     Count,
@@ -241,12 +242,44 @@ def get_link(shared_list: SharedList, link_id) -> SharedLink:
 
 
 def media_in_use() -> set[str]:
-    """Every media path a list or link refers to, for `cleanup_media`. Tombstoned links count:
-    restoring one brings its icon back. `cleanup_media` adds group images and the icons in
-    revision snapshots. (Fetched icons join with 7.3.)"""
+    """Every media path a list or link refers to, for `cleanup_media`: list images, uploaded
+    icons, and fetched icons and preview images (since 7.3). Tombstoned links count: restoring
+    one brings its icon back. `cleanup_media` adds group images and the icons in revision
+    snapshots."""
     images = SharedList.objects.exclude(image=None).values_list("image", flat=True)
     icons = SharedLink.objects.exclude(icon=None).values_list("icon", flat=True)
-    return {*images, *icons}
+    fetched = set()
+    for key in ("icon", "image"):
+        fetched |= set(
+            SharedLink.objects.filter(**{f"metadata__{key}__isnull": False})
+            .values_list(f"metadata__{key}", flat=True)
+            .distinct()
+        )
+    return {*images, *icons, *(path for path in fetched if path)}
+
+
+# Fetched metadata (apps.sharing.services.metadata).
+
+
+def current_metadata(link: SharedLink) -> dict | None:
+    """The fetched values of a link, if its last finished fetch succeeded *for its current
+    URL*. After a URL change, the old page's values never show."""
+    fetched = link.metadata or {}
+    if fetched.get("link_url") == link.destination_url and fetched.get("status") == "ready":
+        return fetched
+    return None
+
+
+def metadata_status(link: SharedLink) -> str:
+    """`ready` or `unavailable` (the last fetch of the current URL), else `pending` (a fetch
+    is queued or running) or `disabled` (fetching is off on this server)."""
+    fetched = link.metadata or {}
+    if fetched.get("link_url") == link.destination_url and fetched.get("status") in (
+        "ready",
+        "unavailable",
+    ):
+        return fetched["status"]
+    return "pending" if settings.METADATA_FETCH_ENABLED else "disabled"
 
 
 def live_content(shared_list: SharedList) -> dict:

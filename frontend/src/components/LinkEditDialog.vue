@@ -39,6 +39,7 @@ function focusUrl() {
             title: props.link.title,
             description: props.link.description ?? null,
           }"
+          :suggestions="props.link.fetched"
           :submit="submit"
           @done="open = false"
           @cancel="open = false"

@@ -279,3 +279,27 @@ def test_an_invalid_extra_network_stops_the_app_at_startup(settings):
     settings.FETCH_BLOCKED_NETWORKS = ["192.168.1.1/24"]  # host bits set: a likely typo
     with pytest.raises(ImproperlyConfigured):
         apps.get_app_config("metadata").ready()
+
+
+def test_test_hosts_reach_only_the_listed_fixture_names(settings, monkeypatch):
+    """FETCH_TEST_HOSTS (e2e only) lets a listed `.test` name reach a private fixture
+    service. Everything else keeps the public-address rule."""
+    settings.FETCH_TEST_HOSTS = ["fixture.test=fixture"]
+    monkeypatch.setattr(fetcher, "system_resolver", lambda host, port: ["172.18.0.5"])
+    monkeypatch.setattr(fetcher, "resolve", lambda host, port: ["172.18.0.6"])
+    assert fetcher.public_address("fixture.test", 80) == "172.18.0.5"
+    with pytest.raises(FetchRefused):
+        fetcher.public_address("other.test", 80)
+    settings.FETCH_TEST_HOSTS = []
+    with pytest.raises(FetchRefused):
+        fetcher.public_address("fixture.test", 80)
+
+
+@pytest.mark.parametrize("entry", ["fixture.example=fixture", "fixture.test", "=fixture"])
+def test_test_hosts_must_be_test_names(settings, entry):
+    from django.apps import apps
+    from django.core.exceptions import ImproperlyConfigured
+
+    settings.FETCH_TEST_HOSTS = [entry]
+    with pytest.raises(ImproperlyConfigured, match="FETCH_TEST_HOSTS"):
+        apps.get_app_config("metadata").ready()

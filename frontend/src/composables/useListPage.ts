@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 
 import * as api from '../api'
 import {
@@ -63,6 +63,7 @@ export function useListPage(code: Ref<string>) {
       status.value = 'ready'
       loadError.value = undefined
       remember()
+      startPolling()
       if (token.value) reconcileToken(listData)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
@@ -133,6 +134,7 @@ export function useListPage(code: Ref<string>) {
     const link = await act((t) => api.createLink(code.value, input, t, based()))
     links.value = [...links.value, link] // appended, as on the server
     remember()
+    startPolling() // its details are being fetched
     return link
   }
 
@@ -140,8 +142,74 @@ export function useListPage(code: Ref<string>) {
     const link = await act((t) => api.changeLink(code.value, id, input, t, based()))
     links.value = links.value.map((l) => (l.id === id ? link : l))
     remember()
+    startPolling() // a new URL: its details are being fetched
     return link
   }
+
+  /** Fetch a link's page details again (editors; the server allows one per hour). */
+  async function refreshMetadata(id: string) {
+    await act(() => api.refreshLinkMetadata(code.value, id))
+    refreshing.set(id, links.value.find((l) => l.id === id)?.fetched ?? null)
+    startPolling()
+  }
+
+  // Page details (title, description, icon) are fetched in the background, so while a link
+  // is pending, or was just refreshed, check again, a little later each time, for about a
+  // minute. Only those links' metadata fields are merged in, so a drag or an edit in
+  // progress is never overwritten.
+  const POLL_DELAYS = [2000, 3000, 5000, 8000, 13000, 20000]
+  const refreshing = new Map<string, SharedLink['fetched']>() // id -> details before it
+  let pollTimer: ReturnType<typeof setTimeout> | undefined
+  let pollStep = 0
+
+  const waiting = (link: SharedLink) =>
+    link.metadata_status === 'pending' || refreshing.has(link.id)
+
+  function startPolling() {
+    pollStep = 0
+    schedulePoll()
+  }
+
+  function schedulePoll() {
+    clearTimeout(pollTimer)
+    if (status.value !== 'ready' || !links.value.some(waiting)) return
+    if (pollStep >= POLL_DELAYS.length) {
+      refreshing.clear()
+      return
+    }
+    pollTimer = setTimeout(checkPending, POLL_DELAYS[pollStep++])
+  }
+
+  async function checkPending() {
+    const listCode = code.value
+    try {
+      const page = await api.listLinks(listCode, token.value)
+      if (listCode !== code.value) return
+      const fresh = new Map(page.results.map((l) => [l.id, l]))
+      links.value = links.value.map((link) => {
+        const update = fresh.get(link.id)
+        if (!update || !waiting(link)) return link
+        if (
+          refreshing.has(link.id) &&
+          JSON.stringify(update.fetched) !== JSON.stringify(refreshing.get(link.id))
+        ) {
+          refreshing.delete(link.id) // the new details arrived
+        }
+        return {
+          ...link,
+          display: update.display,
+          fetched: update.fetched,
+          metadata_status: update.metadata_status,
+        }
+      })
+      remember()
+    } catch {
+      // Offline or a hiccup: the next step tries again.
+    }
+    schedulePoll()
+  }
+
+  onScopeDispose(() => clearTimeout(pollTimer))
 
   /** Uploads (`file`) or removes (`null`) a link's own icon. Needs an account. */
   async function setLinkIcon(id: string, file: File | null) {
@@ -266,6 +334,7 @@ export function useListPage(code: Ref<string>) {
     rename,
     addLink,
     editLink,
+    refreshMetadata,
     setLinkIcon,
     moveLink,
     moveToList,

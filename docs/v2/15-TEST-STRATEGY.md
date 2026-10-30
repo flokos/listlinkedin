@@ -73,7 +73,12 @@ Repositories and services (prompt 13.2):
   limits, content types) and a stubbed resolver (private IPs, mixed answers, **rebinding**:
   first answer public, second private → the connection still goes to the validated IP).
   Parser fixtures. Image pipeline (polyglot, bomb, wrong type, EXIF). Stale-result guard (URL
-  changed → no write). Since 7.2 (`apps/metadata/tests/`): the local servers speak HTTP and
+  changed → no write). Since 7.3 (`apps/sharing/tests/test_v2_metadata.py`): when fetches are
+  queued (create, URL change, V1 links, move, fork, restore; not for title edits or while
+  off), the real worker storing without touching user fields, `updated_at` or revisions, stale
+  and deleted results dropped, failures recorded and retried without erasing good values,
+  status and display following the current URL, refresh permissions and its hourly limit,
+  backfill, and fetched media counted by `cleanup_media`. Since 7.2 (`apps/metadata/tests/`): the local servers speak HTTP and
   HTTPS (a `trustme` test CA, so pinning is checked with real certificates), the stub resolver
   and the dial hook record every lookup and connection, and each rule of
   [13](13-SECURITY.md#ssrf-safe-fetcher) has a test, including IPv4-mapped, 6to4, Teredo and
@@ -139,7 +144,10 @@ the phone projects run the journeys marked ★.
 
 1. ★ The prompt's flow: create account → create list → add links (tiles show fetched titles,
    using a fixture site served inside the e2e network) → create group → add list → make a
-   copy (second user; since 5.2 in `copy.spec.ts`, with the sign-in detour). *Postponed with synchronization:* modify the parent → see "updates" →
+   copy (second user; since 5.2 in `copy.spec.ts`, with the sign-in detour). The fetched
+   titles: since 7.3 in `metadata.spec.ts`, against `e2e/fixture-site` (title, site name and
+   icon without a reload, Details, refresh limit, edit suggestion, an unfetchable page).
+   *Postponed with synchronization:* modify the parent → see "updates" →
    review, resolve a conflict → apply → verify the child.
 2. ★ Legacy owner: seed a legacy list (through `POST /api/v1/lists/`, which the e2e stack
    keeps open with `LEGACY_LIST_CREATION=on`; production answers 410) → open the edit link → sign in → add to account → token gone

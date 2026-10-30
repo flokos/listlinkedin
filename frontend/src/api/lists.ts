@@ -33,6 +33,21 @@ export interface SharedLink {
   display?: LinkDisplay
   /** /api/v2/ only: the link this one was copied from. */
   source_link_id?: string | null
+  /** /api/v2/ only: fetching the page's details (title, description, icon). */
+  metadata_status?: MetadataStatus
+  /** /api/v2/ only: what the page itself says, once fetched. Offered as suggestions; never
+   * copied into the link's own fields. */
+  fetched?: LinkFetched | null
+}
+
+/** `pending`: being fetched; `unavailable`: couldn't be; `disabled`: fetching is off. */
+export type MetadataStatus = 'pending' | 'ready' | 'unavailable' | 'disabled'
+
+export interface LinkFetched {
+  title: string | null
+  description: string | null
+  icon_url: string | null
+  site_name: string | null
 }
 
 export interface LinkDisplay {
@@ -253,6 +268,10 @@ export const removeLink = (code: string, id: string, token?: string, opts?: Writ
   request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token, ...opts })
 
 /** Sets a link's own icon (PNG, JPEG, WebP or GIF ≤2 MB; the server re-encodes it). */
+/** Fetch the page's details again (editors; at most once an hour per link, else 429). */
+export const refreshLinkMetadata = (code: string, id: string) =>
+  request<void>(v2(`/lists/${code}/links/${id}/refresh-metadata/`), { method: 'POST' })
+
 export function uploadLinkIcon(code: string, id: string, file: File, opts?: WriteOptions) {
   const body = new FormData()
   body.append('file', file)

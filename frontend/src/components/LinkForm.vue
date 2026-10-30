@@ -10,6 +10,8 @@ import { validateUrl, withScheme } from '../utils/url'
 const props = defineProps<{
   mode: 'add' | 'edit'
   initial?: { url: string; title: string | null; description?: string | null }
+  /** What the page itself says (edit mode): offered, never filled in automatically. */
+  suggestions?: { title: string | null; description: string | null } | null
   disabled?: boolean
   submit: (input: LinkInput) => Promise<unknown>
 }>()
@@ -30,6 +32,16 @@ const urlField = ref<{ focus: () => void }>()
 // already moved to (and typed their title into the URL). The dialog calls focus() instead,
 // only when focus isn't already in the form (LinkEditDialog).
 defineExpose({ focus: () => urlField.value?.focus() })
+
+// A suggestion shows while it differs from what the field holds; the user's text always wins.
+const titleSuggestion = computed(() => {
+  const value = props.suggestions?.title
+  return value && value !== title.value.trim() ? value : null
+})
+const descriptionSuggestion = computed(() => {
+  const value = props.suggestions?.description
+  return value && value !== description.value.trim() ? value : null
+})
 
 const unchanged = computed(
   () =>
@@ -117,6 +129,17 @@ async function onSubmit() {
         class="ll-link-form__title"
         @update:model-value="titleError = []"
       />
+      <p v-if="titleSuggestion" class="ll-link-form__suggestion text-body-small">
+        The page's title: “{{ titleSuggestion }}”
+        <v-btn
+          variant="text"
+          size="small"
+          density="comfortable"
+          :aria-label="`Use the page's title, ${titleSuggestion}`"
+          @click="title = titleSuggestion"
+          >Use it</v-btn
+        >
+      </p>
       <v-textarea
         v-model="description"
         label="Description (optional)"
@@ -130,6 +153,17 @@ async function onSubmit() {
         class="ll-link-form__description"
         @update:model-value="descriptionError = []"
       />
+      <p v-if="descriptionSuggestion" class="ll-link-form__suggestion text-body-small">
+        The page's description: “{{ descriptionSuggestion }}”
+        <v-btn
+          variant="text"
+          size="small"
+          density="comfortable"
+          aria-label="Use the page's description"
+          @click="description = descriptionSuggestion"
+          >Use it</v-btn
+        >
+      </p>
       <div v-if="mode === 'add'" class="ll-link-form__submit">
         <v-btn
           type="submit"
@@ -155,6 +189,11 @@ async function onSubmit() {
 </template>
 
 <style scoped>
+.ll-link-form__suggestion {
+  margin: -4px 0 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  overflow-wrap: anywhere;
+}
 .ll-link-form {
   display: grid;
   gap: 12px;

@@ -270,7 +270,12 @@ def test_display_applies_user_then_fetched_then_fallback(client, code):
         "icon_url": None,
         "site_name": "example.com",
     }
+    # Since task 7.3 fetched values count only when recorded as a finished fetch of the link's
+    # current URL (`link_url`, `status`), so an old page's values never show after a URL edit
+    # (test_v2_metadata.py). The precedence tested here is unchanged.
     fetched = {
+        "link_url": "https://www.example.com/page",
+        "status": "ready",
         "title": "Fetched title",
         "description": "Fetched description",
         "icon": "meta/ab/ab12.webp",

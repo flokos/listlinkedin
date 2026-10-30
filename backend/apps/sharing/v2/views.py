@@ -39,6 +39,7 @@ from ..services import links as link_services
 from ..services import lists as services
 from ..services import media as media_services
 from ..services import members as member_services
+from ..services import metadata as metadata_services
 from ..services import restore as restore_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
@@ -416,6 +417,24 @@ class LinkViewSet(viewsets.ViewSet):
         return with_etag(
             Response(data, status=status.HTTP_201_CREATED), selectors.head_revision_of(source)
         )
+
+    @extend_schema(
+        parameters=[CODE, LINK_ID],
+        request=None,
+        responses={
+            202: None,
+            409: OpenApiResponse(description="Fetching is turned off (metadata_disabled)."),
+            429: OpenApiResponse(description="Refreshed less than an hour ago."),
+            **ERRORS,
+        },
+    )
+    def refresh_metadata(self, request, code=None, link_id=None):
+        """Fetch the link's page again for its title, description and icon. Editors; at most
+        once an hour per link. Answers at once (202); `metadata_status` shows the result."""
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        metadata_services.refresh(principal, shared_list.pk, link_id)
+        return Response(status=status.HTTP_202_ACCEPTED)
 
 
 class ImageUploadViewSet(viewsets.ViewSet):

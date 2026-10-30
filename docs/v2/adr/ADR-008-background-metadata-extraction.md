@@ -21,6 +21,9 @@ Celery supports it, and requires that delayed results never overwrite manual edi
   `metadata_fetched_at`. User fields (`title`, `description`, `icon`) are never written by the
   worker. Display precedence is user → fetched → fallback. Fetched metadata is not versioned
   and not synchronized.
+- **Where it lives** (since 7.3): the `metadata` app fetches (`fetch_link_metadata`); the app
+  that owns links decides when to fetch and stores (`apps/sharing/services/metadata.py`), as
+  CLAUDE.md's boundaries require.
 - **Stale-result guard:** the worker stores results with
   `UPDATE … WHERE id = ? AND destination_url = <fetched url> AND deleted_at IS NULL`, so a URL
   edit or a deletion during the fetch discards the result.

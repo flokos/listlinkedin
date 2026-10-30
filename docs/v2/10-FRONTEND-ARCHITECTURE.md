@@ -111,7 +111,9 @@ reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes
 | `ListView.vue` (619 lines) | Split into `ListHeader`, `ListToolbar`, `AddLinkCard`, `LinkCollection` (grid/list) and dialog components (`LinkEditDialog`, `LinkDetailsDialog`), since 2.4. `LinkMenu` (the ⋮ menu) and `LinkIcon` (icon or avatar) are shared by tiles and rows |
 
 New components: `LinkTile`, `ViewToggle`, `LiveRegion`, `MovePositionDialog`,
-`VisibilitySelect`, `MembersPanel`, `ListSettingsDialog`, `ImageUploadField`, `MetadataStatus`,
+`VisibilitySelect`, `MembersPanel`, `ListSettingsDialog`, `ImageUploadField`, `MetadataStatus`
+(since 7.3 not a component: `LinkIcon`'s `pending` state, the Details text, and the polling in
+`useListPage`),
 `GroupSidebar`, `ListPickerDialog`, `HistoryTimeline`, `RevisionDiff`,
 `ProvenanceBanner`, `CopyListDialog` (fork only in V2), `AuthForm` variants, `TagInput`, `TagChips`.
 Postponed with synchronization ([ADR-015](adr/ADR-015-postpone-synchronization.md)): `SyncStatusChip`,

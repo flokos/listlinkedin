@@ -183,6 +183,11 @@ TASK_STALE_AFTER = timedelta(minutes=10)
 # (private, loopback, link-local and cloud metadata, apps.metadata.fetcher), e.g. a company's
 # own public range or a VPN. Comma-separated CIDRs; additions only, nothing here can unblock.
 FETCH_BLOCKED_NETWORKS = env_list("FETCH_BLOCKED_NETWORKS")
+# End-to-end tests only: `name=service` pairs that let the fetcher reach a fixture site on the
+# private compose network. Names must end in `.test`, a domain reserved so it never exists on
+# the internet (RFC 2606); only the public-address check is skipped for them. Never set it in
+# production: the app logs a warning at startup when it is set.
+FETCH_TEST_HOSTS = env_list("FETCH_TEST_HOSTS")
 # Fetching link metadata (task 7.3). Off for locked-down deployments.
 METADATA_FETCH_ENABLED = os.environ.get("METADATA_FETCH_ENABLED", "true").lower() != "false"
 
@@ -231,6 +236,7 @@ SPECTACULAR_SETTINGS = {
         "MemberRoleEnum": "apps.sharing.models.MEMBER_ROLE_CHOICES",
         "OriginKindEnum": "apps.sharing.v2.serializers.ORIGIN_KIND_CHOICES",
         "RevisionKindEnum": "apps.versioning.models.RevisionKind",
+        "MetadataStatusEnum": "apps.sharing.v2.serializers.METADATA_STATUSES",
         "VisibilityEnum": "apps.sharing.models.VISIBILITY_CHOICES",
     },
     "TITLE": "Temporary Link Sharing API",

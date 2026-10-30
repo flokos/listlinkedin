@@ -24,6 +24,7 @@ from ..domain import slug_for
 from ..models import CREATION_KEY_CONSTRAINT, PUBLIC_CODE_CONSTRAINT, SharedLink, SharedList
 from ..policy import Action, Visibility, can
 from ..selectors import Principal, get_list_for
+from . import metadata
 from .lists import _created_with, _relock, _violated_constraint, denied
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,7 @@ def _copy_links(source: SharedList, fork: SharedList, links: list[dict]) -> None
         )
     for copy in SharedLink.objects.bulk_create(copies):
         create_redirect(copy)
+        metadata.request_if_stale(copy)  # nothing usable came along: fetch it
 
 
 def _forked_with(creation_key: UUID, principal: Principal, source: SharedList):

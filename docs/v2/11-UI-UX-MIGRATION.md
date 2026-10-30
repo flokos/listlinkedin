@@ -102,6 +102,16 @@ lists you search for) → reorder in the sidebar → share the group link.
   collapsible. The fetched title, description and icon appear as suggestions after save;
   user-typed values always win.
 
+Since task 7.3: a link's page details arrive in the background. While they do, the icon
+shimmers (a still overlay with reduced motion), the tile or row is `aria-busy`, and screen
+readers hear "Fetching details…" when they reach it; the page checks again, more slowly each
+time, for about a minute, and merges only those links' details (never undoing a drag or an
+edit). **Details** says "Fetching details from the site…" or "Couldn't fetch details for this
+site. You can add a title and description yourself.", and editors of account lists get
+**Refresh details** (once an hour; the server's reason shows otherwise). The edit form offers
+"The page's title: “…” Use it" (and the description) while they differ from the field; nothing
+is filled in by itself.
+
 Since task 2.4: tiles (with the site's name under the link's name), the list view, the
 remembered choice, **Details**, the ⋮ menu without the Move items (2.5), and the sort menu
 (Custom order, Newest, A–Z). Visitors get the ⋮ menu too, without Edit and Delete.
