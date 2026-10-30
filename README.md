@@ -72,10 +72,11 @@ Docker services:
 | `migrate` | One-shot `manage.py migrate`. Starts only once `db` is healthy |
 | `api` | Django (dev: `runserver` with bind-mounted code and auto-reload; prod: Gunicorn). Health check every 30 s against `/healthz`, which includes a database round-trip. Shown in `docker compose ps`. Compose only marks an unhealthy container; it doesn't restart it. |
 | `frontend` | Development only: Vite dev server on port 5173 with bind-mounted sources and hot reload. Proxies `/api/` and `/r/` to `api`, so the app sees one origin as it does behind nginx. In production the built app is served by `nginx` instead. |
-| `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`backend/docker/crontab`](backend/docker/crontab): `cleanup_expired` daily at 03:00 UTC. No host cron, Celery or Redis. |
+| `worker` | V2 (task 7.1). Same image, `manage.py db_worker`: runs background tasks from a queue table in PostgreSQL ([ADR-008](docs/v2/adr/ADR-008-background-metadata-extraction.md)). Health check `check_worker` (unhealthy if a task waits or runs over 10 minutes). Two replicas in production (`WORKER_REPLICAS`). |
+| `cleanup` | Same image. [supercronic](https://github.com/aptible/supercronic) runs [`backend/docker/crontab`](backend/docker/crontab): `cleanup_expired` daily at 03:00 UTC, plus the V2 jobs listed there (sessions, task records, stuck tasks, accounts, media). No host cron, Celery or Redis. |
 | `mailpit` | Development only (V2 accounts): catches the mail the app sends, so nothing leaves your machine. Read it at http://localhost:8025. |
 
-`api` and `cleanup` start only after `migrate` has **completed successfully**, so nothing
+`api`, `worker` and `cleanup` start only after `migrate` has **completed successfully**, so nothing
 talks to PostgreSQL before it is ready and migrated.
 
 ## Database
@@ -340,6 +341,21 @@ and list your office or VPN ranges. That removes most of the public-abuse risk i
 **Use rootful Docker on the server.** Rootless Docker's default port forwarding replaces
 every client's IP with the gateway address, so all clients would share one rate limit. If
 you must run rootless, use the `slirp4netns` port driver.
+
+**Background worker (V2).** The `worker` service runs background tasks; from task 7.3 it
+fetches the pages behind links (titles, descriptions, icons), and it is the only process that
+contacts other sites. `METADATA_FETCH_ENABLED=false` turns fetching off; `WORKER_REPLICAS`
+sets how many tasks run at once (default 2). Check it with
+`docker compose -f compose.prod.yaml ps worker` (healthy) and see the queue with
+`docker compose -f compose.prod.yaml exec worker python manage.py check_worker`. Two optional
+hardening steps, on top of the fetcher's own checks
+([docs/v2/14-INFRASTRUCTURE.md](docs/v2/14-INFRASTRUCTURE.md#worker-egress)):
+
+- block the worker's egress to private ranges at the host, e.g.
+  `iptables -I DOCKER-USER -s <worker subnet> -d 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,100.64.0.0/10 -j DROP`
+  (find the subnet with `docker network inspect`);
+- give the worker its own compose network containing only `db`, plus the default bridge for
+  outgoing traffic, so it can't reach `api` or `nginx`.
 
 **Bringing your own proxy** (Traefik, a cloud load balancer, …): remove the `nginx`
 service and publish the API on a private interface, e.g. `127.0.0.1:8000:8000`. Your

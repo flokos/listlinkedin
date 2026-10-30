@@ -15,6 +15,7 @@ x-app-env: &app-env
   PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL}
   BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
   WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}  # Gunicorn workers
+  METADATA_FETCH_ENABLED: ${METADATA_FETCH_ENABLED:-true}  # link metadata (task 7.3)
   THROTTLE_LIST_CREATE: ${THROTTLE_LIST_CREATE:-30/hour}  # per client IP
   THROTTLE_LIST_MANAGE: ${THROTTLE_LIST_MANAGE:-600/hour}
   THROTTLE_GROUP_CREATE: ${THROTTLE_GROUP_CREATE:-30/hour}
@@ -102,6 +103,29 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    # Runs background tasks from the PostgreSQL queue (docs/v2/adr/ADR-008). The only process
+    # that will fetch user-supplied URLs (task 7.2); see docs/v2/14-INFRASTRUCTURE.md#worker-egress.
+    command: ["python", "manage.py", "db_worker"]
+    # Two task processes (each runs one task at a time): docs/v2/13-SECURITY.md#ssrf-safe-fetcher.
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+    healthcheck:
+      # Unhealthy if a ready task waits, or one runs, longer than 10 minutes.
+      test: ["CMD", "python", "manage.py", "check_worker", "--verbosity", "0"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+      start_interval: 5s
+    # On stop, the worker finishes its current task (tasks take seconds) before exiting.
+    stop_grace_period: 30s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   cleanup:

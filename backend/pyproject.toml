@@ -6,6 +6,10 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "django>=5.2,<5.3",
     "django-allauth>=65.21,<66",  # accounts: email login, verification, reset (headless API)
+    # Background tasks (ADR-008): Django's Tasks API (backport) and its PostgreSQL backend.
+    # Pinned exactly: django-tasks-db is beta. Its app label is `django_tasks_database`.
+    "django-tasks==0.12.0",
+    "django-tasks-db[compat]==0.13.0",
     "djangorestframework>=3.18.3,<3.19",
     "drf-spectacular>=0.28",
     "gunicorn>=23",
