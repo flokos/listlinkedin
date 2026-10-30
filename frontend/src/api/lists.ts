@@ -270,11 +270,22 @@ export const changeLink = (
 export const removeLink = (code: string, id: string, token?: string, opts?: WriteOptions) =>
   request<null>(v2(`/lists/${enc(code)}/links/${enc(id)}/`), { method: 'DELETE', token, ...opts })
 
-/** Sets a link's own icon (PNG, JPEG, WebP or GIF ≤2 MB; the server re-encodes it). */
+/** Sets the list's image (PNG, JPEG, WebP or GIF ≤2 MB; re-encoded to fit 512×512). An
+ * account's right (owner or editor), never an edit link's. Not versioned. */
+export function uploadListImage(code: string, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return request<ListDetail>(v2(`/lists/${enc(code)}/image/`), { method: 'PUT', body })
+}
+
+export const removeListImage = (code: string) =>
+  request<null>(v2(`/lists/${enc(code)}/image/`), { method: 'DELETE' })
+
 /** Fetch the page's details again (editors; at most once an hour per link, else 429). */
 export const refreshLinkMetadata = (code: string, id: string) =>
   request<void>(v2(`/lists/${code}/links/${id}/refresh-metadata/`), { method: 'POST' })
 
+/** Sets a link's own icon (PNG, JPEG, WebP or GIF ≤2 MB; the server re-encodes it). */
 export function uploadLinkIcon(code: string, id: string, file: File, opts?: WriteOptions) {
   const body = new FormData()
   body.append('file', file)

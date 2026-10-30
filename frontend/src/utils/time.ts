@@ -43,3 +43,16 @@ export function timeAgo(iso: string, now = Date.now()): string {
   }
   return 'just now'
 }
+
+/** The local calendar date of an instant, as a date input's value ("2026-11-03"). */
+export function localDate(iso: string): string {
+  const date = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** The last second of a local calendar date ("2026-11-03"), as an ISO instant. */
+export function endOfDay(date: string): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(year!, month! - 1, day!, 23, 59, 59).toISOString()
+}

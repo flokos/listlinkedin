@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// The list's name (renamable), its state chips and tags, Share and the list's ⋮ menu.
+// The list's image, name (renamable), description, state chips and tags, Share and the list's
+// ⋮ menu.
 import {
   mdiAccountArrowLeftOutline,
   mdiCheck,
@@ -13,10 +14,10 @@ import {
   mdiPencilOutline,
   mdiShareVariant,
   mdiShieldKeyOutline,
-  mdiTagMultipleOutline,
+  mdiTuneVariant,
   mdiTrayRemove,
 } from '@mdi/js'
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 import { errorMessage, LIMITS, type ListDetail } from '../api'
 import { formatDate } from '../utils/time'
@@ -45,7 +46,6 @@ const emit = defineEmits<{
   leave: []
   delete: []
   copy: []
-  tags: []
 }>()
 
 const renaming = ref(false)
@@ -83,12 +83,25 @@ async function saveRename() {
   }
 }
 
+/** Anything on the settings page this reader may change. */
+const hasSettings = computed(() =>
+  ['edit', 'upload', 'tags', 'settings', 'delete'].some((p) => props.can(p)),
+)
+
 defineExpose({ startRename, stopRename: () => (renaming.value = false) })
 </script>
 
 <template>
   <header class="ll-list-header mb-6">
     <div class="d-flex flex-wrap align-start ga-4">
+      <img
+        v-if="list.image_url"
+        :src="list.image_url"
+        alt=""
+        width="72"
+        height="72"
+        class="ll-list-image"
+      />
       <div class="flex-grow-1 ll-list-header__main">
         <p class="text-label-large text-primary mb-1">
           {{
@@ -138,6 +151,9 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
             <v-icon :icon="mdiPencilOutline" size="20" />
           </v-btn>
         </h1>
+        <p v-if="list.description" class="text-body-large ll-list-description mt-2">
+          {{ list.description }}
+        </p>
         <div class="d-flex flex-wrap align-center ga-2 mt-3">
           <v-chip v-if="list.visibility === 'private'" color="secondary" variant="outlined"
             >Only people you add</v-chip
@@ -179,7 +195,7 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
           Share
         </v-btn>
         <v-menu
-          v-if="canEdit || can('delete') || can('leave') || can('fork') || signInToCopy"
+          v-if="canEdit || hasSettings || can('leave') || can('fork') || signInToCopy"
           location="bottom end"
         >
           <template #activator="{ props: menu }">
@@ -194,11 +210,11 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               @click="startRename"
             />
             <v-list-item
-              v-if="can('tags')"
+              v-if="hasSettings"
               role="menuitem"
-              :prepend-icon="mdiTagMultipleOutline"
-              title="Tags…"
-              @click="emit('tags')"
+              :prepend-icon="mdiTuneVariant"
+              title="Settings"
+              :to="{ name: 'list-settings', params: { code: list.code } }"
             />
             <v-list-item
               v-if="can('view_history')"
@@ -269,6 +285,16 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
 .ll-list-header__main {
   min-width: 0;
   flex-basis: 320px;
+}
+.ll-list-image {
+  border-radius: 16px;
+  object-fit: cover;
+  flex: none;
+}
+.ll-list-description {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  max-width: var(--ll-reading-width);
 }
 .ll-list-tags {
   list-style: none;

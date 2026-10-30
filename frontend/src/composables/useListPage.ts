@@ -290,6 +290,16 @@ export function useListPage(code: Ref<string>) {
     remember()
   }
 
+  /** Sets the list's image, or removes it with `null`. */
+  async function setImage(file: File | null) {
+    if (file) list.value = await act(() => api.uploadListImage(code.value, file))
+    else {
+      await act(() => api.removeListImage(code.value))
+      if (list.value) list.value = { ...list.value, image_url: null }
+    }
+    remember()
+  }
+
   async function removeList() {
     await act((t) => api.removeList(code.value, t))
     cache.delete(code.value)
@@ -343,6 +353,7 @@ export function useListPage(code: Ref<string>) {
     claim,
     leave,
     removeList,
+    setImage,
     forget,
   }
 }
