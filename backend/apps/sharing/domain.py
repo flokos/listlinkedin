@@ -1,5 +1,6 @@
 """Business rules for lists and links that do not depend on HTTP or the database."""
 
+import re
 from datetime import timedelta
 from urllib.parse import urlsplit, urlunsplit
 
@@ -114,3 +115,29 @@ def is_blocked_destination(url: str) -> bool:
     except ValueError:
         return True  # unparseable hosts are never valid destinations
     return any(host == b or host.endswith(f".{b}") for b in blocked_hosts())
+
+
+# Tags (docs/v2/04-DOMAIN-MODEL.md#value-objects): lowercase words joined by hyphens.
+MAX_TAGS = 10
+MAX_TAG_LENGTH = 32
+_TAG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+
+
+def normalize_tags(raw: list[str]) -> list[str]:
+    """Tags as stored: trimmed, lowercased, spaces and underscores as hyphens, duplicates
+    dropped (first kept). Raises ValidationError for an invalid tag or too many."""
+    tags: list[str] = []
+    for value in raw:
+        tag = re.sub(r"[\s_]+", "-", value.strip().lower())
+        if not tag:
+            continue
+        if len(tag) > MAX_TAG_LENGTH or not _TAG.fullmatch(tag):
+            raise ValidationError(
+                f"“{value}” isn't a tag: use letters, digits and hyphens, "
+                f"at most {MAX_TAG_LENGTH} characters."
+            )
+        if tag not in tags:
+            tags.append(tag)
+    if len(tags) > MAX_TAGS:
+        raise ValidationError(f"At most {MAX_TAGS} tags.")
+    return tags

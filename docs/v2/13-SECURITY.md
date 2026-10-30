@@ -169,9 +169,9 @@ These are initial values. Tune them from logs.
 | List and group creation | 60/h per user |
 | Content writes (lists, links, groups, reorder) | 1200/h per user; legacy token writes 600/h per IP (V1) |
 | Uploads | 120/h per user |
-| Metadata refresh | 60/h per user, 1/h per link |
+| Metadata refresh | 60/h per user (`metadata_refresh`, since 8.1: missed in 7.3), 1/h per link |
 | Sync apply (postponed), restore, claim | 120/h per user |
-| Directory search | 600/h per IP |
+| Directory search | 600/h per IP, signed in or not (`directory`, `ReadRateThrottle`, since 8.1) |
 | Adding members by email | 60/h per user |
 
 Groups have their own scopes since 4.2, `group_create` and `group_manage`, with the same

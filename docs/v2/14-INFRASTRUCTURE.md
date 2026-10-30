@@ -100,7 +100,7 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 | `FETCH_TEST_HOSTS` | worker (e2e only) | empty. `fixture.test=fixture` in `e2e/compose.e2e.yaml` only ([13](13-SECURITY.md#ssrf-safe-fetcher)); a warning is logged when set (since task 7.3) |
 | `WORKER_REPLICAS` | compose (production) | `2`: task processes, each running one task at a time (since task 7.1) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
-| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2 |
+| `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2; `THROTTLE_METADATA_REFRESH` 60/hour per user and `THROTTLE_DIRECTORY` 600/hour per IP since task 8.1 |
 
 ## Scheduled jobs
 

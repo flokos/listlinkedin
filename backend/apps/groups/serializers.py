@@ -10,7 +10,13 @@ from apps.sharing.policy import (
     group_role_of,
     shown_in_group,
 )
-from apps.sharing.v2.serializers import ListDetailSerializer, ListOwnerSerializer, MemberSerializer
+from apps.sharing.v2.serializers import (
+    ListDetailSerializer,
+    ListOwnerSerializer,
+    MemberSerializer,
+    tags_from,
+    tags_input,
+)
 
 from .models import Group, GroupMembership
 from .selectors import GroupAccess
@@ -39,6 +45,7 @@ class GroupDetailSerializer(serializers.ModelSerializer):
             "description",
             "image_url",
             "visibility",
+            "tags",
             "owner",
             "created_at",
             "updated_at",
@@ -82,12 +89,16 @@ class GroupWriteSerializer(serializers.Serializer):
         max_length=MAX_DESCRIPTION_LENGTH, allow_blank=True, required=False
     )
     visibility = serializers.ChoiceField(choices=VISIBILITY_CHOICES, required=False)
+    tags = tags_input()
 
     def validate_visibility(self, value: str) -> Visibility:
         visibility = Visibility(value)
         if visibility is Visibility.PUBLIC and not self.context["email_verified"]:
             raise serializers.ValidationError(VERIFY_EMAIL_TO_PUBLISH)
         return visibility
+
+    def validate_tags(self, value: list[str]) -> list[str]:
+        return tags_from(value)
 
 
 class GroupListSerializer(ListDetailSerializer):

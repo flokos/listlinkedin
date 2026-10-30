@@ -150,6 +150,8 @@ export interface ListDetail {
   visibility: Visibility
   allow_fork: boolean
   allow_branch: boolean
+  /** Lowercase words and hyphens, at most 10. Editors and owners change them. */
+  tags: string[]
   owner: { display_name: string } | null
   /** A V1 list managed by its edit link until someone adds it to their account. */
   legacy: boolean
@@ -177,6 +179,7 @@ export interface ListInput {
   visibility?: Visibility
   allow_fork?: boolean
   allow_branch?: boolean
+  tags?: string[]
   expires_at?: string | null
 }
 

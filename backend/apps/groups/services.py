@@ -42,7 +42,7 @@ from .selectors import entries_for, group_actor, group_facts_for
 logger = logging.getLogger(__name__)
 
 MAX_LISTS_PER_GROUP = 100
-CONTENT_FIELDS = ("title", "description")
+CONTENT_FIELDS = ("title", "description", "tags")  # edit rights (tags since 8.1)
 SETTINGS_FIELDS = ("visibility",)
 
 VERIFY_EMAIL_TO_PUBLISH = "Verify your email address to make groups public."

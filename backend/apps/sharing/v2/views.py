@@ -31,7 +31,7 @@ from apps.versioning.serializers import (
 )
 
 from .. import selectors
-from ..permissions import WriteRateThrottle
+from ..permissions import ReadRateThrottle, WriteRateThrottle
 from ..policy import Action, Role, can
 from ..serializers import OwnerTokenSerializer
 from ..services import forks as fork_services
@@ -43,6 +43,7 @@ from ..services import metadata as metadata_services
 from ..services import restore as restore_services
 from .authentication import LegacyTokenAuthentication, principal_of
 from .serializers import (
+    DirectoryQuerySerializer,
     ForkSerializer,
     ImageUploadSerializer,
     LinkDetailSerializer,
@@ -330,8 +331,11 @@ class LinkViewSet(viewsets.ViewSet):
     authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
-    throttle_scope = "list_manage"
     pagination_class = ListPagination
+
+    @property
+    def throttle_scope(self) -> str:
+        return "metadata_refresh" if self.action == "refresh_metadata" else "list_manage"
 
     @extend_schema(responses={200: LinkDetailSerializer(many=True), 404: ERRORS[404]})
     def list(self, request, code=None):
@@ -635,6 +639,36 @@ class MemberViewSet(viewsets.ViewSet):
         if principal.user is None:
             raise errors.AuthenticationRequired("Sign in to see who a list is shared with.")
         return principal
+
+
+class DirectoryListViewSet(viewsets.ViewSet):
+    """/api/v2/directory/lists/: public lists, searchable by text and tags. Anyone may read
+    it; signed-in readers see their own role on lists they belong to. Rate-limited per IP."""
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = []
+    throttle_classes = [ReadRateThrottle]
+    throttle_scope = "directory"
+    pagination_class = ListPagination
+
+    @extend_schema(
+        parameters=[DirectoryQuerySerializer],
+        responses={200: ListDetailSerializer(many=True)},
+    )
+    def list(self, request):
+        params = DirectoryQuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        user = principal_of(request).user
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(
+            selectors.public_lists(user, **params.validated_data), request, view=self
+        )
+        context = {
+            "access": {lst.pk: selectors.access_in_listing(user, lst) for lst in page},
+            "fork_sources": selectors.fork_sources(user, page),
+        }
+        data = ListDetailSerializer(page, many=True, context=context).data
+        return paginator.get_paginated_response(data)
 
 
 def detail_context(principal, shared_list, access) -> dict:

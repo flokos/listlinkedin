@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -6,10 +7,16 @@ from rest_framework import serializers
 
 from apps.metadata import images
 
-from ..domain import MAX_DESCRIPTION_LENGTH, display_host
+from ..domain import MAX_DESCRIPTION_LENGTH, MAX_TAGS, display_host, normalize_tags
 from ..models import MEMBER_ROLE_CHOICES, VISIBILITY_CHOICES, ListMembership, SharedList
 from ..policy import Visibility, permissions, role_of
-from ..selectors import Access, current_metadata, metadata_status
+from ..selectors import (
+    DIRECTORY_ORDERINGS,
+    MAX_QUERY_LENGTH,
+    Access,
+    current_metadata,
+    metadata_status,
+)
 from ..serializers import LinkSerializer
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
 
@@ -65,6 +72,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
             "visibility",
             "allow_fork",
             "allow_branch",
+            "tags",
             "owner",
             "legacy",
             "created_at",
@@ -120,6 +128,16 @@ class ListDetailSerializer(serializers.ModelSerializer):
         return access.actor, access.facts
 
 
+def tags_input() -> serializers.ListField:
+    """The `tags` field of list and group writes; `validate_tags` normalizes (tags_from)."""
+    return serializers.ListField(
+        child=serializers.CharField(max_length=64, allow_blank=True),
+        max_length=MAX_TAGS * 2,  # duplicates and blanks are dropped before the real check
+        required=False,
+        help_text=f"At most {MAX_TAGS}: lowercase letters, digits and hyphens (normalized).",
+    )
+
+
 class ListWriteSerializer(serializers.Serializer):
     """Fields a client may set. Ownership, codes, timestamps and counts are never writable."""
 
@@ -130,6 +148,7 @@ class ListWriteSerializer(serializers.Serializer):
     visibility = serializers.ChoiceField(choices=VISIBILITY_CHOICES, required=False)
     allow_fork = serializers.BooleanField(required=False)
     allow_branch = serializers.BooleanField(required=False)
+    tags = tags_input()
     expires_at = serializers.DateTimeField(
         allow_null=True, required=False, help_text="Null makes the list permanent."
     )
@@ -144,6 +163,16 @@ class ListWriteSerializer(serializers.Serializer):
         if value is not None and value <= timezone.now():
             raise serializers.ValidationError("Choose a time in the future.")
         return value
+
+    def validate_tags(self, value: list[str]) -> list[str]:
+        return tags_from(value)
+
+
+def tags_from(value: list[str]) -> list[str]:
+    try:
+        return normalize_tags(value)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(exc.messages) from None
 
 
 class ForkSerializer(serializers.Serializer):
@@ -314,3 +343,37 @@ class ImageUploadSerializer(serializers.Serializer):
         help_text="PNG, JPEG, WebP or GIF, at most 2 MB. Re-encoded to WebP and shrunk to fit "
         "(128×128 for link icons, 512×512 for list images)."
     )
+
+
+class DirectoryQuerySerializer(serializers.Serializer):
+    """The directory's query parameters (docs/v2/09-API-DESIGN.md#directory)."""
+
+    q = serializers.CharField(
+        max_length=MAX_QUERY_LENGTH,
+        required=False,
+        allow_blank=True,
+        help_text='Web-search syntax over titles and descriptions: words, "a phrase", -word, '
+        "or. Partial words match titles.",
+    )
+    tags = serializers.CharField(
+        required=False, allow_blank=True, help_text="Comma-separated; all must match."
+    )
+    ordering = serializers.ChoiceField(
+        choices=DIRECTORY_ORDERINGS,
+        required=False,
+        help_text="Default: -relevance with q, else -updated_at.",
+    )
+
+    def validate_tags(self, value: str) -> list[str]:
+        return tags_from(value.split(","))
+
+    def validate(self, data):
+        data["q"] = data.get("q", "").strip()
+        data.setdefault("tags", [])
+        data.setdefault("ordering", "-relevance" if data["q"] else "-updated_at")
+        return data
+
+
+class TagCountSerializer(serializers.Serializer):
+    tag = serializers.CharField()
+    count = serializers.IntegerField(help_text="Public lists and groups with this tag.")

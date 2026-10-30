@@ -158,7 +158,7 @@ confirmations), and `django.contrib.sessions` adds `django_session`.
 
 - `groups_group`: `id`, `code` char(16) UNIQUE, `owner_id` FK PROTECT, `title`, `description`,
   `image`, `slug`, `visibility` (CHECK), `tags` (CHECK ≤10), `created_at`, `updated_at`.
-  Since 4.1, without `tags`, which arrives with list tags in 8.1.
+  Since 4.1, without `tags`, which arrived with list tags in 8.1 (`groups.0002_discovery`).
 - `groups_grouplist`: `id`, `group_id` FK CASCADE, `shared_list_id` FK CASCADE, `position` int
   NOT NULL CHECK ≥0, `added_by_id` FK SET NULL, `created_at`. UNIQUE (`group_id`,
   `shared_list_id`). UNIQUE (`group_id`, `position`) DEFERRABLE INITIALLY DEFERRED. Index on
@@ -264,9 +264,15 @@ don't already cover [R10].
 Search uses a stored generated column, `GeneratedField(SearchVector(title, description,
 config='simple'), db_persist=True)`, with a GIN index and `pg_trgm` for prefix and fuzzy
 title matching, which needs `TrigramExtension` [R11]. The `simple` configuration avoids
-language-specific stemming on mixed-language titles. **[Assumption]** Django can express this
-generated column for a `simple`-config vector. Verify in roadmap task 8.1; the fallback is a
-trigger-maintained `SearchVectorField` [R11].
+language-specific stemming on mixed-language titles. **[Verified in task 8.1]** Django
+expresses it: `sqlmigrate` shows `"search" tsvector GENERATED ALWAYS AS
+((setweight(to_tsvector('simple'::regconfig, COALESCE("title", '')), 'A') ||
+setweight(to_tsvector('simple'::regconfig, COALESCE("description", '')), 'B'))) STORED`, which
+PostgreSQL 17 accepts (the explicit config makes it immutable). No trigger fallback is needed.
+Since 8.1 lists and groups share the definitions (`sharing.models.search_field`, `tags_field`,
+`discovery_constraints_and_indexes`): GIN on `search` and `tags`, a GIN `gin_trgm_ops` index on
+`title` (partial words through `icontains`), a partial btree on `updated_at DESC` for public
+rows, and `CHECK cardinality(tags) <= 10`.
 
 ## Size and performance assumptions
 

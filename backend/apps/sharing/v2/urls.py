@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 
 from .views import (
+    DirectoryListViewSet,
     LinkIconViewSet,
     LinkViewSet,
     ListImageViewSet,
@@ -25,6 +26,9 @@ link_icon = LinkIconViewSet.as_view({"put": "update", "delete": "destroy"})
 
 urlpatterns = [
     *router.urls,
+    path(
+        "directory/lists/", DirectoryListViewSet.as_view({"get": "list"}), name="v2-directory-lists"
+    ),
     path("lists/<str:code>/links/", links, name="v2-link-list"),
     path("lists/<str:code>/links/<uuid:link_id>/", link, name="v2-link-detail"),
     path(

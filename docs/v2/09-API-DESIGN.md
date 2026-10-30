@@ -255,6 +255,23 @@ Since 4.2. Groups use the session only: a legacy edit link grants nothing on the
 | GET | `/api/v2/directory/groups/` | Same for groups |
 | GET | `/api/v2/directory/tags/` | Popular tags across public resources (`?prefix=`) |
 
+Since task 8.1:
+- Every endpoint answers anyone (session optional), lists **public** resources only, filtered
+  in SQL: never unlisted or private ones, expired lists, or those of an owner deleting their
+  account. Items are the usual list and group representations (`my_role` for a signed-in
+  reader; a group's `list_count` counts only the lists it shows that reader).
+- `q` (≤200 characters): web-search syntax over title and description (`simple` config), plus
+  partial words in titles (`dock` finds "Docker", through `pg_trgm`). Relevance is the text
+  rank (title weighted above description) plus the title's trigram similarity.
+- `tags`: comma-separated, normalized like stored tags, all must match. `ordering` defaults to
+  `-relevance` with `q`, else `-updated_at`. An invalid value is a 400.
+- `/directory/tags/`: `[{tag, count}]`, at most 30, most used first, counting public lists and
+  groups only; `?prefix=`.
+- Rate limit `directory`, 600/h per IP even when signed in.
+- Tags: `tags` in list and group representations and writes (`PATCH`), at most 10, normalized
+  (`Dev Tools` → `dev-tools`); owners and editors (`tags` in `permissions`), never an edit
+  link; not versioned.
+
 Search inside a list stays client-side (≤100 links, V1 behaviour).
 
 ## Uploads

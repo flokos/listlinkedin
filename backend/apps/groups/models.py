@@ -5,7 +5,13 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from apps.sharing.models import MEMBER_ROLE_CHOICES, VISIBILITY_CHOICES
+from apps.sharing.models import (
+    MEMBER_ROLE_CHOICES,
+    VISIBILITY_CHOICES,
+    discovery_constraints_and_indexes,
+    search_field,
+    tags_field,
+)
 from apps.sharing.policy import Role, Visibility
 from apps.shortener.generators import SHORT_CODE_LENGTH
 
@@ -17,6 +23,9 @@ GROUP_MEMBERSHIP_CONSTRAINT = "groups_membership_group_user_uniq"
 # Groups whose owner is deleting their account are hidden from everyone, like their lists
 # (docs/v2/adr/ADR-016).
 GROUP_OWNER_ACTIVE = Q(owner__deleted_at__isnull=True)
+
+
+_GROUP_DISCOVERY = discovery_constraints_and_indexes("groups_group")
 
 
 class Group(models.Model):
@@ -40,6 +49,8 @@ class Group(models.Model):
     visibility = models.CharField(
         max_length=8, choices=VISIBILITY_CHOICES, default=Visibility.PRIVATE.value
     )
+    tags = tags_field()  # since 8.1
+    search = search_field()
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -50,7 +61,9 @@ class Group(models.Model):
                 condition=Q(visibility__in=[v.value for v in Visibility]),
                 name="groups_group_visibility_valid",
             ),
+            *_GROUP_DISCOVERY[0],
         ]
+        indexes = _GROUP_DISCOVERY[1]
 
     def __str__(self) -> str:
         return self.code

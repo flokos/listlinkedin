@@ -43,7 +43,7 @@ lists are `unlisted`, which is exactly their V1 semantics.
 | View revision history | — | — | — | ✓ | ✓ | ✓ |
 | Edit content: title, description, add, edit, delete and reorder links, restore a revision | — | — | — | ✓ | ✓ | ✓ |
 | Upload images (list image, link icons) | — | — | — | ✓ | ✓ | — (requires an account) |
-| Edit tags, slug | — | — | — | ✓ | ✓ | — |
+| Edit tags, slug (`tags` permission since 8.1) | — | — | — | ✓ | ✓ | — |
 | Change visibility, expiry, `allow_fork`, `allow_branch` | — | — | — | — | ✓ | — |
 | See who has access (members) | — | — | — | ✓ | ✓ | — |
 | Manage members (add a verified account by email, change roles, remove) | — | — | — | — | ✓ | — |
