@@ -1,5 +1,6 @@
 // The site menu, defined once and rendered by the app bar, the mobile drawer and the footer.
 import {
+  mdiCompassOutline,
   mdiFolderMultipleOutline,
   mdiFormatListBulletedSquare,
   mdiHomeOutline,
@@ -37,6 +38,7 @@ export const mainNav: NavItem[] = [
     match: ['groups', 'group', 'group-list'],
     account: true,
   },
+  { label: 'Explore', to: { name: 'explore' }, icon: mdiCompassOutline, match: ['explore'] },
   { label: 'About', to: { name: 'about' }, icon: mdiInformationOutline, match: ['about'] },
 ]
 

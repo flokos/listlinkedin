@@ -29,9 +29,9 @@ vocabulary stays out of the UI.
 | `/l/:code/manage#t=` | Edit-link claim | **Kept** (legacy) | Saves the token to the device, then offers "Add to my account" if signed in |
 | `/l/:code/history` | — | **New** | Version timeline, diff, restore |
 | `/l/:code/sync` | — | **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)) | Review updates (merge preview) |
-| `/l/:code/settings` | — (owner menu) | **New** | Visibility, people, copy permissions, expiry, tags, image, delete |
+| `/l/:code/settings` | — (owner menu) | **New**, task 8.3 | Visibility, people, copy permissions, expiry, tags, image, delete. Until it exists, visibility, copies and people are in the Share dialog and tags in ⋮ **Tags…** (task 8.2); the list's description and image have no UI yet |
 | `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
-| `/explore` | — | **New** | Public directory: search, tags, sort |
+| `/explore` | — | **New** (task 8.2) | Public directory: search, tags, sort. See [Explore](#explore) |
 | `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** (task 1.2) | Kept minimal (prompt 8.8). Emailed links are `/verify-email#key=…` and `/reset-password#key=…`. The key travels in the fragment and is removed from the address bar on arrival |
 | `/about` | About and privacy | **Modified** | New retention and privacy text; accounts explained |
 | `/design` | Style guide (dev) | **Extended** | Tiles, diff cards, decision controls |
@@ -165,7 +165,8 @@ readers. **Reorder lists** turns the sidebar into an ordered list with a drag ha
 up, Move down and Remove buttons per list, announced in the live region; on phones it opens
 the drawer, and **Done** closes it. **Add lists** offers your lists you own or edit and your
 public lists (lists already there say "In this group"), plus **Or paste a list's link** for a
-public list someone else made, until Explore (8.2) can search them. Refusals show the server's
+public list someone else made (found in Explore, for example; the dialog itself doesn't search
+the directory). Refusals show the server's
 reason. A missing group and one you may not see read the same: "This group doesn't exist".
 
 ## Sharing
@@ -262,6 +263,29 @@ Changing the email address is a later enhancement. Sign-in and sign-up honour a 
 `?next=` path. No social login, no MFA in the MVP. allauth supports both later
 ([02](02-PRODUCT-REQUIREMENTS.md#accounts-and-access-51-56-88)).
 
+## Explore
+
+Since task 8.2. `/explore` lists **public** lists and groups only (the server filters them,
+[09](09-API-DESIGN.md#directory)); it is in the main menu for everyone.
+
+- Tabs **Lists** and **Groups**; a search field ("Search public lists", applied after a short
+  pause or at once with Enter); **Sort by** Best match (only while searching), Recently
+  updated or Name; a **Tags** row with the chosen tags first, then up to 12 popular ones.
+  Tags are toggle buttons (`aria-pressed`); all chosen tags must match.
+- Everything is in the address (`?in=groups&q=…&tags=a,b&sort=name`; defaults left out), so a
+  search can be shared, reloaded, and Back undoes the last change. Typing replaces the entry
+  instead of adding one per pause.
+- Results are cards (`DirectoryCard`): image or icon, name as a link, two lines of
+  description, "By *owner* · 12 links · Updated 2 hours ago", and the item's tags, which
+  filter too. 20 at a time, then **Show more**. The count is announced politely.
+- Empty states: "No lists match" with **Clear search** when filtered; otherwise "No public
+  lists yet" with **Your lists** (signed in) or **Create an account**. Errors, including the
+  rate limit, show an alert with **Try again**.
+- Tags are edited by owners and editors: lists in ⋮ **Tags…** (`ListTagsDialog`), groups in
+  their **Settings**, both with `TagsField` (type and press Enter or comma; popular tags are
+  offered; shown in stored form, "Web Tools" → `web-tools`; at most 10). A list shows its tags
+  under its title, each linking to Explore filtered by it.
+
 ## Responsive behaviour
 
 | Width | Layout |
@@ -278,7 +302,8 @@ Changing the email address is a later enhancement. Sign-in and sign-up honour a 
 | Loading | skeletons (V1) | — |
 | Empty list | `StatePanel` | Editors: "Add your first link". Viewers: "Nothing here yet" |
 | Empty group | `StatePanel` + Add list | "Add lists to build your workspace" |
-| No search results | `StatePanel` + Clear search (V1) | "Nothing matches …" |
+| No search results | `StatePanel` + Clear search (V1) | "Nothing matches …"; in Explore "No lists match" |
+| Empty directory | `StatePanel` | "No public lists yet" + Your lists / Create an account |
 | Metadata in progress | tile shimmer on the icon area, `aria-busy` | "Fetching details…" (polite) |
 | Metadata unavailable | `DomainAvatar` + subtle text in Details | "Couldn't fetch details for this site." Manual entry always works |
 | Permission denied (signed in) | `StatePanel` | "You don't have access to this list" (403 only when the list is viewable) |

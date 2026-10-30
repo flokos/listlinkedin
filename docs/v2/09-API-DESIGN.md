@@ -268,7 +268,8 @@ Since task 8.1:
 - `/directory/tags/`: `[{tag, count}]`, at most 30, most used first, counting public lists and
   groups only; `?prefix=`.
 - Rate limit `directory`, 600/h per IP even when signed in.
-- Tags: `tags` in list and group representations and writes (`PATCH`), at most 10, normalized
+- Tags: `tags` in list and group representations and writes (`POST` and `PATCH`; creating
+  with tags answered 500 until task 8.2), at most 10, normalized
   (`Dev Tools` → `dev-tools`); owners and editors (`tags` in `permissions`), never an edit
   link; not versioned.
 

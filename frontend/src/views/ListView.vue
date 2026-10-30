@@ -29,6 +29,7 @@ import LinkCollection from '../components/LinkCollection.vue'
 import LinkDetailsDialog from '../components/LinkDetailsDialog.vue'
 import LinkEditDialog from '../components/LinkEditDialog.vue'
 import ListHeader from '../components/ListHeader.vue'
+import ListTagsDialog from '../components/ListTagsDialog.vue'
 import ListPickerDialog from '../components/ListPickerDialog.vue'
 import LiveRegion from '../components/LiveRegion.vue'
 import MovePositionDialog from '../components/MovePositionDialog.vue'
@@ -37,6 +38,7 @@ import ShareDialog from '../components/ShareDialog.vue'
 import StatePanel from '../components/StatePanel.vue'
 import { useListPage } from '../composables/useListPage'
 import { useNotify } from '../composables/useNotify'
+import { useQueryDialog } from '../composables/useQueryDialog'
 import { usePendingReveal } from '../composables/usePendingReveal'
 import { useSession } from '../composables/useSession'
 import { useViewPreference } from '../composables/useViewPreference'
@@ -146,22 +148,10 @@ async function moveToList(target: ListDetail) {
 }
 
 // Share dialog is reflected in the URL (?dialog=share) so the browser's Back button closes it.
-const shareOpen = computed({
-  get: () => route.query.dialog === 'share',
-  set: (value) => {
-    if (value) router.push({ query: { ...route.query, dialog: 'share' } })
-    else if (route.query.dialog === 'share') router.back()
-  },
-})
+const shareOpen = useQueryDialog('share')
 
 // "Make a copy", also reflected in the URL (?dialog=copy): signing in first comes back to it.
-const copyOpen = computed({
-  get: () => route.query.dialog === 'copy' && page.can('fork'),
-  set: (value) => {
-    if (value) router.push({ query: { ...route.query, dialog: 'copy' } })
-    else if (route.query.dialog === 'copy') router.back()
-  },
-})
+const copyOpen = useQueryDialog('copy', () => page.can('fork'))
 const signInToCopy = computed(() => !session.isSignedIn.value && Boolean(list.value?.allow_fork))
 function startCopy() {
   if (session.isSignedIn.value) {
@@ -309,6 +299,12 @@ async function setAllowFork(allow: boolean) {
   }
 }
 
+const tagsOpen = ref(false)
+async function saveTags(tags: string[]) {
+  await page.change({ tags })
+  notify.success('Tags saved')
+}
+
 async function setVisibility(visibility: Visibility) {
   try {
     await page.change({ visibility })
@@ -430,6 +426,7 @@ function forgetHere() {
         @leave="leaveOpen = true"
         @delete="deleteListOpen = true"
         @copy="startCopy"
+        @tags="tagsOpen = true"
       />
 
       <v-alert
@@ -533,6 +530,13 @@ function forgetHere() {
         @change-allow-fork="setAllowFork"
       />
       <CopyListDialog v-model="copyOpen" :list="list" @copied="openCopy" />
+      <ListTagsDialog
+        v-if="page.can('tags')"
+        v-model="tagsOpen"
+        :tags="list.tags"
+        :is-public="list.visibility === 'public'"
+        :save="saveTags"
+      />
       <EditLinkReveal
         v-if="token"
         v-model="reveal.open"

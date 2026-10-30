@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// A group's name, description and image: "New group" (no `group` yet) or its Settings.
+// A group's name, description, tags and image: "New group" (no `group` yet) or its Settings.
 // Who can see the group is chosen in the Share dialog, as for lists.
 import { computed, ref, watch } from 'vue'
 
 import { type GroupDetail, type GroupInput, LIMITS } from '../api'
 import { formErrors, noErrors } from '../utils/forms'
 import ImageUploadField from './ImageUploadField.vue'
+import TagsField from './TagsField.vue'
 
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{
@@ -17,9 +18,10 @@ const props = defineProps<{
   setImage?: (file: File | null) => Promise<unknown>
 }>()
 
-const FIELDS = ['title', 'description'] as const
+const FIELDS = ['title', 'description', 'tags'] as const
 const title = ref('')
 const description = ref('')
+const tags = ref<string[]>([])
 const errors = ref(noErrors(FIELDS))
 const busy = ref(false)
 const isNew = computed(() => !props.group)
@@ -28,6 +30,7 @@ watch(open, (isOpen) => {
   if (!isOpen) return
   title.value = props.group?.title ?? ''
   description.value = props.group?.description ?? ''
+  tags.value = [...(props.group?.tags ?? [])]
   errors.value = noErrors(FIELDS)
 })
 
@@ -40,7 +43,7 @@ async function save() {
   }
   busy.value = true
   try {
-    await props.submit({ title: name, description: description.value.trim() })
+    await props.submit({ title: name, description: description.value.trim(), tags: tags.value })
     open.value = false
   } catch (error) {
     errors.value = formErrors(error, FIELDS)
@@ -81,6 +84,7 @@ async function save() {
             :error-messages="errors.fields.description"
             class="mt-2"
           />
+          <TagsField v-model="tags" :error-messages="errors.fields.tags" class="mt-2" />
           <ImageUploadField
             v-if="group && setImage"
             label="Image"
