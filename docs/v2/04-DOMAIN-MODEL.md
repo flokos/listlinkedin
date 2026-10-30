@@ -228,8 +228,8 @@ does ([05](05-DATABASE-DESIGN.md#constraints-by-invariant)).
 | Permission policy (`can(actor, action, resource) -> bool`, `visible_lists_q(actor)`) | Pure rules plus one Q-builder | `sharing/policy.py` (shared by `groups` and `versioning`) |
 | URL normalization and host policy | Existing functions | `sharing/domain.py` |
 | Revision recording | Application service | `versioning/services.py` |
-| List and link mutations | Application services | `sharing/services.py` |
-| Fork, branch, preview and apply | Application services | `versioning/services.py` |
+| List and link mutations, restore, fork | Application services | `sharing/services/` (`lists`, `links`, `restore`, `forks`): they write lists and links, and call `record_revision` |
+| Branch, preview and apply (postponed) | Application services | `versioning/services.py` |
 | Metadata fetch, parse, image processing | Infrastructure adapters plus a task | `metadata/` |
 
 The prompt's illustrative operations map to concrete functions:
@@ -237,8 +237,8 @@ The prompt's illustrative operations map to concrete functions:
 | Prompt operation | V2 function |
 |---|---|
 | `create_revision()` | `versioning.services.record_revision(list, kind, actor)`, called inside every content mutation |
-| `restore_revision()` | `versioning.services.restore_revision(list, number, expected_head, actor)` |
-| `create_branch()` / `create_fork()` | `versioning.services.create_branch(...)` / `create_fork(...)` |
+| `restore_revision()` | `sharing.services.restore.restore_revision(principal, list_id, number, expected_head=…)` |
+| `create_branch()` / `create_fork()` | `versioning.services.create_branch(...)` (postponed) / `sharing.services.forks.fork_list(principal, code, title=…, creation_key=…)` |
 | `calculate_diff()` | `versioning.domain.merge.compute_plan(base, parent, child, exclusions, reincluded)` |
 | `preview_merge()` / `apply_merge()` | `versioning.services.preview_sync(...)` / `apply_sync(...)` |
 | `add_exclusion()` / `remove_exclusion()` | Created by the EXCLUDE decision / `versioning.services.remove_exclusion(...)` |

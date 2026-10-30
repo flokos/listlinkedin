@@ -3,6 +3,7 @@ from functools import cached_property
 
 from allauth.account.utils import has_verified_email
 from django.db.models import (
+    CharField,
     Count,
     Exists,
     IntegerField,
@@ -12,7 +13,7 @@ from django.db.models import (
     Subquery,
     Value,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Now
 from rest_framework.exceptions import NotFound
 
 from apps.common import errors
@@ -150,6 +151,34 @@ def access_in_listing(user, shared_list: SharedList) -> Access:
         member_role=Role(role) if role and not is_owner else None,
     )
     return Access(actor, facts)
+
+
+def fork_sources(user, lists) -> dict:
+    """For lists that are copies (forks), the lists they were copied from, as `user` (None:
+    signed out) sees them: {source id: {"code", "title"}} for each source the user may view
+    now. A source that was deleted, has expired, or isn't viewable is left out, so a copy never
+    reveals a list its reader can't open. One query for all of `lists`."""
+    ids = {lst.forked_from_id for lst in lists if lst.forked_from_id is not None}
+    if not ids:
+        return {}
+    role = (
+        Subquery(
+            ListMembership.objects.filter(shared_list=OuterRef("pk"), user=user).values("role")[:1]
+        )
+        if user is not None
+        else Value(None, output_field=CharField())
+    )
+    sources = (
+        SharedList.objects.filter(OWNER_ACTIVE, pk__in=ids)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=Now()))
+        .annotate(member_role=role)
+    )
+    shown = {}
+    for source in sources:
+        access = access_in_listing(user, source)
+        if can_view(access.actor, access.facts):
+            shown[source.pk] = {"code": source.public_code, "title": source.title}
+    return shown
 
 
 def members_of(shared_list: SharedList, access: Access) -> QuerySet[ListMembership]:

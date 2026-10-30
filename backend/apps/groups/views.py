@@ -21,7 +21,7 @@ from apps.accounts.authentication import SessionAuthentication
 from apps.common import errors
 from apps.sharing.permissions import WriteRateThrottle
 from apps.sharing.policy import Role
-from apps.sharing.selectors import Principal, access_in_listing
+from apps.sharing.selectors import Principal, access_in_listing, fork_sources
 from apps.sharing.v2.authentication import principal_of
 from apps.sharing.v2.serializers import (
     ImageUploadSerializer,
@@ -68,8 +68,12 @@ def group_detail(principal: Principal, code: str, status_code: int = 200) -> Res
 def group_lists(principal: Principal, group) -> Response:
     """The lists the group shows the principal, in order: all of them (at most 100)."""
     lists = list(selectors.lists_in(principal, group))
-    access = {lst.pk: access_in_listing(principal.user, lst) for lst in lists}
-    data = GroupListSerializer(lists, many=True, context={"access": access, "group": group}).data
+    context = {
+        "access": {lst.pk: access_in_listing(principal.user, lst) for lst in lists},
+        "fork_sources": fork_sources(principal.user, lists),
+        "group": group,
+    }
+    data = GroupListSerializer(lists, many=True, context=context).data
     return Response(data)
 
 
@@ -222,6 +226,7 @@ class GroupListViewSet(viewsets.ViewSet):
         )
         context = {
             "access": {added.pk: access_in_listing(principal.user, added)},
+            "fork_sources": fork_sources(principal.user, [added]),
             "group": group,
         }
         return Response(GroupListSerializer(added, context=context).data, status=201)
