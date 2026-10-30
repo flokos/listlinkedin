@@ -65,8 +65,8 @@ async function submit() {
           <p class="d-flex ga-3 mb-3">
             <v-icon :icon="mdiContentCopy" class="mt-1" aria-hidden="true" />
             <span>
-              Your own list with the same links, which you can change as you like. Later changes
-              to “{{ list.title }}” won't reach it, and yours won't reach the original.
+              Your own list with the same links, which you can change as you like. Later changes to
+              “{{ list.title }}” won't reach it, and yours won't reach the original.
             </span>
           </p>
           <p class="d-flex ga-3 mb-5">
