@@ -67,4 +67,33 @@ switch small by holding these boundaries:
 A later switch then means: a superseding ADR; the broker service in compose with its
 deployment, backup and monitoring notes; the wrapper and enqueue point rewritten for Celery
 and the worker command replaced; the old queue drained or `backfill_metadata` run; and the
-`prune_db_task_results` cleanup step removed. Estimated at a day or two including tests.
+old pieces below removed. Estimated at a day or two including tests.
+
+### What the database queue adds, to remove when switching
+
+Task 7.1 keeps this list accurate (it names the real files and settings once they exist). In
+the switching PR, remove each item, in this order where it matters:
+
+1. **Drain first.** Stop new enqueues (deploy the Celery enqueue point), let `db_worker` finish
+   the ready tasks, then stop the old `worker`. Anything left is refilled by `backfill_metadata`.
+2. **Drop the queue tables while the package is still installed:**
+   `python manage.py migrate django_tasks_db zero` in a migration step of the release (record
+   it in [06](../06-MIGRATION-PLAN.md) as one-way: the job history is discarded on purpose).
+   Removing the app from `INSTALLED_APPS` first would leave its tables orphaned, because Django
+   can then no longer unapply its migrations.
+3. **Settings:** `django_tasks` and `django_tasks_db` in `INSTALLED_APPS`, the `TASKS` setting
+   (and the test settings' `ImmediateBackend`, replaced by Celery's eager mode or direct calls).
+4. **Dependencies:** both packages from `pyproject.toml` and `uv.lock`.
+5. **Operations:** the `worker` service's `db_worker` command in both compose files, its
+   healthcheck management command (oldest ready task, heartbeat), and the
+   `prune_db_task_results` line in the `cleanup` crontab.
+6. **Docs:** [14](../14-INFRASTRUCTURE.md#background-worker) (worker, health, the Redis and
+   Celery rows under "not needed"), the deployment docs, D11 and D27 in
+   [20](../20-DECISIONS-AND-OPEN-QUESTIONS.md), and CLAUDE.md's "Don't add Redis, Celery…" line,
+   which must name the accepted ADR.
+7. **If 7.1 took the fallback** (our own `metadata_fetch_job` table instead of
+   django-tasks-db): its loop command, and a migration dropping the table, replace items 2–5.
+
+Unchanged by a switch: the fetcher, parser and store step; `SharedLink.metadata` and the
+stale-result guard; the `refresh-metadata` endpoint and its throttle; `backfill_metadata`;
+`METADATA_FETCH_ENABLED`; the worker's egress restrictions.
