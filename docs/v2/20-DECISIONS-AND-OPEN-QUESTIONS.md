@@ -33,6 +33,7 @@ Settled decisions, with where each is justified. Changing one needs a supersedin
 | D24 | Drag-and-drop with vue-draggable-plus plus a mandatory ⋮ Move alternative | planning | [10](10-FRONTEND-ARCHITECTURE.md#drag-and-drop) |
 | D25 | **Synchronization is postponed**: no synced copies, merges or sync UI in the V2 release; forks stay; the design is kept | **user (2026-10-29)** | [ADR-015](adr/ADR-015-postpone-synchronization.md) |
 | D26 | **Account deletion has a 30-day grace period**: hidden and signed out at once, restorable by signing in, then erased by a daily job; the anonymous row stays for revision authorship | **user (2026-10-29)** | [ADR-016](adr/ADR-016-account-deletion-grace-period.md) |
+| D27 | **No Celery in V2; a later move stays possible**: the worker keeps one enqueue point, thin task wrappers and all state in PostgreSQL, so Celery could replace the database queue after V2 with a superseding ADR | **user (2026-10-30)** | [ADR-008](adr/ADR-008-background-metadata-extraction.md#moving-to-celery-later) |
 
 ## Open questions
 

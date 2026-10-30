@@ -47,6 +47,9 @@ writable. A host path needs `chown 10001` instead.
 - Tasks are idempotent and guarded: the worker re-reads the link and does nothing if it was
   deleted or its URL changed since the task was enqueued, so results can't land on the wrong
   URL ([ADR-008](adr/ADR-008-background-metadata-extraction.md)).
+- **Swappable runner:** one enqueue point (`metadata/tasks.py`), thin task wrappers over plain
+  functions, and all state in PostgreSQL, so a later move to Celery is a contained change
+  ([ADR-008](adr/ADR-008-background-metadata-extraction.md#moving-to-celery-later)).
 - **Fallback if django-tasks-db proves unsuitable** in task 7.1: a ~100-line
   `metadata_fetch_job` table claimed with `SELECT … FOR UPDATE SKIP LOCKED` by a management
   command loop. Same container, same semantics.
