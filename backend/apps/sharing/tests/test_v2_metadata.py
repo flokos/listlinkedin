@@ -369,3 +369,13 @@ def test_fetched_images_count_as_media_in_use(alice, shared_list):
     link = add_link(alice, shared_list)
     metadata.store(str(link.pk), link.destination_url, FOUND)
     assert {"icons/ab/abc.webp", "images/cd/cde.webp"} <= media_in_use()
+
+
+def test_refreshes_are_also_limited_per_user(client, alice, shared_list, monkeypatch):
+    from rest_framework.throttling import ScopedRateThrottle
+
+    monkeypatch.setattr(ScopedRateThrottle, "THROTTLE_RATES", {"metadata_refresh": "1/hour"})
+    first = add_link(alice, shared_list, "https://example.com/1")
+    second = add_link(alice, shared_list, "https://example.com/2")
+    assert client.post(refresh_url(shared_list, first)).status_code == 202
+    assert client.post(refresh_url(shared_list, second)).status_code == 429  # another link

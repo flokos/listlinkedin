@@ -1,12 +1,16 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.shortener.generators import SHORT_CODE_LENGTH
 
+from .domain import MAX_TAG_LENGTH, MAX_TAGS
 from .policy import Role, Visibility
 
 PUBLIC_CODE_CONSTRAINT = "sharing_list_public_code_uniq"
@@ -20,6 +24,48 @@ MEMBERSHIP_CONSTRAINT = "sharing_membership_list_user_uniq"
 VISIBILITY_CHOICES = [(v.value, v.value.capitalize()) for v in Visibility]
 MEMBER_ROLE_CHOICES = [(r.value, r.value.capitalize()) for r in (Role.EDITOR, Role.VIEWER)]
 
+
+# Discovery (phase 8, docs/v2/05-DATABASE-DESIGN.md#indexes-added-by-v2): the same tags, search
+# column and indexes on lists and groups.
+def tags_field():
+    """Lowercase tags (domain.normalize_tags), at most MAX_TAGS. Not content: unversioned."""
+    return ArrayField(models.CharField(max_length=MAX_TAG_LENGTH), default=list, blank=True)
+
+
+def search_field():
+    """A stored, generated tsvector over the title (weight A) and description (B). The
+    `simple` configuration: no language-specific stemming of mixed-language titles. Generated
+    by PostgreSQL itself, so it can never be out of date."""
+    return models.GeneratedField(
+        expression=SearchVector("title", weight="A", config="simple")
+        + SearchVector("description", weight="B", config="simple"),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
+
+
+def discovery_constraints_and_indexes(prefix: str):
+    constraints = [
+        models.CheckConstraint(
+            condition=Q(tags__len__lte=MAX_TAGS), name=f"{prefix}_tags_at_most_{MAX_TAGS}"
+        ),
+    ]
+    indexes = [
+        GinIndex(fields=["search"], name=f"{prefix}_search_gin"),
+        GinIndex(fields=["tags"], name=f"{prefix}_tags_gin"),
+        # Partial words in titles ("dock" finds "Docker"): icontains through pg_trgm.
+        GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name=f"{prefix}_title_trgm"),
+        # The directory's default order, over public rows only.
+        models.Index(
+            fields=["-updated_at"],
+            condition=Q(visibility=Visibility.PUBLIC.value),
+            name=f"{prefix}_public_recent",
+        ),
+    ]
+    return constraints, indexes
+
+
+_LIST_DISCOVERY = discovery_constraints_and_indexes("sharing_list")
 
 # Lists whose owner is deleting their account are hidden from everyone: they read as unknown,
 # can't be changed, and their short URLs answer 404 (docs/v2/adr/ADR-016). Legacy lists have
@@ -61,6 +107,8 @@ class SharedList(models.Model):
     forked_from_id = models.UUIDField(null=True, blank=True, editable=False)
     # Idempotency-Key of the request that created the list (a retried create returns it).
     creation_key = models.UUIDField(null=True, blank=True, editable=False)
+    tags = tags_field()
+    search = search_field()
     # The number of the list's latest revision (apps.versioning); 0 before the first one.
     # Written only under the list's row lock, together with that revision.
     head_revision = models.PositiveIntegerField(default=0, editable=False)
@@ -90,7 +138,9 @@ class SharedList(models.Model):
             models.CheckConstraint(
                 condition=Q(head_revision__gte=0), name="sharing_list_head_revision_valid"
             ),
+            *_LIST_DISCOVERY[0],
         ]
+        indexes = _LIST_DISCOVERY[1]
 
     def __str__(self) -> str:
         return self.public_code

@@ -3,6 +3,7 @@ filtered (docs/v2/12-AUTHORIZATION.md#implementation-notes)."""
 
 from dataclasses import dataclass
 
+from django.db import connection
 from django.db.models import (
     CharField,
     Count,
@@ -16,6 +17,7 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce, Now
 
+from apps.accounts.models import User
 from apps.common import errors
 from apps.sharing.models import ListMembership, SharedLink, SharedList
 from apps.sharing.policy import (
@@ -26,7 +28,7 @@ from apps.sharing.policy import (
     Visibility,
     can_group,
 )
-from apps.sharing.selectors import Principal
+from apps.sharing.selectors import Principal, search_and_order
 
 from .models import GROUP_OWNER_ACTIVE, Group, GroupList, GroupMembership
 
@@ -66,7 +68,7 @@ def group_facts_for(principal: Principal, group: Group) -> GroupFacts:
 
 def facts_in_listing(user, group: Group) -> GroupFacts:
     """Facts for a row of `groups_of(user)`, from its annotations (no extra queries)."""
-    role = group.member_role if group.owner_id != user.pk else None
+    role = group.member_role if user is not None and group.owner_id != user.pk else None
     return GroupFacts(
         id=group.pk,
         owner_id=group.owner_id,
@@ -191,3 +193,62 @@ def members_of(group: Group, access: GroupAccess) -> QuerySet[GroupMembership]:
         .select_related("user")
         .order_by("created_at", "pk")
     )
+
+
+# Discovery (phase 8): public groups, and the tag facets of lists and groups together.
+
+
+def public_groups(user, *, q: str = "", tags: list[str] | None = None, ordering: str):
+    """The directory of groups: `public`, owner not deleting their account. Annotated like
+    `groups_of` (`member_role` for `user`, and `list_count`: the lists the group shows *this*
+    viewer, so a count never reveals a hidden list)."""
+    shown = (
+        GroupList.objects.filter(group=OuterRef("pk"))
+        .filter(shown_lists_q(user))
+        .values("group")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
+    member_role = (
+        Subquery(GroupMembership.objects.filter(group=OuterRef("pk"), user=user).values("role")[:1])
+        if user is not None
+        else Value(None, output_field=CharField())
+    )
+    groups = (
+        Group.objects.filter(visibility=Visibility.PUBLIC.value)
+        .filter(GROUP_OWNER_ACTIVE)
+        .select_related("owner")
+        .annotate(
+            member_role=member_role,
+            list_count=Coalesce(Subquery(shown), Value(0), output_field=IntegerField()),
+        )
+    )
+    return search_and_order(groups, q, tags or [], ordering)
+
+
+def popular_tags(prefix: str = "", *, limit: int = 30) -> list[tuple[str, int]]:
+    """The most used tags on public lists and groups, as (tag, count), most used first.
+    Only what the directory shows is counted: public, not expired, owner not leaving. Raw SQL
+    because PostgreSQL won't group by `unnest(...)` the way the ORM writes it."""
+    lists, groups, users = (
+        SharedList._meta.db_table,
+        Group._meta.db_table,
+        User._meta.db_table,
+    )
+    sql = f"""
+        SELECT tag, count(*) AS n FROM (
+            SELECT unnest(l.tags) AS tag FROM {lists} l
+            LEFT JOIN {users} u ON u.id = l.owner_id
+            WHERE l.visibility = 'public' AND (l.owner_id IS NULL OR u.deleted_at IS NULL)
+              AND (l.expires_at IS NULL OR l.expires_at > now())
+            UNION ALL
+            SELECT unnest(g.tags) FROM {groups} g
+            JOIN {users} u ON u.id = g.owner_id
+            WHERE g.visibility = 'public' AND u.deleted_at IS NULL
+        ) t
+        WHERE starts_with(tag, %s)
+        GROUP BY tag ORDER BY n DESC, tag LIMIT %s
+    """  # noqa: S608 (table names come from models; values are parameters)
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [prefix, limit])
+        return [(tag, n) for tag, n in cursor.fetchall()]

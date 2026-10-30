@@ -73,7 +73,12 @@ Repositories and services (prompt 13.2):
   limits, content types) and a stubbed resolver (private IPs, mixed answers, **rebinding**:
   first answer public, second private → the connection still goes to the validated IP).
   Parser fixtures. Image pipeline (polyglot, bomb, wrong type, EXIF). Stale-result guard (URL
-  changed → no write). Since 7.3 (`apps/sharing/tests/test_v2_metadata.py`): when fetches are
+  changed → no write). Since 8.1 (`apps/sharing/tests/test_v2_directory.py`): tag rules and
+  permissions, the list and group directories showing public resources only (unlisted,
+  private, expired and leaving owners' never, for anyone), counts of only what the reader may
+  see, search (words, phrases, exclusions, partial titles, relevance), tag filters, orderings,
+  facets that count public resources only, the per-IP limit, and the generated column
+  following edits. Since 7.3 (`apps/sharing/tests/test_v2_metadata.py`): when fetches are
   queued (create, URL change, V1 links, move, fork, restore; not for title edits or while
   off), the real worker storing without touching user fields, `updated_at` or revisions, stale
   and deleted results dropped, failures recorded and retried without erasing good values,

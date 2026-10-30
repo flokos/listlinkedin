@@ -65,6 +65,7 @@ def test_creating_and_reading_a_group(alice):
         "description": "Things we use",
         "image_url": None,
         "visibility": "private",
+        "tags": [],  # since 8.1
         "owner": {"display_name": "alice"},
         "created_at": group["created_at"],
         "updated_at": group["updated_at"],

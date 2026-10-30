@@ -19,14 +19,16 @@ from rest_framework.response import Response
 
 from apps.accounts.authentication import SessionAuthentication
 from apps.common import errors
-from apps.sharing.permissions import WriteRateThrottle
+from apps.sharing.permissions import ReadRateThrottle, WriteRateThrottle
 from apps.sharing.policy import Role
 from apps.sharing.selectors import Principal, access_in_listing, fork_sources
 from apps.sharing.v2.authentication import principal_of
 from apps.sharing.v2.serializers import (
+    DirectoryQuerySerializer,
     ImageUploadSerializer,
     MemberAddSerializer,
     MemberRoleSerializer,
+    TagCountSerializer,
 )
 from apps.sharing.v2.views import NOT_AN_IMAGE, ImageUploadViewSet, ListPagination
 
@@ -330,3 +332,55 @@ class GroupMemberViewSet(viewsets.ViewSet):
         group, _ = selectors.get_group_for(principal, code)
         services.remove_member(principal, group.pk, user_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DirectoryGroupViewSet(viewsets.ViewSet):
+    """/api/v2/directory/groups/: public groups, searchable like the list directory. Each
+    shows how many lists it shows *you*. Anyone may read it; rate-limited per IP."""
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = []
+    throttle_classes = [ReadRateThrottle]
+    throttle_scope = "directory"
+    pagination_class = ListPagination
+
+    @extend_schema(
+        parameters=[DirectoryQuerySerializer],
+        responses={200: GroupDetailSerializer(many=True)},
+    )
+    def list(self, request):
+        params = DirectoryQuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        principal = principal_of(request)
+        groups = selectors.public_groups(principal.user, **params.validated_data)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(groups, request, view=self)
+        actor = group_actor(principal)
+        access = {
+            group.pk: GroupAccess(actor, selectors.facts_in_listing(principal.user, group))
+            for group in page
+        }
+        data = GroupDetailSerializer(page, many=True, context={"access": access}).data
+        return paginator.get_paginated_response(data)
+
+
+class DirectoryTagViewSet(viewsets.ViewSet):
+    """/api/v2/directory/tags/: the most used tags on public lists and groups."""
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = []
+    throttle_classes = [ReadRateThrottle]
+    throttle_scope = "directory"
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("prefix", str, required=False, description="Tags starting with it.")
+        ],
+        responses={200: TagCountSerializer(many=True)},
+    )
+    def list(self, request):
+        prefix = request.query_params.get("prefix", "").strip().lower()[:32]
+        tags = selectors.popular_tags(prefix)
+        return Response(
+            TagCountSerializer([{"tag": t, "count": n} for t, n in tags], many=True).data
+        )

@@ -14,6 +14,7 @@ export interface GroupDetail {
   description: string
   image_url: string | null
   visibility: Visibility
+  tags: string[]
   /** Shown on public groups and to the group's members. */
   owner: { display_name: string } | null
   created_at: string
@@ -35,6 +36,7 @@ export interface GroupInput {
   title?: string
   description?: string
   visibility?: Visibility
+  tags?: string[]
 }
 
 /** A group holds at most this many lists (backend/apps/groups/services.py). */

@@ -45,7 +45,7 @@ in development. Production rollback is covered [below](#rollback).
 | 5 | `sharing.0008_list_forked_from` (task 5.1): nullable `forked_from_id` (a plain UUID, no FK) on lists | schema | yes | Existing lists are no copies: NULL |
 | 5–6 | `ListBranch`, `BranchExclusion`, `SyncRecord`: **postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)), not created in V2 | schema | yes | |
 | 7 | django-tasks-db tables (app label `django_tasks_database`, task 7.1) | schema (third-party) | yes | Must be unapplied (`migrate django_tasks_database zero`) **before** the package is removed, if the queue is ever replaced ([ADR-008](adr/ADR-008-background-metadata-extraction.md#what-the-database-queue-adds-to-remove-when-switching)) |
-| 8 | `pg_trgm` extension, generated search column, GIN indexes | schema | yes | `CREATE EXTENSION` needs the DB owner role. The compose `POSTGRES_USER` is the owner |
+| 8 | `sharing.0009_discovery` and `groups.0002_discovery` (task 8.1): `pg_trgm` extension, `tags` (empty), generated `search` column, GIN and partial indexes, the tag-count CHECK | schema | yes (verified: unapply and reapply) | `CREATE EXTENSION` needs the DB owner role. The compose `POSTGRES_USER` is the owner. Adding a stored generated column rewrites the table, under a second at V1 sizes |
 
 All V1 tables are small: lists live at most 30 days and hold at most 100 links. Plain
 (non-concurrent) `ALTER TABLE` and index builds take well under a second. **[Assumption]**

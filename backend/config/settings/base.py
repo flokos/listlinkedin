@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.sessions",
+    "django.contrib.postgres",  # search, trigram and array lookups (phase 8)
     "rest_framework",
     "drf_spectacular",
     "allauth",
@@ -224,6 +225,10 @@ REST_FRAMEWORK = {
         "upload": os.environ.get("THROTTLE_UPLOAD", "120/hour"),
         # Per user or edit link: a restore rewrites a whole list (docs/v2/13-SECURITY.md).
         "restore": os.environ.get("THROTTLE_RESTORE", "120/hour"),
+        # Per user: each refresh fetches a page (and 1/hour per link on top).
+        "metadata_refresh": os.environ.get("THROTTLE_METADATA_REFRESH", "60/hour"),
+        # Per client IP, signed in or not: directory searches and tag facets.
+        "directory": os.environ.get("THROTTLE_DIRECTORY", "600/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.

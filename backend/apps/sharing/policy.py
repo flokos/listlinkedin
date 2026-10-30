@@ -27,6 +27,7 @@ class Action(StrEnum):
     EDIT = "edit"  # content: title, description, links, order, restore
     UPLOAD = "upload"  # list image, link icons: editors and owners, never an edit link
     SETTINGS = "settings"  # visibility, expiry, allow_fork, allow_branch
+    TAGS = "tags"  # editors and owners; never an edit link (since 8.1)
     VIEW_MEMBERS = "view_members"  # see who the list is shared with
     MEMBERS = "members"  # add people, change roles, remove people
     DELETE = "delete"
@@ -95,7 +96,7 @@ def can(actor: Actor, action: Action, facts: ListFacts) -> bool:
             return can_view(actor, facts)
         case Action.VIEW_HISTORY | Action.EDIT:
             return role in (Role.OWNER, Role.EDITOR) or token
-        case Action.VIEW_MEMBERS | Action.UPLOAD:
+        case Action.VIEW_MEMBERS | Action.UPLOAD | Action.TAGS:
             return role in (Role.OWNER, Role.EDITOR)
         case Action.SETTINGS | Action.MEMBERS:
             return role is Role.OWNER

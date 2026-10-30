@@ -239,7 +239,7 @@ input. **Dependencies:** 2.1, 2.3. **Read:** [ADR-008](adr/ADR-008-background-me
 
 | Task | Branch | Scope | Depends on | Size |
 |---|---|---|---|---|
-| [ ] **8.1** Search and directory API | `feature/search-index` | `pg_trgm`, generated search column (verify the Django expression, otherwise a trigger), GIN indexes, tag validation and editing, directory endpoints, throttles, leak tests | 1.5 | M |
+| [x] **8.1** Search and directory API | `feature/search-index` | `pg_trgm`, generated search column (verify the Django expression, otherwise a trigger), GIN indexes, tag validation and editing, directory endpoints, throttles, leak tests. Done: `sharing.0009` and `groups.0002` (`pg_trgm`, `tags`, the generated `search` column, verified: no trigger needed, GIN on search and tags, a trigram index on titles, a partial index for public rows, a tag-count CHECK; reversible); `domain.normalize_tags`, `Action.TAGS` (owners and editors, not an edit link), tags in list and group writes and representations, unversioned; `/api/v2/directory/lists/`, `…/groups/` and `…/tags/` (`selectors.search_and_order`, `public_lists`, `groups.selectors.public_groups`, `popular_tags`), public only and per-viewer group counts; `ReadRateThrottle` and `directory` (600/h per IP); the `metadata_refresh` scope (60/h per user) that 7.3 missed; tests in `test_v2_directory.py`; frontend types gain `tags` | 1.5 | M |
 | [ ] **8.2** Explore UI | `feature/explore-ui` | `/explore`, search, tag chips, sort, empty states, tag editing in settings | 8.1 | M |
 
 ---

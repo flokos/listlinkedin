@@ -3,10 +3,12 @@ from functools import cached_property
 
 from allauth.account.utils import has_verified_email
 from django.conf import settings
+from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramSimilarity
 from django.db.models import (
     CharField,
     Count,
     Exists,
+    F,
     IntegerField,
     OuterRef,
     Q,
@@ -14,7 +16,7 @@ from django.db.models import (
     Subquery,
     Value,
 )
-from django.db.models.functions import Coalesce, Now
+from django.db.models.functions import Coalesce, Lower, Now
 from rest_framework.exceptions import NotFound
 
 from apps.common import errors
@@ -308,3 +310,57 @@ def live_content(shared_list: SharedList) -> dict:
 def head_revision_of(shared_list: SharedList) -> int:
     """The list's current head revision, e.g. after a write the caller's copy predates."""
     return SharedList.objects.values_list("head_revision", flat=True).get(pk=shared_list.pk)
+
+
+# Discovery (phase 8, docs/v2/09-API-DESIGN.md#directory): public lists only, filtered in SQL
+# (docs/v2/12-AUTHORIZATION.md, "Directory and search"). Groups reuse `search_and_order`.
+
+DIRECTORY_ORDERINGS = ("-updated_at", "title", "-relevance")
+MAX_QUERY_LENGTH = 200
+
+
+def search_and_order(queryset, q: str, tags: list[str], ordering: str):
+    """Filter a directory queryset (lists or groups: `title`, `search`, `tags`, `updated_at`)
+    by text and tags, and order it. `q` uses web-search syntax ("quoted phrases", -excluded,
+    or) over title and description, plus partial words in titles ("dock" finds "Docker")."""
+    if tags:
+        queryset = queryset.filter(tags__contains=tags)  # all of them
+    if q:
+        query = SearchQuery(q, search_type="websearch", config="simple")
+        queryset = queryset.filter(Q(search=query) | Q(title__icontains=q)).annotate(
+            relevance=SearchRank(F("search"), query) + TrigramSimilarity("title", q)
+        )
+    if ordering == "-relevance" and q:
+        return queryset.order_by("-relevance", "-updated_at", "pk")
+    if ordering == "title":
+        return queryset.order_by(Lower("title"), "pk")
+    return queryset.order_by("-updated_at", "-pk")
+
+
+def public_lists(user, *, q: str = "", tags: list[str] | None = None, ordering: str):
+    """The directory of lists: `public`, not expired, owner not deleting their account. Each
+    row is annotated like `lists_of` (`member_role` for `user`, `link_count`)."""
+    member_role = (
+        Subquery(
+            ListMembership.objects.filter(shared_list=OuterRef("pk"), user=user).values("role")[:1]
+        )
+        if user is not None
+        else Value(None, output_field=CharField())
+    )
+    link_count = (
+        SharedLink.objects.filter(shared_list=OuterRef("pk"), deleted_at__isnull=True)
+        .values("shared_list")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
+    lists = (
+        SharedList.objects.filter(visibility=Visibility.PUBLIC.value)
+        .filter(OWNER_ACTIVE)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=Now()))
+        .select_related("owner")
+        .annotate(
+            member_role=member_role,
+            link_count=Coalesce(Subquery(link_count), Value(0), output_field=IntegerField()),
+        )
+    )
+    return search_and_order(lists, q, tags or [], ordering)

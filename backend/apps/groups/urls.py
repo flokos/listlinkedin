@@ -1,7 +1,14 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from .views import GroupImageViewSet, GroupListViewSet, GroupMemberViewSet, GroupViewSet
+from .views import (
+    DirectoryGroupViewSet,
+    DirectoryTagViewSet,
+    GroupImageViewSet,
+    GroupListViewSet,
+    GroupMemberViewSet,
+    GroupViewSet,
+)
 
 router = SimpleRouter()
 router.register("groups", GroupViewSet, basename="v2-group")
@@ -13,7 +20,12 @@ member = GroupMemberViewSet.as_view({"patch": "partial_update", "delete": "destr
 # An upload route: config.middleware.UPLOAD_PATH and nginx allow it a larger body.
 image = GroupImageViewSet.as_view({"put": "update", "delete": "destroy"})
 
+directory_groups = DirectoryGroupViewSet.as_view({"get": "list"})
+directory_tags = DirectoryTagViewSet.as_view({"get": "list"})
+
 urlpatterns = [
+    path("directory/groups/", directory_groups, name="v2-directory-groups"),
+    path("directory/tags/", directory_tags, name="v2-directory-tags"),
     *router.urls,
     path("groups/<str:code>/lists/", lists, name="v2-group-lists"),
     path("groups/<str:code>/lists/<str:list_code>/", group_list, name="v2-group-list"),

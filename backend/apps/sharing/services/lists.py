@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 CONTENT_FIELDS = ("title", "description")
 SETTINGS_FIELDS = ("visibility", "allow_fork", "allow_branch", "expires_at")
+TAG_FIELDS = ("tags",)  # editors and owners, not versioned (docs/v2/12-AUTHORIZATION.md)
 
 VERIFY_EMAIL_TO_PUBLISH = "Verify your email address to make lists public."
 
@@ -110,6 +111,8 @@ def update_list(
         check_head(locked, expected_head)
     if any(f in changes for f in SETTINGS_FIELDS) and not can(actor, Action.SETTINGS, facts):
         raise denied(principal, "Only the list's owner can change its settings.")
+    if any(f in changes for f in TAG_FIELDS) and not can(actor, Action.TAGS, facts):
+        raise denied(principal, "Only the list's owner and editors can change its tags.")
     if "visibility" in changes and not can_set_visibility(
         actor, facts, Visibility(changes["visibility"])
     ):
