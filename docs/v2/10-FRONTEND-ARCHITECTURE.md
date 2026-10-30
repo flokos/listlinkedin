@@ -117,6 +117,12 @@ New components: `LinkTile`, `ViewToggle`, `LiveRegion`, `MovePositionDialog`,
 Postponed with synchronization ([ADR-015](adr/ADR-015-postpone-synchronization.md)): `SyncStatusChip`,
 `ChangeCard`, `FieldCompare`, `DecisionGroup`, `ExclusionsPanel`, `api/sync.ts`, `useSyncPreview`.
 
+Since 5.2: `CopyListDialog` (a name, then `POST …/fork/` with one `Idempotency-Key` per copy,
+reused on retry; the page opens the copy with `router.replace`, so Back returns to the
+original). `ProvenanceBanner` became a line in `ListHeader` ("Copied from *X*", only when
+`origin.parent` is set), since a fork has no sync state to show. The "Allow copies" switch is
+in `ShareDialog` (`allow-fork`), as there is no `ListSettingsDialog` yet.
+
 Since 4.3: `GroupView` is the workspace (the sidebar plus `ListView` with `in-group`, which
 hides the My lists back link and returns to the group after a deletion), `GroupSidebar`,
 `GroupAddListDialog`, `GroupFormDialog` (new group and settings) and `GroupsView`. A route's

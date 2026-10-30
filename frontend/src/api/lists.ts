@@ -146,6 +146,14 @@ export interface ListDetail {
   link_count: number
   my_role: ListRole | null
   permissions: string[]
+  /** Null for an ordinary list. For a copy, the list it was copied from: `parent` is null
+   * when you can't open that list (or it is gone). */
+  origin: ListOrigin | null
+}
+
+export interface ListOrigin {
+  kind: 'fork'
+  parent: { code: string; title: string } | null
 }
 
 export interface ListInput {
@@ -165,6 +173,15 @@ export const myLists = (signal?: AbortSignal) =>
 /** How many lists the signed-in user owns (all pages). */
 export const ownedListCount = () =>
   request<Page<ListDetail>>(v2('/lists/?role=owner&page_size=1')).then((page) => page.count)
+
+/** "Make a copy": a new private list you own with this list's content. Retrying with the
+ * same key returns the first copy. */
+export const forkList = (code: string, input: { title?: string }, idempotencyKey: string) =>
+  request<ListDetail>(v2(`/lists/${code}/fork/`), {
+    method: 'POST',
+    body: input,
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
 
 export const createAccountList = (input: ListInput, idempotencyKey: string) =>
   request<ListDetail>(v2('/lists/'), {

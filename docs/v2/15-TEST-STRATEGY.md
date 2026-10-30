@@ -135,7 +135,7 @@ the phone projects run the journeys marked ★.
 
 1. ★ The prompt's flow: create account → create list → add links (tiles show fetched titles,
    using a fixture site served inside the e2e network) → create group → add list → make a
-   copy (second user). *Postponed with synchronization:* modify the parent → see "updates" →
+   copy (second user; since 5.2 in `copy.spec.ts`, with the sign-in detour). *Postponed with synchronization:* modify the parent → see "updates" →
    review, resolve a conflict → apply → verify the child.
 2. ★ Legacy owner: seed a legacy list (through `POST /api/v1/lists/`, which the e2e stack
    keeps open with `LEGACY_LIST_CREATION=on`; production answers 410) → open the edit link → sign in → add to account → token gone

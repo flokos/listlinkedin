@@ -63,6 +63,19 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
     })
 
+    test("the copy dialog and a copy's provenance line", async ({ page }) => {
+      await signUpThroughApi(page, uniqueEmail('a11y-copy'))
+      const list = await createAccountList(page, 'Original list')
+      await page.goto(`/l/${list.code}?dialog=copy`)
+      const dialog = page.getByRole('dialog', { name: 'Make a copy' })
+      await expect(dialog.getByRole('textbox', { name: 'Name of the copy' })).toBeVisible()
+      await expectNoA11yViolations(page)
+      await dialog.getByRole('button', { name: 'Make a copy' }).click()
+      await expect(page.getByRole('heading', { level: 1, name: 'Original list (copy)' })).toBeVisible()
+      await expect(page.getByRole('link', { name: 'Original list', exact: true })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
     test('the groups page and a group workspace with its sidebar and dialogs', async ({ page }) => {
       await signUpThroughApi(page, uniqueEmail('a11y-group'))
       const group = await apiAs(page, 'POST', '/api/v2/groups/', { title: 'Accessible group' })
