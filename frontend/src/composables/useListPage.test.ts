@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
+import { effectScope, ref } from 'vue'
 
 const api = vi.hoisted(() => {
   class ApiError extends Error {
@@ -24,12 +24,17 @@ vi.mock('../api', () => api)
 const link = (id: string) => ({ id, title: id, destination_url: `https://${id}.example/` })
 const order = (links: { id: string }[]) => links.map((l) => l.id).join('')
 
+// The page runs in a scope, as in a component: its polling timer is cleared when it ends.
+let scope = effectScope()
+afterEach(() => scope.stop())
+
 async function page(ids = 'abcd') {
   vi.resetModules()
   const { useListPage } = await import('./useListPage')
   api.getListDetail.mockResolvedValue({ code: 'L', permissions: ['view', 'edit'], legacy: false })
   api.listLinks.mockResolvedValue({ results: [...ids].map(link) })
-  const listPage = useListPage(ref('L'))
+  scope = effectScope()
+  const listPage = scope.run(() => useListPage(ref('L')))!
   await flushPromises()
   return listPage
 }
