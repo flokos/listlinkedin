@@ -29,7 +29,6 @@ import LinkCollection from '../components/LinkCollection.vue'
 import LinkDetailsDialog from '../components/LinkDetailsDialog.vue'
 import LinkEditDialog from '../components/LinkEditDialog.vue'
 import ListHeader from '../components/ListHeader.vue'
-import ListTagsDialog from '../components/ListTagsDialog.vue'
 import ListPickerDialog from '../components/ListPickerDialog.vue'
 import LiveRegion from '../components/LiveRegion.vue'
 import MovePositionDialog from '../components/MovePositionDialog.vue'
@@ -299,12 +298,6 @@ async function setAllowFork(allow: boolean) {
   }
 }
 
-const tagsOpen = ref(false)
-async function saveTags(tags: string[]) {
-  await page.change({ tags })
-  notify.success('Tags saved')
-}
-
 async function setVisibility(visibility: Visibility) {
   try {
     await page.change({ visibility })
@@ -426,7 +419,6 @@ function forgetHere() {
         @leave="leaveOpen = true"
         @delete="deleteListOpen = true"
         @copy="startCopy"
-        @tags="tagsOpen = true"
       />
 
       <v-alert
@@ -530,13 +522,6 @@ function forgetHere() {
         @change-allow-fork="setAllowFork"
       />
       <CopyListDialog v-model="copyOpen" :list="list" @copied="openCopy" />
-      <ListTagsDialog
-        v-if="page.can('tags')"
-        v-model="tagsOpen"
-        :tags="list.tags"
-        :is-public="list.visibility === 'public'"
-        :save="saveTags"
-      />
       <EditLinkReveal
         v-if="token"
         v-model="reveal.open"

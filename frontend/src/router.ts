@@ -121,6 +121,14 @@ const router = createRouter({
       props: true,
       meta: { title: 'History' },
     },
+    // A list's settings (task 8.3), ranked above the list route like history.
+    {
+      path: '/l/:code/settings',
+      name: 'list-settings',
+      component: () => import('./views/ListSettingsView.vue'),
+      props: true,
+      meta: { title: 'Settings' },
+    },
     // Public list URL handed out by the API (`public_url`). nginx serves this app for it.
     {
       path: '/l/:code/:slug?',

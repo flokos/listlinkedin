@@ -15,15 +15,16 @@ test('a public list is found by words and tags; an unlisted one never is', async
   const hidden = await createAccountList(page, `${word} unlisted`)
   await apiAs(page, 'PATCH', `/api/v2/lists/${hidden.code}/`, { visibility: 'unlisted' }, 200)
 
-  // The owner tags the public list; the tag is normalized and shown under the title.
+  // The owner tags the public list in its settings; the tag is normalized and shown under the
+  // title.
   await page.goto(`/l/${shown.code}`)
   await page.getByRole('button', { name: 'List options' }).click()
-  await page.getByRole('menuitem', { name: 'Tags…' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Tags' })
-  await dialog.getByRole('combobox', { name: 'Tags (optional)' }).fill(`${word} Tools`)
+  await page.getByRole('menuitem', { name: 'Settings' }).click()
+  await page.getByRole('combobox', { name: 'Tags (optional)' }).fill(`${word} Tools`)
   await page.keyboard.press('Enter')
-  await dialog.getByRole('button', { name: 'Save tags' }).click()
-  await expect(dialog).toBeHidden()
+  await page.getByRole('button', { name: 'Save tags' }).click()
+  await expect(page.getByText('Tags saved')).toBeVisible()
+  await page.goto(`/l/${shown.code}`)
   const tag = `${word}-tools`
   await expect(page.getByRole('link', { name: `${tag}: explore lists with this tag` })).toBeVisible()
 

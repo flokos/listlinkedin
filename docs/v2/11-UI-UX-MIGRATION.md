@@ -29,7 +29,7 @@ vocabulary stays out of the UI.
 | `/l/:code/manage#t=` | Edit-link claim | **Kept** (legacy) | Saves the token to the device, then offers "Add to my account" if signed in |
 | `/l/:code/history` | — | **New** | Version timeline, diff, restore |
 | `/l/:code/sync` | — | **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)) | Review updates (merge preview) |
-| `/l/:code/settings` | — (owner menu) | **New**, task 8.3 | Visibility, people, copy permissions, expiry, tags, image, delete. Until it exists, visibility, copies and people are in the Share dialog and tags in ⋮ **Tags…** (task 8.2); the list's description and image have no UI yet |
+| `/l/:code/settings` | — (owner menu) | **New** (task 8.3) | Name and description, image, tags, expiry and delete; sharing links to the Share dialog. See [List settings](#list-settings) |
 | `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
 | `/explore` | — | **New** (task 8.2) | Public directory: search, tags, sort. See [Explore](#explore) |
 | `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** (task 1.2) | Kept minimal (prompt 8.8). Emailed links are `/verify-email#key=…` and `/reset-password#key=…`. The key travels in the fragment and is removed from the address bar on arrival |
@@ -281,10 +281,30 @@ Since task 8.2. `/explore` lists **public** lists and groups only (the server fi
 - Empty states: "No lists match" with **Clear search** when filtered; otherwise "No public
   lists yet" with **Your lists** (signed in) or **Create an account**. Errors, including the
   rate limit, show an alert with **Try again**.
-- Tags are edited by owners and editors: lists in ⋮ **Tags…** (`ListTagsDialog`), groups in
+- Tags are edited by owners and editors: lists on their settings page (in 8.2 a ⋮ **Tags…**
+  dialog, replaced by the page in 8.3), groups in
   their **Settings**, both with `TagsField` (type and press Enter or comma; popular tags are
   offered; shown in stored form, "Web Tools" → `web-tools`; at most 10). A list shows its tags
   under its title, each linking to Explore filtered by it.
+
+## List settings
+
+Since task 8.3. ⋮ **Settings** opens `/l/:code/settings` (`ListSettingsView`) for anyone who
+may change something there. Each section saves on its own and is shown only with its
+permission; the server checks every change again.
+
+| Section | Who | Notes |
+|---|---|---|
+| Name and description | owner, editor, edit link (`edit`) | Content: saving records a version, based on the version on screen (`If-Match`). If someone changed the list meanwhile (412), the list is reloaded, the form shows the current text and says so |
+| Image | owner, editor (`upload`) | `ImageUploadField`; shown left of the title and on the Explore card |
+| Tags | owner, editor (`tags`) | `TagsField`, as in 8.2 |
+| Sharing | owner (`settings`) | Who can see it, in words, and a button to the Share dialog (`?dialog=share`), where visibility, copies and people stay |
+| Expiry | owner (`settings`) | "Keep it permanently" or "Delete it automatically on a date": the end of that local day, from tomorrow on |
+| Delete this list | owner, edit link (`delete`) | Type the name to confirm, as in ⋮ Delete list |
+
+Anyone else sees "You can't change this list's settings". The list header now shows the
+image and the description (line breaks kept). The create form stays a single name field: the
+description is added here.
 
 ## Responsive behaviour
 

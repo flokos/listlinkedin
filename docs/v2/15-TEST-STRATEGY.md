@@ -169,6 +169,10 @@ the phone projects run the journeys marked ★.
    by its tag, the address keeps the search across a reload, words that match only an
    unlisted list find nothing, and public groups have their own tab; axe on `/explore` and the
    Tags dialog in `a11y.spec.ts`).
+   List settings (`e2e/tests/list-settings.spec.ts`, since task 8.3): the owner changes the
+   description, image and expiry and the list shows them; a description changed meanwhile is
+   refused and the current one shown; a visitor can't change anything, and an edit link gets
+   only name, description and delete. Axe on the settings page in `a11y.spec.ts`.
 6. History: edit, restore version 2 → a new version is created and the restored links come
    back with the same short URLs (`e2e/tests/history.spec.ts`, since task 3.4; axe on the
    history page and the restore dialog in `a11y.spec.ts`).
