@@ -10,6 +10,7 @@ test.describe('desktop menu', () => {
 
     for (const [link, heading, title] of [
       ['My lists', 'My lists', 'My lists · listlinkedin'],
+      ['Explore', 'Explore', 'Explore · listlinkedin'],
       ['About', 'About & privacy', 'About & privacy · listlinkedin'],
       ['Home', /Collect links/, 'Share a list of links · listlinkedin'],
     ] as const) {
@@ -66,6 +67,7 @@ test('every route works as a deep link (hard reload)', async ({ page, api }) => 
     ['/', /Collect links/],
     ['/lists', 'My lists'],
     ['/about', 'About & privacy'],
+    ['/explore?q=deep&in=groups', 'Explore'],
     [`/l/${list.public_code}`, 'Deep link'],
     ['/no/such/page', 'Page not found'],
   ] as const) {

@@ -51,6 +51,7 @@ import LiveRegion from '../components/LiveRegion.vue'
 import ShareDialog from '../components/ShareDialog.vue'
 import StatePanel from '../components/StatePanel.vue'
 import { useNotify } from '../composables/useNotify'
+import { useQueryDialog } from '../composables/useQueryDialog'
 import { useSession } from '../composables/useSession'
 import ListView from './ListView.vue'
 
@@ -178,13 +179,7 @@ async function setImage(file: File | null) {
   notify.success(file ? 'Image updated' : 'Image removed')
 }
 
-const shareOpen = computed({
-  get: () => route.query.dialog === 'group-share',
-  set: (value) => {
-    if (value) router.push({ query: { ...route.query, dialog: 'group-share' } })
-    else if (route.query.dialog === 'group-share') router.back()
-  },
-})
+const shareOpen = useQueryDialog('group-share')
 async function setVisibility(visibility: Visibility) {
   try {
     group.value = await changeGroup(props.code, { visibility })

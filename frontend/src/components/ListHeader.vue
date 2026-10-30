@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The list's name (renamable), its state chips, Share and the list's ⋮ menu.
+// The list's name (renamable), its state chips and tags, Share and the list's ⋮ menu.
 import {
   mdiAccountArrowLeftOutline,
   mdiCheck,
@@ -13,6 +13,7 @@ import {
   mdiPencilOutline,
   mdiShareVariant,
   mdiShieldKeyOutline,
+  mdiTagMultipleOutline,
   mdiTrayRemove,
 } from '@mdi/js'
 import { nextTick, ref } from 'vue'
@@ -44,6 +45,7 @@ const emit = defineEmits<{
   leave: []
   delete: []
   copy: []
+  tags: []
 }>()
 
 const renaming = ref(false)
@@ -146,6 +148,17 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
             >Created {{ formatDate(list.created_at) }}</span
           >
         </div>
+        <ul v-if="list.tags.length" class="ll-list-tags mt-3" aria-label="Tags">
+          <li v-for="tag in list.tags" :key="tag">
+            <v-chip
+              size="small"
+              variant="outlined"
+              :to="{ name: 'explore', query: { tags: tag } }"
+              :aria-label="`${tag}: explore lists with this tag`"
+              >{{ tag }}</v-chip
+            >
+          </li>
+        </ul>
         <!-- Only when the reader can open the source: a copy never reveals a hidden list. -->
         <p v-if="list.origin?.parent" class="text-body-medium text-medium-emphasis mt-3">
           <v-icon :icon="mdiContentCopy" size="16" class="mr-1" aria-hidden="true" />
@@ -179,6 +192,13 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               :prepend-icon="mdiPencilOutline"
               title="Rename"
               @click="startRename"
+            />
+            <v-list-item
+              v-if="can('tags')"
+              role="menuitem"
+              :prepend-icon="mdiTagMultipleOutline"
+              title="Tags…"
+              @click="emit('tags')"
             />
             <v-list-item
               v-if="can('view_history')"
@@ -249,6 +269,13 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
 .ll-list-header__main {
   min-width: 0;
   flex-basis: 320px;
+}
+.ll-list-tags {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .ll-list-title {
   overflow-wrap: anywhere;

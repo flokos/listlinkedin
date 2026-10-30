@@ -62,6 +62,7 @@ def create_group(
     title: str,
     description: str = "",
     visibility: Visibility = Visibility.PRIVATE,
+    tags: list[str] | None = None,
 ) -> Group:
     user = principal.user
     if user is None:
@@ -76,6 +77,7 @@ def create_group(
             slug=slug_for(title),
             description=description,
             visibility=visibility.value,
+            tags=tags or [],
         ),
         GROUP_CODE_CONSTRAINT,
     )

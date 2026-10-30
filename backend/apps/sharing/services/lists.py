@@ -41,6 +41,7 @@ def create_list(
     allow_fork: bool = False,
     allow_branch: bool = False,
     expires_at: datetime | None = None,
+    tags: list[str] | None = None,
     creation_key: UUID | None = None,
 ) -> tuple[SharedList, bool]:
     """Create a list owned by the signed-in user. Returns (list, created).
@@ -68,6 +69,7 @@ def create_list(
                 allow_fork=allow_fork,
                 allow_branch=allow_branch,
                 expires_at=expires_at,
+                tags=tags or [],
                 creation_key=creation_key,
             ),
             PUBLIC_CODE_CONSTRAINT,

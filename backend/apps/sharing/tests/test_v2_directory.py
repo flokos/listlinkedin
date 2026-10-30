@@ -106,6 +106,19 @@ def test_owners_and_editors_set_tags_without_a_revision(alice, bob):
     assert too_many.status_code == 400
 
 
+def test_lists_and_groups_are_created_with_tags(alice):
+    """Tags are accepted on creation too (a 500 before task 8.2's e2e test found it)."""
+    client = client_for(alice)
+    created = client.post(f"{URL}lists/", {"title": "Tools", "tags": ["Dev Tools"]}, format="json")
+    assert created.status_code == 201, created.content
+    assert created.json()["tags"] == ["dev-tools"]
+    group = client.post(f"{URL}groups/", {"title": "Portal", "tags": ["ops", "OPS"]}, format="json")
+    assert group.status_code == 201, group.content
+    assert group.json()["tags"] == ["ops"]
+    bad = client.post(f"{URL}groups/", {"title": "x", "tags": ["no!"]}, format="json")
+    assert bad.status_code == 400
+
+
 def test_an_edit_link_cant_set_tags(owned_list):
     legacy, token = owned_list
     response = APIClient().patch(

@@ -164,7 +164,11 @@ the phone projects run the journeys marked ★.
    reload; the live region announces (`e2e/tests/reorder.spec.ts`, since task 2.5, with a
    long-press touch drag on mobile-chrome and Move to another list).
 5. Visibility: a private list → the anonymous view is "not found". Unlisted → readable by link,
-   absent from Explore. Public → found in Explore.
+   absent from Explore. Public → found in Explore (`e2e/tests/explore.spec.ts`, since task 8.2:
+   the owner tags a public list in the UI, a signed-out visitor finds it by a partial word and
+   by its tag, the address keeps the search across a reload, words that match only an
+   unlisted list find nothing, and public groups have their own tab; axe on `/explore` and the
+   Tags dialog in `a11y.spec.ts`).
 6. History: edit, restore version 2 → a new version is created and the restored links come
    back with the same short URLs (`e2e/tests/history.spec.ts`, since task 3.4; axe on the
    history page and the restore dialog in `a11y.spec.ts`).

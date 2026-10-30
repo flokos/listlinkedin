@@ -62,6 +62,14 @@ const router = createRouter({
       props: true,
       meta: { title: 'Group', pageKey: groupPage },
     },
+    // The public directory. Its search, tags, sort and tab live in the query, so a search can
+    // be shared and Back returns to it.
+    {
+      path: '/explore',
+      name: 'explore',
+      component: () => import('./views/ExploreView.vue'),
+      meta: { title: 'Explore' },
+    },
     {
       path: '/about',
       name: 'about',

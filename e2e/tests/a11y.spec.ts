@@ -21,6 +21,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         ['/', /Collect links/],
         ['/lists', 'My lists'],
         ['/about', 'About & privacy'],
+        ['/explore', 'Explore'],
         ['/no/such/page', 'Page not found'],
       ] as const) {
         await page.goto(path)
@@ -52,7 +53,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
     })
 
-    test("an account list's share dialog with its People section", async ({ page }) => {
+    test("an account list's share dialog with its People section, and its tags", async ({ page }) => {
       await signUpVerified(page, uniqueEmail('a11y-owner'), 'Owner')
       await page.goto('/')
       await page.getByRole('textbox', { name: 'List name' }).fill('Shared with people')
@@ -60,6 +61,15 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Share', exact: true }).click()
       await expect(page.getByRole('heading', { name: 'People', exact: true })).toBeVisible()
       await expect(page.getByText('Nobody else has access yet.')).toBeVisible()
+      await expectNoA11yViolations(page)
+      await page.getByRole('dialog', { name: 'Share this list' }).getByRole('button', { name: 'Close' }).click()
+
+      await page.getByRole('button', { name: 'List options' }).click()
+      await page.getByRole('menuitem', { name: 'Tags…' }).click()
+      const tags = page.getByRole('dialog', { name: 'Tags' })
+      await tags.getByRole('combobox', { name: 'Tags (optional)' }).fill('team')
+      await page.keyboard.press('Enter')
+      await expect(tags.getByText('team', { exact: true })).toBeVisible()
       await expectNoA11yViolations(page)
     })
 
