@@ -12,7 +12,7 @@ the host.
 | `db` (postgres:17) | ✓ | none (adds `pg_trgm` via migration) | the single source of truth |
 | `migrate` (one-shot) | ✓ | runs with the statement timeout lifted ([06](06-MIGRATION-PLAN.md#schema-and-data-migrations-by-phase)) | migrations before anything starts (V1 pattern) |
 | `api` (Gunicorn / runserver) | ✓ | mounts the `media` volume read-write. New settings (auth, sessions, CSRF, email, TASKS) | HTTP |
-| **`worker`** | — | **new**: the same image, `python manage.py db_worker` (django-tasks-db), `depends_on: migrate`, `restart: unless-stopped`, media read-write | metadata fetching and image processing. These are slow, external and failure-prone, and must not tie up the 3 sync Gunicorn workers |
+| **`worker`** | — | **new** (task 7.1): the same image, `python manage.py db_worker` (django-tasks-db), `depends_on: migrate`, `restart: unless-stopped`, media read-write, healthcheck `check_worker`, `stop_grace_period: 30s`; two replicas in production (`WORKER_REPLICAS`), one in development (auto-reloading) | metadata fetching and image processing. These are slow, external and failure-prone, and must not tie up the 3 sync Gunicorn workers |
 | `cleanup` (supercronic) | ✓ | crontab additions ([below](#scheduled-jobs)); mounts `media` read-write (since 2.3) | scheduled maintenance |
 | `nginx` (prod) | ✓ | `/media/` location (read-only volume), `/_allauth/` proxied, upload locations with a larger body limit | static, media and TLS |
 | `frontend` (dev) | ✓ | Vite proxy also forwards `/_allauth/` and `/media/` | dev parity |
@@ -42,17 +42,25 @@ writable. A host path needs `chown 10001` instead.
   the project recommends for production. On upgrading to Django 6.2 LTS, `django.tasks` is
   built in and only the database backend package remains.
 - Configuration: `TASKS = {"default": {"BACKEND": "django_tasks_db.DatabaseBackend",
-  "QUEUES": ["default"]}}`. Tests use `ImmediateBackend`.
-- Enqueue only through `transaction.on_commit`.
+  "QUEUES": ["default"]}}`, everywhere including tests: the immediate backend can't defer a
+  task, which retries need, so tests run queued tasks with `db_worker --batch` in tests that
+  really commit (`apps/metadata/tests/test_tasks.py`).
+- Enqueue only through `apps/metadata/tasks.enqueue_on_commit` (`transaction.on_commit`: the
+  library inserts the row at once). Temporary failures retry through `retry_or_give_up`
+  (3 attempts, pauses of 30 s and 5 min). Since task 7.1, with what the library does and
+  doesn't do recorded in [ADR-008](adr/ADR-008-background-metadata-extraction.md#verified-in-task-71).
+- **Tasks left running by a dead worker** (the library never recovers them) are run again by
+  `recover_stuck_tasks` every 5 minutes, or failed after 3 runs. A task must finish well within
+  `TASK_STALE_AFTER` (10 minutes).
 - Tasks are idempotent and guarded: the worker re-reads the link and does nothing if it was
   deleted or its URL changed since the task was enqueued, so results can't land on the wrong
   URL ([ADR-008](adr/ADR-008-background-metadata-extraction.md)).
 - **Swappable runner:** one enqueue point (`metadata/tasks.py`), thin task wrappers over plain
   functions, and all state in PostgreSQL, so a later move to Celery is a contained change
   ([ADR-008](adr/ADR-008-background-metadata-extraction.md#moving-to-celery-later)).
-- **Fallback if django-tasks-db proves unsuitable** in task 7.1: a ~100-line
-  `metadata_fetch_job` table claimed with `SELECT … FOR UPDATE SKIP LOCKED` by a management
-  command loop. Same container, same semantics.
+- **Fallback if django-tasks-db proves unsuitable:** a ~100-line `metadata_fetch_job` table
+  claimed with `SELECT … FOR UPDATE SKIP LOCKED` by a management command loop. Not needed:
+  task 7.1 adopted the library.
 
 ## Worker egress
 
@@ -65,8 +73,8 @@ iptables -I DOCKER-USER -s <worker_subnet> -d 10.0.0.0/8,172.16.0.0/12,192.168.0
 ```
 
 The worker still reaches `db` on the internal compose network. Give it its own network that
-contains only `db`, plus the default bridge for egress. This is optional and is documented in
-the deployment README in task 7.1.
+contains only `db`, plus the default bridge for egress. This is optional; the README's
+deployment section describes both steps (since task 7.1).
 
 ## Email
 
@@ -85,7 +93,8 @@ allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit
 | `LEGACY_LIST_CREATION` | api | `off`: `POST /api/v1/lists/` answers 410. `on` only in backend tests and the e2e stack, which still seed legacy lists (since task 1.4; removed in 9.6) |
 | `MEDIA_ROOT` | api, cleanup, worker | `/srv/media` (since task 2.3) |
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
-| `METADATA_FETCH_ENABLED` | worker | `true` (`false` disables fetching, for locked-down deployments) |
+| `METADATA_FETCH_ENABLED` | api, worker | `true` (`false` disables fetching, for locked-down deployments; read from task 7.3) |
+| `WORKER_REPLICAS` | compose (production) | `2`: task processes, each running one task at a time (since task 7.1) |
 | `SENTRY_DSN` (optional) | api, worker | empty (disabled) |
 | `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2 |
 
@@ -97,7 +106,8 @@ These run under supercronic from `backend/docker/crontab`.
 |---|---|---|
 | daily 03:00 | `cleanup_expired`: expired lists (sets `parent_deleted_at` on their branches first), throttle cache | V1, extended |
 | daily 03:20 | `clearsessions` | V2 |
-| daily 03:30 | `prune_db_task_results` (keep 7 days) | V2 |
+| every 5 minutes | `recover_stuck_tasks`: tasks left running by a worker that died run again, or fail after 3 runs | 7.1 |
+| daily 03:30 | `prune_db_task_results --min-age-days 7`: records of tasks finished over 7 days ago | 7.1 |
 | daily 03:40 | `purge_deleted_accounts`: erase accounts deleted more than 30 days ago (lists, memberships, personal data; [ADR-016](adr/ADR-016-account-deletion-grace-period.md)) | 3.0 |
 | weekly Sun 04:00 | `cleanup_media`: delete files referenced by no row and no revision snapshot, older than 7 days | 2.3 (rows: list images, link icons including tombstones); revision snapshots and group images since 4.2 (snapshots were documented for 3.1 but missed until then); fetched icons in 7.3 |
 
@@ -113,17 +123,20 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
 
 ## Health checks and observability
 
-- `/healthz` (V1, DB round-trip). The worker gets a compose healthcheck: a management command
-  that exits non-zero if the oldest ready task is older than 10 minutes or the worker heartbeat
-  file is stale.
+- `/healthz` (V1, DB round-trip). The worker's compose healthcheck is `check_worker` (since
+  7.1): it exits non-zero if a ready task has waited, or a task has been running, longer than
+  10 minutes. The library has no heartbeat, so the queue itself is the signal; a worker that
+  crashes exits and is restarted. `deploy/smoke-test.sh` checks that every replica is healthy
+  and runs a task through it.
 - **Structured logging:** keep stdout logging and add a JSON formatter in production, plus a
   request-id middleware (`X-Request-ID` set by nginx, echoed back and attached to log
   records), so an api log line and the task it enqueued can be correlated.
 - **Merge diagnostics:** every apply logs `{branch_id, fingerprint, decisions_count, outcome,
   error_code, duration_ms}`. Failures keep the request's fingerprint and the current one.
   `SyncRecord` keeps the successful ones.
-- **Background task visibility:** the queue depth and the age of the oldest ready task, from
-  `manage.py task_stats`, are printed in `cleanup` logs daily and by the healthcheck.
+- **Background task visibility:** `check_worker` prints the number of ready and running tasks
+  and how long the oldest has waited on every check; `docker inspect` keeps the last few
+  (since 7.1, instead of a separate `task_stats` command).
 - **Error reporting:** optional `sentry-sdk` when `SENTRY_DSN` is set. Not a hard dependency.
   Without it, errors go to logs, as in V1.
 - No Prometheus or Grafana stack (prompt 15.3).

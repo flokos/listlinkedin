@@ -27,7 +27,9 @@ Celery supports it, and requires that delayed results never overwrite manual edi
 - **Security:** only `metadata/fetcher.py` fetches user URLs (resolve, validate every address,
   pin the connection, manual redirects, ports 80/443, size, time and type limits). Images go
   through the Pillow pipeline ([ADR-012](ADR-012-media-and-images.md)). No headless browser.
-- **Failures:** retried at most twice with backoff for timeouts and 5xx responses. After that,
+- **Failures:** retried at most twice with backoff for timeouts and 5xx responses (since 7.1:
+  the library has no retries, so `metadata/tasks.retry_or_give_up` queues the next attempt
+  with a `run_after` 30 s, then 5 min, later). After that,
   `metadata.status = "unavailable"` with an error code, and manual entry always works.
   Refreshing is manual (≤1/hour per link) or happens on URL change.
 
@@ -41,6 +43,27 @@ Celery supports it, and requires that delayed results never overwrite manual edi
   can't produce trusted, re-encoded images.
 - **A custom job table:** kept as the documented fallback (~100 lines) if django-tasks-db
   (beta) proves unsuitable.
+
+## Verified in task 7.1
+
+Read in the pinned wheels' source (2026-10-30) and confirmed on the running stack:
+
+- `db_worker` runs one task at a time per process, claims with `SELECT … FOR UPDATE SKIP
+  LOCKED`, and on the first SIGTERM finishes its current task before exiting. Production runs
+  two replicas (`WORKER_REPLICAS`).
+- **No retries, no heartbeat, and no recovery of a task whose worker died** (it stays
+  `RUNNING` for ever). Hence: retries through `run_after` (above); a health check on the
+  queue itself (`check_worker`: a ready task waiting, or one running, longer than
+  `TASK_STALE_AFTER`, 10 minutes); and `recover_stuck_tasks` every 5 minutes, which runs such
+  a task again, or fails it after 3 runs. Tasks must therefore be idempotent.
+- `enqueue()` inserts the row at once (no `on_commit` of its own), so the enqueue point wraps
+  it in `transaction.on_commit`.
+- The immediate backend can't defer a task, so tests use the database backend and run queued
+  tasks with `db_worker --batch` in tests that really commit.
+- The Django app label of django-tasks-db is **`django_tasks_database`** (its tables and
+  migrations), not the module name.
+
+The library is adopted; the fallback (a job table of our own) isn't needed.
 
 ## Consequences
 
@@ -71,28 +94,35 @@ old pieces below removed. Estimated at a day or two including tests.
 
 ### What the database queue adds, to remove when switching
 
-Task 7.1 keeps this list accurate (it names the real files and settings once they exist). In
-the switching PR, remove each item, in this order where it matters:
+As built in task 7.1. In the switching PR, remove each item, in this order where it matters:
 
-1. **Drain first.** Stop new enqueues (deploy the Celery enqueue point), let `db_worker` finish
-   the ready tasks, then stop the old `worker`. Anything left is refilled by `backfill_metadata`.
+1. **Drain first.** Stop new enqueues (deploy the Celery version of
+   `apps/metadata/tasks.py`), let `db_worker` finish the ready tasks, then stop the old
+   `worker`. Anything left is refilled by `backfill_metadata` (7.3).
 2. **Drop the queue tables while the package is still installed:**
-   `python manage.py migrate django_tasks_db zero` in a migration step of the release (record
-   it in [06](../06-MIGRATION-PLAN.md) as one-way: the job history is discarded on purpose).
-   Removing the app from `INSTALLED_APPS` first would leave its tables orphaned, because Django
-   can then no longer unapply its migrations.
-3. **Settings:** `django_tasks` and `django_tasks_db` in `INSTALLED_APPS`, the `TASKS` setting
-   (and the test settings' `ImmediateBackend`, replaced by Celery's eager mode or direct calls).
-4. **Dependencies:** both packages from `pyproject.toml` and `uv.lock`.
-5. **Operations:** the `worker` service's `db_worker` command in both compose files, its
-   healthcheck management command (oldest ready task, heartbeat), and the
-   `prune_db_task_results` line in the `cleanup` crontab.
-6. **Docs:** [14](../14-INFRASTRUCTURE.md#background-worker) (worker, health, the Redis and
-   Celery rows under "not needed"), the deployment docs, D11 and D27 in
-   [20](../20-DECISIONS-AND-OPEN-QUESTIONS.md), and CLAUDE.md's "Don't add Redis, Celery…" line,
-   which must name the accepted ADR.
-7. **If 7.1 took the fallback** (our own `metadata_fetch_job` table instead of
-   django-tasks-db): its loop command, and a migration dropping the table, replace items 2–5.
+   `python manage.py migrate django_tasks_database zero` (the app label, not the module name)
+   in a migration step of the release, recorded in [06](../06-MIGRATION-PLAN.md) as one-way:
+   the task history is discarded on purpose. Removing the app from `INSTALLED_APPS` first would
+   leave its tables orphaned, because Django can then no longer unapply its migrations.
+3. **Settings** (`config/settings/base.py`): `django_tasks` and `django_tasks_db` in
+   `INSTALLED_APPS`, and `TASKS`. `TASK_STALE_AFTER` and `METADATA_FETCH_ENABLED` stay if
+   their uses do.
+4. **Code:** `enqueue_on_commit` and `retry_or_give_up` in `apps/metadata/tasks.py` rewritten
+   for Celery (its own retries can replace the helper); the `@task` decorators there and in
+   `apps/metadata/tests/sample_tasks.py`; the management commands `check_worker` and
+   `recover_stuck_tasks` (`apps/metadata/management/commands/`), which read the queue table,
+   rewritten for Celery or removed; and `run_worker()` in `apps/metadata/tests/test_tasks.py`.
+5. **Dependencies:** `django-tasks` and `django-tasks-db[compat]` from `pyproject.toml`, then
+   `uv lock`.
+6. **Operations:** the `worker` service in `compose.yaml` and `compose.prod.yaml` (its
+   `db_worker` command and its `check_worker` healthcheck; `WORKER_REPLICAS` may stay as the
+   Celery worker count), the `recover_stuck_tasks` and `prune_db_task_results` lines in
+   `backend/docker/crontab`, and the two worker checks in `deploy/smoke-test.sh`, which queue a
+   sample task and read the queue table.
+7. **Docs:** [14](../14-INFRASTRUCTURE.md#background-worker) (worker, scheduled jobs, health,
+   the Redis and Celery rows under "not needed"), the deployment section of the README, D11
+   and D27 in [20](../20-DECISIONS-AND-OPEN-QUESTIONS.md), CLAUDE.md's `metadata` row and its
+   "Don't add Redis, Celery…" line, which must name the accepted ADR, and this section.
 
 ### Background work from earlier phases
 

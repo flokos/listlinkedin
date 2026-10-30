@@ -8,3 +8,7 @@
 0 4 * * 0 python manage.py cleanup_media
 # Daily at 03:40: erase accounts whose 30-day deletion grace period is over.
 40 3 * * * python manage.py purge_deleted_accounts
+# Every 5 minutes: run again (or fail) background tasks left running by a worker that died.
+*/5 * * * * python manage.py recover_stuck_tasks
+# Daily at 03:30: delete records of background tasks that finished over 7 days ago.
+30 3 * * * python manage.py prune_db_task_results --min-age-days 7

@@ -155,6 +155,29 @@ published=$(compose port api 8000 2>/dev/null || true)
 check "API port is not published" "not published" \
     "$([[ -z "$published" || "$published" == ":0" ]] && echo "not published" || echo "$published")"
 
+# The background worker (docs/v2/adr/ADR-008): every replica becomes healthy, and a task
+# queued by the API runs (a test task: the only real one arrives with link metadata, 7.3).
+echo "Waiting for the worker..."
+for _ in $(seq 45); do
+    [[ -n "$(compose ps worker --format '{{.Health}}')" ]] && \
+        ! compose ps worker --format '{{.Health}}' | grep -qv '^healthy$' && break
+    sleep 2
+done
+check "every worker replica is healthy" "healthy healthy" \
+    "$(compose ps worker --format '{{.Health}}' | sort | paste -sd' ')"
+compose exec -T api python manage.py shell -c '
+from apps.metadata.tasks import enqueue_on_commit
+from apps.metadata.tests.sample_tasks import echo
+enqueue_on_commit(echo, "smoke")' >/dev/null
+task_state() {
+    compose exec -T api python manage.py shell -c '
+from django_tasks_db.models import DBTaskResult
+r = DBTaskResult.objects.filter(args_kwargs__args=["smoke"]).first()
+print(r.status, r.return_value)' | tail -n 1
+}
+for _ in $(seq 15); do [[ "$(task_state)" == SUCCESSFUL* ]] && break; sleep 2; done
+check "the worker runs a task queued by the API" "SUCCESSFUL smoke" "$(task_state)"
+
 echo
 if [[ $failures -eq 0 ]]; then echo "All smoke checks passed."; else echo "$failures check(s) failed."; fi
 exit "$failures"

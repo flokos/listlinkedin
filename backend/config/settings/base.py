@@ -1,6 +1,7 @@
 """Settings shared by every environment. All secrets come from the environment."""
 
 import os
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -34,6 +35,8 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.headless",
+    "django_tasks",
+    "django_tasks_db",  # app label `django_tasks_database`: its tables and migrations
     "apps.accounts",
     "apps.groups",
     "apps.metadata",
@@ -167,6 +170,17 @@ CACHES = {
         "OPTIONS": {"MAX_ENTRIES": 100_000},
     }
 }
+
+# Background tasks (docs/v2/adr/ADR-008): a queue in PostgreSQL, run by the `worker` service
+# (`manage.py db_worker`). Tests use it too, running queued tasks with `db_worker --batch`:
+# the immediate backend can't defer a task, which retries need. Code queues work only through
+# apps.metadata.tasks.
+TASKS = {"default": {"BACKEND": "django_tasks_db.DatabaseBackend", "QUEUES": ["default"]}}
+# A task must finish well within this. `check_worker` reports a queue that waits longer, and
+# `recover_stuck_tasks` takes back tasks running longer (their worker died).
+TASK_STALE_AFTER = timedelta(minutes=10)
+# Fetching link metadata (task 7.3). Off for locked-down deployments.
+METADATA_FETCH_ENABLED = os.environ.get("METADATA_FETCH_ENABLED", "true").lower() != "false"
 
 # V1's anonymous list creation (POST /api/v1/lists/) answers 410 since V2. Test and e2e stacks
 # turn it back on to create legacy lists for edit-link tests. Never on in production.
