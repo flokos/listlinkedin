@@ -34,7 +34,7 @@ Trust boundaries: browser ↔ nginx (TLS), nginx ↔ api (internal network), wor
 | **IDOR / BOLA** [R13] | Every lookup starts from the parent resource and the visible queryset. Link UUIDs are always scoped to their list (V1 `_get_link` pattern). Nested ids are never trusted alone | tests swapping ids across lists and groups |
 | **Short URL enumeration** | 96-bit random codes (V1). Private targets answer 404 like unknown codes | V1 tests + visibility tests |
 | **SSRF** | The [SSRF-safe fetcher](#ssrf-safe-fetcher) in the worker only. The api process never fetches user URLs | fetcher unit tests with simulated DNS rebinding |
-| **XSS** | Vue escapes by default. `v-html` is banned for user or fetched content (lint rule). Fetched strings are stored as plain text. SVG is never accepted. The CSP stays `script-src 'self'` (default-src). Link `href`s are always our `/r/` short URL or a server-validated http(s) URL | lint, component tests, CSP smoke test |
+| **XSS** | Vue escapes by default. `v-html` is banned (`vue/no-v-html` is a lint error since 9.1; it was a warning). Fetched strings are stored as plain text. SVG is never accepted. The CSP stays `script-src 'self'` (default-src). Link `href`s are always our `/r/` short URL or a server-validated http(s) URL | lint, component tests, CSP smoke test |
 | **CSRF** | New with cookies: `CsrfViewMiddleware` and DRF `SessionAuthentication` enforce CSRF on authenticated unsafe requests [R8]. `SameSite=Lax` session cookie. Remove V1's `security.W003` silence. Legacy bearer requests carry no ambient credentials, so they need no CSRF | API tests without and with a wrong token; `check --deploy` in CI |
 | **Malicious URL schemes** | Server-side http/https only (V1 `normalize_destination_url`), also for metadata-derived image URLs. `HttpResponseRedirect` refuses other schemes (V1) | V1 tests + new ones |
 | **Open redirects** | `/r/` redirects only to stored, validated URLs (V1). `next`/redirect parameters must be same-origin paths. allauth redirect settings point to SPA routes only [R16] | tests for `next=//evil`, `next=https://…` |
@@ -142,18 +142,27 @@ guessed by someone who already has the image. Moving private images behind an au
 
 - Session cookie: `Secure` (production), `HttpOnly`, `SameSite=Lax`, two-week age, rotated on
   login (Django). The CSRF cookie is readable by JavaScript (needed by the SPA), `Secure`, and
-  `CSRF_TRUSTED_ORIGINS = [PUBLIC_BASE_URL]`.
+  `CSRF_TRUSTED_ORIGINS = [PUBLIC_BASE_URL]`. Since task 9.1 both are `__Host-` cookies in
+  production (`__Host-sessionid`, `__Host-csrftoken`): browsers accept them only over HTTPS,
+  from this host, for the whole site. Session lifetime and limits:
+  [21](21-SECURITY-REVIEW.md#sessions).
 - Email verification and password-reset keys travel in the URL **fragment**
   (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
   nginx logs, as V1's edit-link tokens do. The SPA removes them from the address bar on
-  arrival. Reset keys work once.
+  arrival. Reset keys work once, for one hour (`PASSWORD_RESET_TIMEOUT`, since 9.1).
 - `?next=` after sign-in accepts only same-site paths (`safeRedirectPath`). It rejects `//host`,
   `/\host`, other schemes, and control characters that browsers strip into `//host`.
 - Production keeps HSTS, the SSL redirect and the proxy header from V1. `check --deploy
   --fail-level WARNING` stays in CI, without the W003 silence.
 - The nginx CSP for the SPA is unchanged (`default-src 'self'; img-src 'self' data:; …`).
   Media is same-origin, so no third-party image hosts are allowed. That also means visitors'
-  IPs never leak to icon hosts.
+  IPs never leak to icon hosts. Since task 9.1: API answers carry `default-src 'none';
+  frame-ancestors 'none'` and `Cache-Control: no-store`; the API docs page serves Swagger UI
+  from this origin with its own CSP (`config/docs.py`), never from a CDN; media adds
+  `frame-ancestors 'none'`; the app's files declare UTF-8 and send
+  `Cross-Origin-Opener-Policy: same-origin` and a `Permissions-Policy`.
+- Plain HTTP: pages redirect to HTTPS, but `/api/` and `/_allauth/` answer 403 (since 9.1), so
+  a client that sent a secret over HTTP finds out instead of silently being redirected.
 - `X-Robots-Tag: noindex` stays for everything in the MVP. Indexing public lists is an open
   question ([20](20-DECISIONS-AND-OPEN-QUESTIONS.md)).
 
@@ -182,8 +191,12 @@ configured values as `list_create` and `list_manage` (30/h and 600/h).
 
 Logs record ids (list, link, user, sync record) and error codes. They never record tokens,
 session or CSRF values, or email addresses (use the user id). V1's test that tokens never
-appear in logs is extended to sessions and claim. Secrets stay environment-only. New secrets
-are SMTP credentials and optionally `SENTRY_DSN` ([14](14-INFRASTRUCTURE.md)).
+appear in logs is extended to sessions and claim (`tests/test_logging.py`, since 9.1: session
+and CSRF values, verification and reset keys, edit-link tokens and email addresses, through
+sign-up, verification, claims, invitations and resets). Since 9.1 every record also carries
+the request id and the user id, and authentication events are logged
+([21](21-SECURITY-REVIEW.md#logging)). Secrets stay environment-only. New secrets are the SMTP
+credentials ([14](14-INFRASTRUCTURE.md)).
 
 ## Moderation
 

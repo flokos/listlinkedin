@@ -61,6 +61,36 @@ def test_sign_up_signs_in_and_sends_a_verification_link_to_the_spa(client):
 
 
 @pytest.mark.django_db
+def test_sign_ups_are_limited_to_ten_an_hour_per_ip():
+    """docs/v2/13-SECURITY.md#rate-limits (task 9.1): tighter than allauth's 20 a minute."""
+    statuses = [
+        post_json(
+            Client(), f"{AUTH}/signup", {"email": f"u{n}@example.com", "password": PASSWORD}
+        ).status_code
+        for n in range(11)
+    ]
+    assert statuses == [200] * 10 + [429]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("password", "accepted"),
+    [
+        ("482093715264", True),  # digits only: no composition rules (ASVS V6.2.5)
+        ("12345678", False),  # a common password
+        ("my listLinkedIn pass", False),  # the site's own name
+        ("short1!", False),
+        ("x" * 128, True),  # long passphrases are fine
+    ],
+)
+def test_password_rules(password, accepted):
+    response = post_json(
+        Client(), f"{AUTH}/signup", {"email": "new@example.com", "password": password}
+    )
+    assert (response.status_code == 200) is accepted, response.content
+
+
+@pytest.mark.django_db
 def test_sign_in_and_sign_out(client, user):
     wrong = post_json(client, f"{AUTH}/login", {"email": user.email, "password": "nope-nope"})
     assert wrong.status_code == 400

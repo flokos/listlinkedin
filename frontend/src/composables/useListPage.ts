@@ -10,12 +10,14 @@ import {
   type WriteOptions,
 } from '../api'
 import { useOwnedLists } from './useOwnedLists'
-import { useSession } from './useSession'
+import { onUserChange, useSession } from './useSession'
 
 export type ListStatus = 'loading' | 'ready' | 'not-found' | 'expired' | 'error'
 
 // Last loaded state per list, so returning to a list shows it instantly while it refreshes.
+// Dropped when the user signs out or changes: nobody is shown what the last one could see.
 const cache = new Map<string, { list: ListDetail; links: SharedLink[] }>()
+onUserChange(() => cache.clear())
 
 /**
  * Everything the list page needs: loading, what this user may do, and every editing action.

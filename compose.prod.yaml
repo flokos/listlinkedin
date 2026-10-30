@@ -16,6 +16,7 @@ x-app-env: &app-env
   BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
   WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}  # Gunicorn workers
   METADATA_FETCH_ENABLED: ${METADATA_FETCH_ENABLED:-true}  # link metadata (task 7.3)
+  LOG_FORMAT: ${LOG_FORMAT:-json}  # one JSON object per log line; `text` to read by eye
   FETCH_BLOCKED_NETWORKS: ${FETCH_BLOCKED_NETWORKS:-}  # extra CIDRs the fetcher never reaches
   THROTTLE_LIST_CREATE: ${THROTTLE_LIST_CREATE:-30/hour}  # per client IP
   THROTTLE_LIST_MANAGE: ${THROTTLE_LIST_MANAGE:-600/hour}
@@ -38,6 +39,14 @@ x-app-env: &app-env
   # Where reports of abuse go (docs/v2/13-SECURITY.md#moderation). Empty: only logged.
   MODERATION_EMAIL: ${MODERATION_EMAIL:-}
 
+# Container logs (stdout) rotate: at most 5 × 20 MB per container (ASVS V16, a full disk is
+# an outage). Ship them elsewhere with another log driver if needed (docs/v2/21-SECURITY-REVIEW.md#logging).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 x-app: &app
   build:
     context: ./backend
@@ -46,6 +55,7 @@ x-app: &app
   environment: *app-env
   volumes:
     - media:/srv/media  # uploaded images (MEDIA_ROOT). Include it in backups
+  logging: *logging
 
 services:
   db:
@@ -62,6 +72,7 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    logging: *logging
 
   migrate:
     <<: *app
@@ -92,6 +103,7 @@ services:
 
   nginx:
     # nginx with the built Vue app baked in (frontend/Dockerfile, `prod` target).
+    logging: *logging
     build:
       context: ./frontend
       target: prod

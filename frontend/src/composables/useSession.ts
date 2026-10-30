@@ -12,6 +12,21 @@ const state = reactive<{ user: SessionUser | null; status: Status }>({
 })
 let loading: Promise<void> | undefined
 
+// Run when the signed-in user goes away or changes, so what they could see is dropped from
+// memory (ASVS V14.3.1): the list page's cache, for example.
+const userChangeListeners = new Set<() => void>()
+
+/** Calls `fn` whenever the signed-in user signs out or another one signs in. */
+export function onUserChange(fn: () => void): void {
+  userChangeListeners.add(fn)
+}
+
+function setUser(user: SessionUser | null) {
+  const changed = (state.user?.id ?? null) !== (user?.id ?? null)
+  state.user = user
+  if (changed) for (const listener of userChangeListeners) listener()
+}
+
 /**
  * Loads the session once, or again with `force`. Never throws: if the server can't be
  * reached the app behaves as signed out, and the next action shows the network error.
@@ -21,11 +36,11 @@ export function loadSession(force = false): Promise<void> {
   if (!loading || force) {
     const current = api.getSession().then(
       (user) => {
-        state.user = user
+        setUser(user)
         state.status = 'ready'
       },
       () => {
-        state.user = null
+        setUser(null)
         state.status = 'error'
       },
     )
@@ -64,7 +79,7 @@ export function useSession() {
     },
     async signOut() {
       await api.signOut()
-      state.user = null
+      setUser(null)
       state.status = 'ready'
     },
     /** Undoes deleting the account (within the grace period). */
@@ -76,7 +91,7 @@ export function useSession() {
     },
     /** The server says the session ended (401 elsewhere): reflect it without a request. */
     markSignedOut() {
-      state.user = null
+      setUser(null)
       state.status = 'ready'
     },
   }

@@ -189,7 +189,7 @@ exception is the reviewed reconciliation PR just before the release.
 
 | Job | Runs on | V2 additions |
 |---|---|---|
-| `checks` | every PR; pushes to `main` and `v2` | target guard (first step); later the openapi-typescript drift check and coverage report |
+| `checks` | every PR; pushes to `main` and `v2` | target guard (first step); the dependency vulnerability audit (`pip-audit`, `npm audit`, since task 9.1) |
 | `proxy` | same | V2 smoke additions (media headers, `/_allauth/` routing) |
 | `e2e` | same | new journeys ([15](15-TEST-STRATEGY.md#end-to-end-scenarios)) |
 

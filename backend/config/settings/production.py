@@ -4,7 +4,7 @@ import re
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
-from .base import DATABASES, REST_FRAMEWORK
+from .base import DATABASES, LOGGING, REST_FRAMEWORK
 
 DEBUG = False
 
@@ -14,9 +14,14 @@ SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-# Session (sign-in) and CSRF cookies only ever travel over HTTPS.
+# Session (sign-in) and CSRF cookies only ever travel over HTTPS. The __Host- prefix makes
+# browsers enforce that too, and refuse the cookies unless they are Secure, set by this host
+# itself and valid for the whole site (ASVS V3.3.1, V3.3.3). The app reads the CSRF cookie by
+# either name (frontend/src/api/client.ts); development keeps Django's names, over HTTP.
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_NAME = "__Host-sessionid"
+CSRF_COOKIE_NAME = "__Host-csrftoken"
 
 SILENCED_SYSTEM_CHECKS = [
     "security.W021",  # HSTS preload is an irreversible, domain-wide decision for the operator
@@ -29,6 +34,14 @@ REST_FRAMEWORK = {
 }
 # allauth's sign-in and password-reset rate limits read the client IP the same way.
 ALLAUTH_TRUSTED_PROXY_COUNT = REST_FRAMEWORK["NUM_PROXIES"]
+
+# One JSON object per log line, with the request id (config.logging). LOG_FORMAT=text keeps
+# the development format, e.g. for reading logs by eye on a small host.
+if os.environ.get("LOG_FORMAT", "json") == "json":
+    LOGGING = {
+        **LOGGING,
+        "handlers": {"console": {**LOGGING["handlers"]["console"], "formatter": "json"}},
+    }
 
 # Real mail in production (verification and password-reset links). Configure EMAIL_* in .env.
 EMAIL_BACKEND = os.environ.get(

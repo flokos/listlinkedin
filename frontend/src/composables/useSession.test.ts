@@ -53,6 +53,23 @@ describe('useSession', () => {
     expect(currentUser()).toEqual(ada)
   })
 
+  it('tells listeners when the user signs out or changes, not on a reload', async () => {
+    const bob = { ...ada, id: '2', email: 'bob@example.com' }
+    api.getSession.mockResolvedValueOnce(ada).mockResolvedValueOnce(ada).mockResolvedValue(bob)
+    const { loadSession, onUserChange, useSession } = await fresh()
+    const changed = vi.fn()
+    onUserChange(changed)
+
+    await loadSession()
+    expect(changed).toHaveBeenCalledTimes(1) // nobody → Ada
+    await loadSession(true)
+    expect(changed).toHaveBeenCalledTimes(1) // still Ada
+    await useSession().signOut()
+    expect(changed).toHaveBeenCalledTimes(2)
+    await loadSession(true)
+    expect(changed).toHaveBeenCalledTimes(3) // Bob signed in elsewhere
+  })
+
   it('forgets the user on sign-out', async () => {
     api.getSession.mockResolvedValue(ada)
     const { currentUser, loadSession, useSession } = await fresh()

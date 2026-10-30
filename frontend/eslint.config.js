@@ -18,6 +18,9 @@ export default tseslint.config(
     rules: {
       // Views are named by route (HomeView), components by role; single words are fine for views.
       'vue/multi-word-component-names': 'off',
+      // User and fetched text is only ever rendered as text (docs/v2/13-SECURITY.md, XSS).
+      // The recommended config merely warns, and warnings don't fail the lint.
+      'vue/no-v-html': 'error',
     },
   },
   prettier, // formatting is Prettier's job

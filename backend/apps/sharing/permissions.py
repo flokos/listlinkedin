@@ -1,7 +1,8 @@
-"""Owner-token access control.
+"""V1 owner-token access control, and the rate limits shared by both APIs.
 
-There are no user accounts. A request "authenticates" only by presenting a bearer token;
-whether that token owns the list is decided per list by `IsListOwnerOrReadOnly`.
+The V1 API (/api/v1/) has no accounts: a request "authenticates" only by presenting a list's
+owner token, and `IsListOwnerOrReadOnly` decides per list whether it owns it. It serves legacy
+lists until the sunset (task 9.6). The V2 API decides through `policy.py` instead.
 """
 
 from django.db import connection, transaction

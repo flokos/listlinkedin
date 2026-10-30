@@ -30,8 +30,7 @@ and `index.ts`. Also in place: `useSession`, `useSignOut`, `PasswordField`, `Aut
 src/
   api/
     client.ts        request(), ApiError/NetworkError (from V1 api.ts), CSRF + session handling, ETag/If-Match helpers
-    schema.d.ts      generated from /api/schema/?version=v2 by openapi-typescript (committed, CI-checked)
-    lists.ts auth.ts groups.ts revisions.ts sync.ts members.ts directory.ts
+    lists.ts auth.ts groups.ts members.ts directory.ts   types written by hand next to their calls
   composables/
     useSession.ts         current user, sign-in state, route guard helper            (new)
     useListPage.ts        extended: permissions, ETag, tiles, reorder, history entry  (V1)
@@ -85,8 +84,9 @@ Caching and staleness (risk 28):
 - **Legacy tokens.** For lists in the device's legacy store, the client adds
   `Authorization: Bearer` on writes to that list only (V1 behaviour). After a successful claim
   the token is deleted from storage.
-- **Generated types.** `openapi-typescript` turns the v2 schema into `schema.d.ts`. A CI step
-  regenerates it and fails on diff, so client and server can't drift silently.
+- **Types.** Written by hand next to the calls that use them (`frontend/src/api/*.ts`) and
+  changed with their endpoints. Generating them from the schema with `openapi-typescript`
+  (CI failing on a diff) was planned and not adopted; it stays an option ([09](09-API-DESIGN.md#openapi)).
 - **Idempotency.** The client generates `Idempotency-Key`s (`crypto.randomUUID()`) per user
   action for create, fork, branch and sync, and reuses the key when it retries that action.
 
@@ -172,7 +172,6 @@ manual QA pass. The planned `MoveMenuItems` component became part of `LinkMenu`.
 | Package | Type | Why |
 |---|---|---|
 | `vue-draggable-plus` (+ `sortablejs`) | runtime | Pointer and touch reordering (above) |
-| `openapi-typescript` | dev | Client types generated from the API schema |
 
 Nothing else. Diff display, the tiles, the sidebar and the forms use Vuetify and plain code.
 

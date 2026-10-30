@@ -55,8 +55,10 @@ for _ in $(seq 60); do
 done
 
 check "health check over HTTPS" 200 "$(curl_ -o /dev/null -w '%{http_code}' "$https/healthz")"
-check "HTTP redirects to HTTPS" "301 https://$SERVER_NAME/api/v1/lists/" \
-    "$(curl_ -o /dev/null -w '%{http_code} %{redirect_url}' "$http/api/v1/lists/")"
+check "HTTP redirects pages to HTTPS" "301 https://$SERVER_NAME/lists" \
+    "$(curl_ -o /dev/null -w '%{http_code} %{redirect_url}' "$http/lists")"
+check "HTTP API requests are refused, not redirected" 403 \
+    "$(curl_ -o /dev/null -w '%{http_code}' "$http/api/v1/lists/")"
 
 # Anonymous creation is retired in production (docs/v2/adr/ADR-011), so seed a legacy
 # (edit-link) list with the service V1 used and test the rest of the V1 API on it.
@@ -83,6 +85,14 @@ headers=$(curl_ -sI "$https/api/v1/lists/$code/" | tr -d '\r' | tr 'A-Z' 'a-z')
 check "HSTS header from Django" "strict-transport-security: max-age=31536000; includesubdomains" \
     "$(grep '^strict-transport-security' <<<"$headers")"
 check "nginx hides its version" "server: nginx" "$(grep '^server:' <<<"$headers")"
+check "TRACE is refused" 405 "$(curl_ -o /dev/null -w '%{http_code}' -X TRACE "$https/")"
+# The request id nginx gives each request reaches Django, which echoes it (task 9.1).
+check "API responses carry nginx's request id" 1 \
+    "$(grep -cE '^x-request-id: [0-9a-f]{32}$' <<<"$headers")"
+# Production cookies carry the __Host- prefix: Secure, this host only, path / (task 9.1).
+session_headers=$(curl_ -sI "$https/api/v2/session/" | tr -d '\r' | tr 'A-Z' 'a-z')
+check "the CSRF cookie is a __Host- cookie" 1 \
+    "$(grep -cE '^set-cookie: __host-csrftoken=[^;]+;.*path=/;.*secure' <<<"$session_headers")"
 
 page=$(curl_ "$https/l/$code")
 check "public list URL serves the app" 1 "$(grep -c '<div id="app"></div>' <<<"$page")"
@@ -92,6 +102,12 @@ check "app page sends HSTS" "strict-transport-security: max-age=31536000; includ
 check "app page never leaks its URL as a referrer" "referrer-policy: no-referrer" \
     "$(grep '^referrer-policy' <<<"$page_headers")"
 check "app page sends a CSP" 1 "$(grep -c "^content-security-policy: default-src 'self'" <<<"$page_headers")"
+check "app page declares UTF-8" "content-type: text/html; charset=utf-8" \
+    "$(grep '^content-type' <<<"$page_headers")"
+check "app page isolates its window" "cross-origin-opener-policy: same-origin" \
+    "$(grep '^cross-origin-opener-policy' <<<"$page_headers")"
+check "app page turns off unused browser features" 1 \
+    "$(grep -c '^permissions-policy: camera=(), microphone=()' <<<"$page_headers")"
 asset=$(grep -o '/assets/index-[^"]*\.js' <<<"$page")
 check "fingerprinted assets are cached immutably" "cache-control: public, max-age=31536000, immutable" \
     "$(curl_ -sI "$https$asset" | tr -d '\r' | tr 'A-Z' 'a-z' | grep '^cache-control')"
@@ -120,7 +136,7 @@ check "media is served by nginx" "http/2 200" "$(head -n 1 <<<"$media_headers" |
 check "media has an image type" "content-type: image/webp" "$(grep '^content-type' <<<"$media_headers")"
 check "media is never sniffed" "x-content-type-options: nosniff" \
     "$(grep '^x-content-type-options' <<<"$media_headers")"
-check "media has a sandbox CSP" "content-security-policy: default-src 'none'; sandbox" \
+check "media has a sandbox CSP" "content-security-policy: default-src 'none'; sandbox; frame-ancestors 'none'" \
     "$(grep '^content-security-policy' <<<"$media_headers")"
 check "media is cached immutably" "cache-control: public, max-age=31536000, immutable" \
     "$(grep '^cache-control' <<<"$media_headers")"
