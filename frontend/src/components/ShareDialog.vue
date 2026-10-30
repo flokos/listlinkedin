@@ -20,14 +20,19 @@ const props = withDefaults(
     visibility: Visibility
     /** The owner may change who can see the list. */
     canChange?: boolean
+    /** A list's "Allow copies" setting; shown to the owner (`canChange`) when given. */
+    allowFork?: boolean
     /** Making a list public (and adding people) needs a verified email address. */
     emailVerified?: boolean
     /** Shows the People section (owner and editors): the list's code is needed for it. */
     people?: { code: string; ownerName: string | null; youAreOwner: boolean; canManage: boolean }
   }>(),
-  { kind: 'list', people: undefined },
+  { kind: 'list', allowFork: undefined, people: undefined },
 )
-const emit = defineEmits<{ 'change-visibility': [visibility: Visibility] }>()
+const emit = defineEmits<{
+  'change-visibility': [visibility: Visibility]
+  'change-allow-fork': [allow: boolean]
+}>()
 
 const options: { value: Visibility; label: string; hint: string }[] = [
   {
@@ -43,6 +48,12 @@ const describe = computed<Record<Visibility, string>>(() => ({
   unlisted: `Anyone with this link can view the ${props.kind}, but not change it.`,
   public: `Anyone can view this ${props.kind}, but not change it.`,
 }))
+
+const copiesHint = computed(() =>
+  props.visibility === 'private'
+    ? 'People you add can make their own copy of this list.'
+    : 'Anyone who can see this list can make their own copy of it.',
+)
 
 const qr = ref<string>()
 const { canShare, share } = useShare()
@@ -99,6 +110,18 @@ watch(
             </template>
           </v-radio>
         </v-radio-group>
+        <v-switch
+          v-if="canChange && allowFork !== undefined"
+          :model-value="allowFork"
+          label="Allow copies"
+          role="switch"
+          :hint="`${copiesHint} Copies are independent: your changes don't reach them.`"
+          persistent-hint
+          color="primary"
+          inset
+          class="mb-4"
+          @update:model-value="(value) => emit('change-allow-fork', Boolean(value))"
+        />
         <CopyField label="Share link" :value="url" what="Share link" />
         <div class="ll-qr mx-auto my-4">
           <img v-if="qr" :src="qr" :alt="`QR code for ${url}`" width="220" height="220" />

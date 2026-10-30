@@ -23,6 +23,7 @@ import {
 import AddLinkCard from '../components/AddLinkCard.vue'
 import ClaimTokenDialog from '../components/ClaimTokenDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import CopyListDialog from '../components/CopyListDialog.vue'
 import EditLinkReveal from '../components/EditLinkReveal.vue'
 import LinkCollection from '../components/LinkCollection.vue'
 import LinkDetailsDialog from '../components/LinkDetailsDialog.vue'
@@ -153,6 +154,29 @@ const shareOpen = computed({
   },
 })
 
+// "Make a copy", also reflected in the URL (?dialog=copy): signing in first comes back to it.
+const copyOpen = computed({
+  get: () => route.query.dialog === 'copy' && page.can('fork'),
+  set: (value) => {
+    if (value) router.push({ query: { ...route.query, dialog: 'copy' } })
+    else if (route.query.dialog === 'copy') router.back()
+  },
+})
+const signInToCopy = computed(() => !session.isSignedIn.value && Boolean(list.value?.allow_fork))
+function startCopy() {
+  if (session.isSignedIn.value) {
+    copyOpen.value = true
+    return
+  }
+  const next = router.resolve({ query: { ...route.query, dialog: 'copy' } }).fullPath
+  router.push({ name: 'signin', query: { next } })
+}
+function openCopy(copy: ListDetail) {
+  notify.success('Copy made. Only you can see it until you share it.')
+  // Replaces the dialog's history entry, so Back returns to the original list.
+  router.replace({ name: 'list', params: { code: copy.code, slug: copy.slug } })
+}
+
 // Edit link reveal: right after creation (handed over by Home), after rotation, or on demand.
 const reveal = ref<{ open: boolean; mode: 'created' | 'rotated' | 'view' }>({
   open: false,
@@ -276,6 +300,15 @@ async function keepPermanently() {
   notify.success('This list no longer expires')
 }
 
+async function setAllowFork(allow: boolean) {
+  try {
+    await page.change({ allow_fork: allow })
+    notify.success(allow ? 'Copies allowed' : 'Copies turned off')
+  } catch (error) {
+    notify.error(errorMessage(error))
+  }
+}
+
 async function setVisibility(visibility: Visibility) {
   try {
     await page.change({ visibility })
@@ -387,6 +420,7 @@ function forgetHere() {
         :can-edit="isOwner"
         :has-token="Boolean(token)"
         :can="page.can"
+        :sign-in-to-copy="signInToCopy"
         :rename="rename"
         @share="shareOpen = true"
         @claim="claimHere"
@@ -395,6 +429,7 @@ function forgetHere() {
         @forget="forgetHere"
         @leave="leaveOpen = true"
         @delete="deleteListOpen = true"
+        @copy="startCopy"
       />
 
       <v-alert
@@ -481,6 +516,7 @@ function forgetHere() {
         :title="list.title"
         :url="list.url"
         :visibility="list.visibility"
+        :allow-fork="list.legacy ? undefined : list.allow_fork"
         :can-change="page.can('settings')"
         :email-verified="Boolean(session.user.value?.email_verified)"
         :people="
@@ -494,7 +530,9 @@ function forgetHere() {
             : undefined
         "
         @change-visibility="setVisibility"
+        @change-allow-fork="setAllowFork"
       />
+      <CopyListDialog v-model="copyOpen" :list="list" @copied="openCopy" />
       <EditLinkReveal
         v-if="token"
         v-model="reveal.open"

@@ -4,6 +4,7 @@ import {
   mdiAccountArrowLeftOutline,
   mdiCheck,
   mdiClose,
+  mdiContentCopy,
   mdiDeleteOutline,
   mdiDotsVertical,
   mdiHistory,
@@ -28,6 +29,8 @@ const props = defineProps<{
   /** This browser holds the list's edit link. */
   hasToken: boolean
   can: (permission: string) => boolean
+  /** Signed out, on a list whose owner allows copies: "Make a copy" asks to sign in first. */
+  signInToCopy?: boolean
   /** Saves a new name; throws to show the error. Returns false if the editor should close
    * without an error (edit access was lost; the page explains it). */
   rename: (title: string) => Promise<boolean>
@@ -40,6 +43,7 @@ const emit = defineEmits<{
   forget: []
   leave: []
   delete: []
+  copy: []
 }>()
 
 const renaming = ref(false)
@@ -142,6 +146,14 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
             >Created {{ formatDate(list.created_at) }}</span
           >
         </div>
+        <!-- Only when the reader can open the source: a copy never reveals a hidden list. -->
+        <p v-if="list.origin?.parent" class="text-body-medium text-medium-emphasis mt-3">
+          <v-icon :icon="mdiContentCopy" size="16" class="mr-1" aria-hidden="true" />
+          Copied from
+          <router-link :to="{ name: 'list', params: { code: list.origin.parent.code } }">{{
+            list.origin.parent.title
+          }}</router-link>
+        </p>
       </div>
 
       <div class="d-flex align-center ga-1">
@@ -153,7 +165,10 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
         >
           Share
         </v-btn>
-        <v-menu v-if="canEdit || can('delete') || can('leave')" location="bottom end">
+        <v-menu
+          v-if="canEdit || can('delete') || can('leave') || can('fork') || signInToCopy"
+          location="bottom end"
+        >
           <template #activator="{ props: menu }">
             <v-btn v-bind="menu" :icon="mdiDotsVertical" variant="text" aria-label="List options" />
           </template>
@@ -171,6 +186,13 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               :prepend-icon="mdiHistory"
               title="History"
               :to="{ name: 'list-history', params: { code: list.code } }"
+            />
+            <v-list-item
+              v-if="can('fork') || signInToCopy"
+              role="menuitem"
+              :prepend-icon="mdiContentCopy"
+              title="Make a copy…"
+              @click="emit('copy')"
             />
             <v-list-item
               v-if="list.legacy && hasToken"

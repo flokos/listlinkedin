@@ -175,6 +175,13 @@ people on the list.
   list. Changes to *Team tools* won't reach it." "Synced copy: your own version that can get
   updates from *Team tools* when you choose. Your changes are never overwritten without your
   OK." Options the source doesn't allow are disabled with the reason.
+- Since task 5.2: **⋮ → Make a copy…** opens `CopyListDialog` with the copy only: what a copy
+  is (independent; changes don't travel either way), that only you see it until you share it,
+  and an editable name ("Dev tools (copy)"). Making it opens the copy; Back returns to the
+  original. Signed out, on a list that allows copies, the item leads to sign-in and comes back
+  to the dialog (`?dialog=copy`). The owner turns copies on with **Allow copies** in the Share
+  dialog (off by default). A copy shows "Copied from *Dev tools*" under its title, linked,
+  only while you can open the source.
 - Provenance banner on synced copies: source title (if viewable), the sync chip
   (`Up to date`, `3 updates`, `Source deleted`, `Source unavailable`) and a **Review updates**
   button. ⋮ also has **Stop syncing** (detach), confirmed because it can't be undone.
