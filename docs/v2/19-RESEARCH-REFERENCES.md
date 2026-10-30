@@ -69,6 +69,14 @@ Local verification (not web sources):
   `DecompressionBombError` above twice it, so the pipeline turns the warning into an error.
   The manylinux wheel encodes WebP (`features.check("webp")`). `ImageOps.contain` enlarges small
   images, so the pipeline uses `thumbnail` (shrink only).
+- Vuetify 4.3.1's `VNavigationDrawer`, read in the V2 image during task 4.3 (2026-10-30):
+  `rail`, `railWidth`, `permanent`, `temporary`, `expandOnHover` and a `v-model:expanded` exist.
+  The layout reserves `railWidth` while the rail is expanded, so expanding overlays the content
+  instead of moving it. A temporary drawer closes on route changes and traps Tab
+  (`retainFocus`), but doesn't close on Escape, so the app handles Escape itself, as V1's
+  `AppNavDrawer` does. The drawer renders a fragment (with its scrim), so its `$el` isn't an
+  element. `VList` is `role="list"` and its link items are `role="link"`, which axe reports
+  (`aria-required-children`); the sidebar's list is `role="none"` inside its `<nav>`.
 
 ## Not verified in this run (prior knowledge, verify during implementation)
 
@@ -76,7 +84,6 @@ Local verification (not web sources):
 |---|---|---|
 | urllib3 2.x: `server_hostname` / `assert_hostname` on connection pools opened by IP | [13 SSRF](13-SECURITY.md#ssrf-safe-fetcher) | task 7.2 |
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
-| Vuetify 4 navigation drawer props `rail`, `permanent`, `temporary` (the docs page could not be fetched) | [11 Groups](11-UI-UX-MIGRATION.md#groups-workspace) | task 4.3 |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
 
 ## Research areas covered (prompt Part 16)

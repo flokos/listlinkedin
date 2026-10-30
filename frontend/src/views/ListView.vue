@@ -41,7 +41,18 @@ import { useSession } from '../composables/useSession'
 import { useViewPreference } from '../composables/useViewPreference'
 import { formatDate } from '../utils/time'
 
-const props = defineProps<{ code: string }>()
+const props = defineProps<{
+  code: string
+  /** Shown inside a group's workspace (/g/{code}/l/{listCode}): the group's page keeps the
+   * navigation, and a deleted or left list goes back to the group instead of My lists. */
+  inGroup?: { title: string }
+}>()
+const emit = defineEmits<{
+  /** The list as loaded or last changed, e.g. renamed (for the group's sidebar). */
+  loaded: [ListDetail]
+  /** The list was deleted, or the viewer left it. */
+  gone: []
+}>()
 const route = useRoute()
 const router = useRouter()
 const notify = useNotify()
@@ -58,12 +69,14 @@ watch([list, status], ([value, state]) => {
     error: "Couldn't load list",
   }
   const title = titles[state] ?? (state === 'ready' ? value?.title : undefined)
-  if (title) document.title = `${title} · listlinkedin`
+  const group = props.inGroup ? ` · ${props.inGroup.title}` : ''
+  if (title) document.title = `${title}${group} · listlinkedin`
+  if (state === 'ready' && value) emit('loaded', value)
 })
 
 // Back link: to My lists when the user came from there.
-const cameFromMyLists = computed(() =>
-  String(window.history.state?.back ?? '').startsWith('/lists'),
+const cameFromMyLists = computed(
+  () => !props.inGroup && String(window.history.state?.back ?? '').startsWith('/lists'),
 )
 
 // Search and sort (client-side: a list holds at most 100 links, all loaded at once). The
@@ -236,7 +249,8 @@ async function confirmDeleteList() {
   try {
     await page.removeList()
     notify.success('List deleted')
-    router.replace({ name: 'saved-lists' })
+    if (props.inGroup) emit('gone')
+    else router.replace({ name: 'saved-lists' })
   } catch (error) {
     notify.error(errorMessage(error))
     throw error
@@ -278,7 +292,8 @@ async function confirmLeave() {
     const title = list.value?.title
     await page.leave()
     notify.success(`You left “${title}”`)
-    router.replace({ name: 'saved-lists' })
+    if (props.inGroup) emit('gone')
+    else router.replace({ name: 'saved-lists' })
   } catch (error) {
     notify.error(errorMessage(error))
     throw error
@@ -292,7 +307,7 @@ function forgetHere() {
 </script>
 
 <template>
-  <div class="ll-content py-6 py-md-10">
+  <div :class="inGroup ? 'py-2 py-md-4' : 'll-content py-6 py-md-10'">
     <v-btn
       v-if="cameFromMyLists"
       :prepend-icon="mdiArrowLeft"

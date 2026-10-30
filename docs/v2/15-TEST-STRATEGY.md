@@ -136,7 +136,8 @@ the phone projects run the journeys marked ★.
    keeps open with `LEGACY_LIST_CREATION=on`; production answers 410) → open the edit link → sign in → add to account → token gone
    from storage → V1 short URL still redirects.
 3. ★ Group workspace on a phone: open the drawer, switch lists, focus lands on the `<h1>`, Escape
-   closes.
+   closes (`e2e/tests/groups.spec.ts`, since task 4.3, which also covers building a group,
+   reordering without dragging, the tablet rail and what visitors see).
 4. Reorder: drag on desktop; ⋮ Move up on a phone; keyboard-only Move; the order persists after
    reload; the live region announces (`e2e/tests/reorder.spec.ts`, since task 2.5, with a
    long-press touch drag on mobile-chrome and Move to another list).

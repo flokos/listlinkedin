@@ -4,6 +4,7 @@ import {
   avatarFor,
   displayHost,
   displayUrl,
+  listCodeFrom,
   safeRedirectPath,
   takeHashParam,
   validateUrl,
@@ -92,4 +93,19 @@ describe('display helpers', () => {
     expect(a).toEqual(avatarFor('https://www.github.com/y'))
     expect(a.initial).toBe('G')
   })
+})
+
+describe('listCodeFrom', () => {
+  it.each([
+    ['https://go.example.test/l/abcDEF123/team-tools', 'abcDEF123'],
+    ['https://go.example.test/l/abcDEF123', 'abcDEF123'],
+    ['/l/abc_-12?dialog=share', 'abc_-12'],
+    ['https://go.example.test/g/GROUP1/l/LIST22', 'LIST22'],
+    ['  abcd1234  ', 'abcd1234'],
+  ])('reads %s', (input, code) => expect(listCodeFrom(input)).toBe(code))
+
+  it.each(['', 'abc', 'https://go.example.test/g/GROUP1', 'not a code', 'a/b'])(
+    'rejects %j',
+    (input) => expect(listCodeFrom(input)).toBeUndefined(),
+  )
 })

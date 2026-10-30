@@ -95,6 +95,18 @@ export async function createAccountList(page: Page, title: string): Promise<{ co
   return response.json()
 }
 
+/** A session-authenticated API write as the page's signed-in user; returns the JSON body. */
+export async function apiAs(page: Page, method: 'POST' | 'PATCH', path: string, data: object, status = 201) {
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'csrftoken')?.value ?? ''
+  const response = await page.request.fetch(path, {
+    method,
+    data,
+    headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(status)
+  return response.json()
+}
+
 /**
  * Like signUpThroughApi, then verifies the address with the key from the emailed link and
  * sets a display name, all through the API (auth.spec tests the verification page itself).

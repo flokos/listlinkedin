@@ -1,6 +1,8 @@
 // Automated WCAG 2.2 A/AA checks with axe, in light and dark mode. Complements (does not
 // replace) the manual screen-reader checks in docs/qa-checklist.md.
 import {
+  apiAs,
+  createAccountList,
   expect,
   expectNoA11yViolations,
   openAsOwner,
@@ -61,7 +63,34 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
     })
 
-    test("a list's history with a version's changes and the restore dialog", async ({ page, api }) => {
+    test('the groups page and a group workspace with its sidebar and dialogs', async ({ page }) => {
+      await signUpThroughApi(page, uniqueEmail('a11y-group'))
+      const group = await apiAs(page, 'POST', '/api/v2/groups/', { title: 'Accessible group' })
+      for (const title of ['First list', 'Second list']) {
+        const list = await createAccountList(page, title)
+        await apiAs(page, 'POST', `/api/v2/groups/${group.code}/lists/`, { list: list.code })
+      }
+      await page.goto('/groups')
+      await expect(page.getByRole('link', { name: 'Accessible group' })).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      await page.goto(new URL(group.url).pathname)
+      await expect(page.getByRole('heading', { level: 1, name: 'First list' })).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      await page.getByRole('button', { name: 'More actions for the group Accessible group' }).click()
+      await page.getByRole('menuitem', { name: 'Reorder lists' }).click()
+      await expect(page.getByRole('button', { name: 'Move Second list up' })).toBeVisible()
+      await expectNoA11yViolations(page)
+      await page.getByRole('button', { name: 'Done' }).click()
+
+      await page.getByRole('button', { name: 'More actions for the group Accessible group' }).click()
+      await page.getByRole('menuitem', { name: 'Add lists' }).click()
+      await expect(page.getByRole('dialog', { name: 'Add lists to the group' }).getByText('In this group')).toHaveCount(2)
+      await expectNoA11yViolations(page)
+    })
+
+        test("a list's history with a version's changes and the restore dialog", async ({ page, api }) => {
       const list = await api.createList('Accessible history')
       await api.addLink(list, 'https://example.com/a', 'First')
       await api.addLink(list, 'https://example.com/b', 'Second')

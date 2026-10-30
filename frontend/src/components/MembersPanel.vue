@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The People section of the Share dialog: who the list is shared with. The owner adds
-// existing accounts by email, changes roles and removes people; editors only see the list.
+// The People section of the Share dialog: who a list or group is shared with. The owner adds
+// existing accounts by email, changes roles and removes people; editors only see who it is.
 import { mdiAccountPlusOutline, mdiClose } from '@mdi/js'
 import { onMounted, ref } from 'vue'
 
@@ -11,21 +11,27 @@ import {
   errorMessage,
   listMembers,
   type Member,
+  type MemberKind,
   type MemberRole,
   removeMember,
 } from '../api'
 import { useNotify } from '../composables/useNotify'
 
-const props = defineProps<{
-  code: string
-  /** The owner's name as the list shows it, or null when they haven't set one. */
-  ownerName: string | null
-  youAreOwner: boolean
-  /** The owner may add people, change roles and remove people. */
-  canManage: boolean
-  /** Adding people needs a verified email address. */
-  emailVerified: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    code: string
+    /** A list's people (the default) or a group's. */
+    kind?: MemberKind
+    /** The owner's name as the list shows it, or null when they haven't set one. */
+    ownerName: string | null
+    youAreOwner: boolean
+    /** The owner may add people, change roles and remove people. */
+    canManage: boolean
+    /** Adding people needs a verified email address. */
+    emailVerified: boolean
+  }>(),
+  { kind: 'list' },
+)
 
 const notify = useNotify()
 const roles: { title: string; value: MemberRole }[] = [
@@ -48,7 +54,7 @@ const nameOf = (m: Member) => m.display_name || m.email_hint
 async function load() {
   loading.value = true
   try {
-    members.value = (await listMembers(props.code)).results
+    members.value = (await listMembers(props.code, props.kind)).results
     loadError.value = undefined
   } catch (error) {
     loadError.value = errorMessage(error)
@@ -68,11 +74,11 @@ async function add() {
   }
   adding.value = true
   try {
-    const member = await addMember(props.code, address, role.value)
+    const member = await addMember(props.code, address, role.value, props.kind)
     members.value = [...members.value, member]
     email.value = ''
     notify.success(
-      `${nameOf(member)} can now ${member.role === 'editor' ? 'edit' : 'view'} this list`,
+      `${nameOf(member)} can now ${member.role === 'editor' ? 'edit' : 'view'} this ${props.kind}`,
     )
     emailField.value?.focus()
   } catch (error) {
@@ -90,10 +96,10 @@ async function add() {
 async function setRole(member: Member, next: MemberRole) {
   if (next === member.role) return
   try {
-    const updated = await changeMember(props.code, member.user_id, next)
+    const updated = await changeMember(props.code, member.user_id, next, props.kind)
     members.value = members.value.map((m) => (m.user_id === updated.user_id ? updated : m))
     notify.success(
-      `${nameOf(updated)} can now ${next === 'editor' ? 'edit' : 'only view'} this list`,
+      `${nameOf(updated)} can now ${next === 'editor' ? 'edit' : 'only view'} this ${props.kind}`,
     )
   } catch (error) {
     notify.error(errorMessage(error))
@@ -102,7 +108,7 @@ async function setRole(member: Member, next: MemberRole) {
 
 async function remove(member: Member) {
   try {
-    await removeMember(props.code, member.user_id)
+    await removeMember(props.code, member.user_id, props.kind)
     members.value = members.value.filter((m) => m.user_id !== member.user_id)
     notify.success(`Removed ${nameOf(member)}`)
   } catch (error) {

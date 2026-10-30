@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalizedLoaded } from 'vue-router'
 
 import { trackNavigations } from './composables/useRouteFocus'
 import { currentUser, deletionPending, loadSession, sessionKnown } from './composables/useSession'
@@ -12,10 +12,17 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     /** Signed-in visitors skip this page (sign-in, sign-up) and continue to `?next=`. */
     guestOnly?: boolean
+    /** Which page instance renders this route: navigations with the same key keep it (a
+     * group's workspace stays mounted while switching lists). Defaults to the path. */
+    pageKey?: (route: RouteLocationNormalizedLoaded) => string
   }
 }
 
 const SITE = 'listlinkedin'
+
+function groupPage(route: RouteLocationNormalizedLoaded): string {
+  return `group:${String(route.params.code)}`
+}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -31,6 +38,29 @@ const router = createRouter({
       name: 'saved-lists',
       component: () => import('./views/SavedListsView.vue'),
       meta: { title: 'My lists' },
+    },
+    {
+      path: '/groups',
+      name: 'groups',
+      component: () => import('./views/GroupsView.vue'),
+      meta: { title: 'Groups', requiresAuth: true },
+    },
+    // A group's workspace: its first list, or the one chosen in the sidebar. The page stays
+    // mounted while switching lists, so the sidebar keeps its state and focus.
+    {
+      path: '/g/:code/l/:listCode',
+      name: 'group-list',
+      component: () => import('./views/GroupView.vue'),
+      props: true,
+      meta: { title: 'Group', pageKey: groupPage },
+    },
+    // The group URL handed out by the API (`url`). nginx serves this app for it.
+    {
+      path: '/g/:code/:slug?',
+      name: 'group',
+      component: () => import('./views/GroupView.vue'),
+      props: true,
+      meta: { title: 'Group', pageKey: groupPage },
     },
     {
       path: '/about',
@@ -152,6 +182,8 @@ router.beforeEach(async (to) => {
 
 router.afterEach((to, from) => {
   if (to.path === from.path && from.matched.length) return // query/hash only: keep the title
+  // Switching lists in a group: the list sets the title once it has loaded.
+  if (to.meta.pageKey && to.meta.pageKey(to) === from.meta.pageKey?.(from)) return
   document.title = to.meta.title ? `${to.meta.title} · ${SITE}` : SITE
 })
 
