@@ -180,7 +180,8 @@ exception is the reviewed reconciliation PR just before the release.
    ([06](06-MIGRATION-PLAN.md#rollback)).
 3. Release PR `v2 → main`, using a **merge commit** (not squash) to keep V2 history. The guard
    allows it (head `v2`, same repo).
-4. Tag `v2.0.0` on `main` and deploy (06 deployment strategy).
+4. Tag `v2.0.0` on `main` and publish a GitHub Release. Deploying is separate and later (D32 in
+   [20](20-DECISIONS-AND-OPEN-QUESTIONS.md); [06 runbook](06-MIGRATION-PLAN.md#runbook)).
 5. Afterwards: change the `v2` ruleset's enforcement to `disabled`, and stop merging into
    `v2`. New work branches from `main` again. Deleting `v2` later is the maintainer's decision
    (it is not part of any plan here).

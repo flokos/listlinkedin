@@ -138,19 +138,119 @@ The V2 SPA replaces the V1 SPA at cutover (the same nginx image build). Continui
 
 ## Deployment strategy (release day)
 
-1. Freeze `main` (V1) except emergency fixes. The release PR `v2 → main` is approved and CI is
-   green.
-2. Tag the last V1 commit `v1.0.0` and create branch `release/v1` from it, so V1 stays
-   buildable and fixable ([16](16-GIT-WORKFLOW.md#releasing-v2)).
-3. Rehearse on staging with a fresh production dump. Record durations. Run the full e2e suite
-   against staging.
-4. **Maintenance window:** nginx serves a static maintenance page (503). Stop `api` and
-   `cleanup`. Run `pg_dump -Fc` and verify that it restores.
-5. Merge the release PR. Build the images. Run `migrate` (one-shot, as in V1).
-6. Start `api`, `worker` and `cleanup`. Run `deploy/smoke-test.sh` plus a V2 smoke checklist
-   (sign up, create, legacy edit link, claim, `/r/` redirect).
-7. Remove the maintenance page. Watch logs, error rates and the task queue for 48 h (the
-   rollback window).
+The outline: freeze V1, pin it, rehearse on a copy of production, then a maintenance window
+in which V1 stops, the database is dumped, V2 migrates and starts, and is checked; then a
+48-hour watch during which a rollback to V1 is possible. Rehearsed in task 9.5 with
+[deploy/rehearse-release.sh](../../deploy/rehearse-release.sh): every step below and the
+rollback, with timings, in [22](22-RELEASE-REHEARSAL.md).
+
+### Runbook
+
+**V1 was never deployed (D32 in [20](20-DECISIONS-AND-OPEN-QUESTIONS.md)), so this project
+has no cutover:** its first deployment is a fresh V2 install
+([deployment](../deployment.md#first-deploy)). The runbook stays as the rehearsed path for
+anyone running V1 from `release/v1`. It needs a V2 release that still has the legacy path
+(`v2.0.x`; 9.6 removes it in `v2.1.0`). Its git steps are done: check out the V2 tag and
+start at step 3. It assumes V1 runs from a checkout of `main` in
+`/srv/listlinkedin` (compose project `listlinkedin`, `.env` next to `compose.prod.yaml`).
+`dc` stands for `docker compose -f compose.prod.yaml`.
+
+**Before the day**
+
+1. Pin V1 ([16](16-GIT-WORKFLOW.md#releasing-v2)): tag `v1.0.0` on `main` (`fb5f901`) and
+   create `release/v1` from it. Check that both exist on GitHub. Open the release PR
+   `v2 → main`, and wait for CI to pass. Don't merge it yet.
+2. Rehearse on a copy of production. On a machine allowed to hold its data, run
+   `bash deploy/rehearse-release.sh v1-prod.dump`, with the dump made by `dc exec -T db sh -c
+   'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > v1-prod.dump` on the server. It
+   must pass. Note the `migrate` time: it sets the window.
+3. Add V2's settings to `.env` ([deployment](../deployment.md#configuration)):
+   - the SMTP relay (`EMAIL_*`);
+   - `MODERATION_EMAIL` and `DEFAULT_FROM_EMAIL`, if wanted.
+
+   V1 sent no mail, so these are new. Announce the window and the end of edit links for new
+   lists.
+
+**The window** (rehearsed: about a minute of downtime at 20,000 lists; plan 30 minutes)
+
+```bash
+cd /srv/listlinkedin && alias dc='docker compose -f compose.prod.yaml'
+# 4. Keep V1's images: V2 builds the same names, and a rollback then needs no rebuild.
+docker tag listlinkedin:prod listlinkedin:v1 && docker tag listlinkedin-nginx:prod listlinkedin-nginx:v1
+# 5. Merge the release PR (merge commit) and tag v2.0.0 on main, then build V2 while V1 serves.
+git fetch --tags && git checkout v2.0.0
+dc build
+# 6. Maintenance page: V2's nginx replaces V1's and answers 503 to everything.
+touch deploy/maintenance/on
+dc up -d --no-deps nginx
+curl -sI https://<host>/ | head -1                      # HTTP/2 503
+# 7. Stop V1 and take the pre-cutover dump (keep it off the server too).
+dc stop api cleanup
+dc exec -T db sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > /var/backups/listlinkedin/pre-v2.dump
+dc exec -T db pg_restore --list < /var/backups/listlinkedin/pre-v2.dump > /dev/null && echo dump OK
+# 8. Migrate and start V2 (migrate runs first; the others wait for it).
+dc up -d --wait
+dc logs migrate | tail -5
+dc exec api python manage.py check --deploy
+dc ps                                                   # api and worker: healthy
+# 9. End the maintenance page.
+rm deploy/maintenance/on
+```
+
+10. **Check in a browser** (the V2 smoke checklist):
+    - sign up and confirm the email that arrives;
+    - create a list, add a link, and watch its title and icon appear;
+    - open its short URL;
+    - open an old list's address and an old short URL;
+    - from a device that holds an edit link, edit that list, then claim it with **Add to my
+      account**;
+    - report a public list and check that `MODERATION_EMAIL` receives it.
+
+    If anything essential fails, [roll back](#returning-to-v1).
+11. **Fetch details for V1's links**, in batches. Don't raise `--limit`: tasks that wait over
+    10 minutes make the worker unhealthy
+    ([22, finding 4](22-RELEASE-REHEARSAL.md#findings)). Run it in `tmux` or with `nohup`. It
+    stops when a run queues nothing:
+
+    ```bash
+    manage() { docker compose -f compose.prod.yaml exec -T api python manage.py "$@"; }
+    while ! manage backfill_metadata | grep -q '^Queued 0 '; do
+        until manage check_worker | grep -q 'Task queue OK: 0 ready'; do sleep 60; done
+    done
+    ```
+
+12. **Schedule** [backups and autoheal](../deployment.md#backups) with cron. V1 had neither.
+
+**The 48-hour watch** (the rollback window). Watch:
+
+- the autoheal alerts;
+- `dc logs --since 1h api worker` for errors;
+- `dc exec worker python manage.py check_worker`;
+- `/healthz` from outside.
+
+After 48 hours, roll forward only. Delete `listlinkedin:v1` and `listlinkedin-nginx:v1` once
+V2 is trusted.
+
+### Returning to V1
+
+Possible only inside the window. Everything written in V2 since the cutover is lost, so tell
+people. The rehearsal took 19 s plus the checks.
+
+```bash
+cd /srv/listlinkedin && alias dc='docker compose -f compose.prod.yaml'
+touch deploy/maintenance/on                             # V2's nginx shows the page
+dc stop api worker cleanup
+dc exec -T db sh -c 'dropdb -U "$POSTGRES_USER" --force "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
+dc exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --exit-on-error' < /var/backups/listlinkedin/pre-v2.dump
+git checkout release/v1
+docker tag listlinkedin:v1 listlinkedin:prod && docker tag listlinkedin-nginx:v1 listlinkedin-nginx:prod
+dc up -d --no-build --remove-orphans --wait            # V1's services; V2's worker is removed
+curl -s https://<host>/healthz
+```
+
+V1's nginx has no maintenance page, so the site is back once the last command finishes.
+The `media` volume stays and V1 ignores it. Keep `main` as it is and fix V2 forward, then
+release again.
 
 ## Rollback
 
@@ -159,7 +259,7 @@ The V2 SPA replaces the V1 SPA at cutover (the same nginx image build). Continui
 | **Application rollback within V2** (a bad V2 build after launch) | Yes | Redeploy the previous V2 images. After launch, V2 migrations follow expand/contract (additive first, removals in a later release), so the previous image works on the newer schema |
 | **Schema rollback V2 → V1** | Only inside the rollback window, and only by restoring the backup | Django can unapply most migrations in development, but production data created by V2 (users, owned lists, revisions, groups, tombstones) has no V1 representation. Unapplying would destroy it, and the baseline data migrations aren't meaningfully reversible. Not used in production [Decision] |
 | **Data recovery** | Yes | The pre-cutover `pg_dump` (step 4) plus regular backups afterwards. Recommendation: daily `pg_dump` kept 14 days, and WAL archiving (PITR) if the deployment allows it ([14](14-INFRASTRUCTURE.md#backups)) |
-| **Returning users to V1** | Inside the rollback window | Maintenance page → restore the pre-cutover dump into a fresh volume → deploy `release/v1` images → remove the page. **Writes made in V2 since cutover are lost**, so communicate it. After the window, fix forward only |
+| **Returning users to V1** | Inside the rollback window | Maintenance page → restore the pre-cutover dump → run the kept V1 images from `release/v1` ([commands](#returning-to-v1), rehearsed in [22](22-RELEASE-REHEARSAL.md)). **Writes made in V2 since cutover are lost**, so communicate it. After the window, fix forward only |
 
 V1 and V2 share Git history but **not** a reversibly shared database. The rollback guarantee
 is the backup, not the migrations (prompt 11.7).
@@ -167,7 +267,8 @@ is the backup, not the migrations (prompt 11.7).
 ## After launch: contracting the legacy path
 
 When `max(expires_at)` of all legacy lists plus 24 h (the purge lag) has passed (roadmap task
-9.6):
+9.6). With no V1 deployment (D32) there are no legacy lists, so 9.6 follows `v2.0.0` directly,
+as `v2.1.0`:
 
 1. Remove the `/api/v1/` routes and the legacy bearer principal.
 2. Drop `owner_token_hash` in a later release (contract step). Drop the backup and restore UI

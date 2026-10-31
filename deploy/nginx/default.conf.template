@@ -20,6 +20,15 @@ client_max_body_size 32k;
 client_header_timeout 10s;
 client_body_timeout 10s;
 
+# The API's address is looked up when a request needs it (Docker's DNS, cached 10 s), not
+# once at startup: an upgrade that recreates the api container may give it a new address, and
+# nginx can start, for the maintenance page, while no api exists (task 9.5).
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+# Maintenance mode: while the file /srv/maintenance/on exists (deploy/maintenance/on on the
+# host), every request gets the static 503 page. `touch` it to start, delete it to end; nginx
+# checks on every request, so no reload is needed (docs/deployment.md#maintenance-mode).
+
 # Vite fingerprints everything under /assets/, so those files never change; index.html and
 # other public files are revalidated so a deploy is picked up on the next load.
 map $uri $static_cache_control {
@@ -74,6 +83,25 @@ server {
     ssl_session_tickets off;
     # HSTS is sent by Django (SECURE_HSTS_SECONDS), so it is not repeated here.
 
+    # A variable makes proxy_pass resolve the name per request, through the resolver above.
+    set $api_upstream api:8000;
+
+    # The maintenance page, for every 503 nginx returns itself (not for the API's own 503s,
+    # which pass through unchanged).
+    error_page 503 /maintenance.html;
+    location = /maintenance.html {
+        internal;
+        root /srv/maintenance;
+        charset utf-8;
+        add_header Retry-After 600 always;
+        add_header Cache-Control no-store always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" always;
+    }
+
     # Internal-only deployment: uncomment and list your office/VPN ranges.
     # allow 10.0.0.0/8;
     # allow 192.168.0.0/16;
@@ -83,7 +111,10 @@ server {
     # Regex locations match in order, so this one must come before the general API one.
     location ~ ^/api/v2/(lists/[^/]+/(image|links/[^/]+/icon)|groups/[^/]+/image)/$ {
         client_max_body_size 3m;
-        proxy_pass http://api:8000;
+        if (-f /srv/maintenance/on) {
+            return 503;
+        }
+        proxy_pass http://$api_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto https;
@@ -97,6 +128,9 @@ server {
     # change (docs/v2/13-SECURITY.md#media). Served as inert files: only `.webp` gets an image
     # type, nothing is sniffed, and a sandbox CSP stops anything opened as a document.
     location /media/ {
+        if (-f /srv/maintenance/on) {
+            return 503;
+        }
         alias /srv/media/;
         types { image/webp webp; }
         default_type application/octet-stream;
@@ -111,7 +145,10 @@ server {
 
     # API, short-URL redirects, account endpoints (allauth) and the health check go to Django.
     location ~ ^/(api|r|_allauth)/|^/healthz$ {
-        proxy_pass http://api:8000;
+        if (-f /srv/maintenance/on) {
+            return 503;
+        }
+        proxy_pass http://$api_upstream;
         proxy_set_header Host $host;
         # Overwrite rather than append: clients cannot inject fake hops, so the API
         # (DJANGO_NUM_PROXIES=1) always sees the address nginx actually received.
@@ -127,6 +164,9 @@ server {
     # Everything else is the single-page app, including the public list URLs (/l/{code}).
     # Django sends its own security headers; these mirror them for the app's files.
     location / {
+        if (-f /srv/maintenance/on) {
+            return 503;
+        }
         root /usr/share/nginx/html;
         try_files $uri /index.html;
         # text/html, JavaScript and CSS declare UTF-8 (ASVS V4.1.1).

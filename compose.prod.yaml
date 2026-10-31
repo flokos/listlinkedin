@@ -121,6 +121,7 @@ services:
       - ${TLS_CERT_DIR:-./deploy/certs}:/etc/nginx/certs:ro
       - ${ACME_WEBROOT:-./deploy/acme}:/var/www/acme:ro
       - media:/srv/media:ro  # served under /media/
+      - ${MAINTENANCE_DIR:-./deploy/maintenance}:/srv/maintenance:ro  # the 503 page; `touch deploy/maintenance/on` shows it
     depends_on:
       api:
         condition: service_healthy
