@@ -146,7 +146,9 @@ rollback, with timings, in [22](22-RELEASE-REHEARSAL.md).
 
 ### Runbook
 
-The owner runs it on the server. It assumes V1 runs from a checkout of `main` in
+The owner runs it on the server. The GitHub release happens first and separately (D32 in
+[20](20-DECISIONS-AND-OPEN-QUESTIONS.md)): when the cutover comes, step 1 and the merge and
+tag of step 5 are already done, so check out `v2.0.0` and continue. It assumes V1 runs from a checkout of `main` in
 `/srv/listlinkedin` (compose project `listlinkedin`, `.env` next to `compose.prod.yaml`).
 `dc` stands for `docker compose -f compose.prod.yaml`.
 
