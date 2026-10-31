@@ -1,0 +1,6 @@
+{% extends "account/email/base_message.txt" %}
+{% block content %}{% autoescape off %}Someone, probably you, tried to sign up on listlinkedin with this address, but it already has an account. If you forgot your password, choose a new one here:
+
+{{ password_reset_url }}
+
+If it wasn't you, ignore this email: your account is unchanged.{% endautoescape %}{% endblock content %}

@@ -1,0 +1,6 @@
+{% extends "account/email/base_message.txt" %}
+{% block content %}{% autoescape off %}Someone, probably you, tried to use this address ({{ email }}) on listlinkedin, but there's no account with it. To create one:
+
+{{ signup_url }}
+
+If it wasn't you, ignore this email.{% endautoescape %}{% endblock content %}

@@ -72,6 +72,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
+        # Ours first: the account emails' wording (templates/account/email/, task 9.3).
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
     }
 ]

@@ -2,7 +2,10 @@
 // A link's picture: its uploaded icon, else the fetched one (both in `display.icon_url`, same
 // origin), else the letter avatar. Decorative: the link's name is always next to it. While the
 // page's details are being fetched (`pending`), it shimmers and says so to screen readers.
-import { ref, watch } from 'vue'
+// In the dark theme an image sits on a light plate: many sites' icons are dark on transparent
+// and would vanish on a dark tile (task 9.3).
+import { computed, ref, watch } from 'vue'
+import { useTheme } from 'vuetify'
 
 import DomainAvatar from './DomainAvatar.vue'
 
@@ -13,6 +16,10 @@ const props = defineProps<{
   pending?: boolean
 }>()
 const broken = ref(false)
+const theme = useTheme()
+const onDark = computed(() => theme.current.value.dark)
+// The light theme's surface, so an icon looks as it does there.
+const plate = computed(() => theme.themes.value.light?.colors.surface ?? '#fff')
 watch(
   () => props.iconUrl,
   () => (broken.value = false),
@@ -30,6 +37,7 @@ watch(
       loading="lazy"
       decoding="async"
       class="ll-link-icon"
+      :class="{ 'll-link-icon--plate': onDark }"
       @error="broken = true"
     />
     <DomainAvatar v-else :url="url" :size="size" />
@@ -77,5 +85,10 @@ watch(
   flex-shrink: 0;
   object-fit: contain;
   border-radius: 12px;
+}
+.ll-link-icon--plate {
+  box-sizing: border-box;
+  padding: 8%;
+  background: v-bind(plate);
 }
 </style>

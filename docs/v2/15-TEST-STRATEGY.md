@@ -199,7 +199,13 @@ the phone projects run the journeys marked ★.
    input kept for retrying), offline. *Postponed:* stale preview
    409, merge failure 500.
 10. a11y: axe on every new page (V1 `a11y.spec.ts` extended). Keyboard spec extended to tiles,
-    ⋮ menus and decisions.
+    ⋮ menus and decisions. Task 9.3 added the routes and states still missing: email
+    verification (a bad key and a real link from Mailpit), the restore page after deleting an
+    account and signing in again, a broken edit link, empty My lists and Groups, Explore with
+    results, a tag filter and no results, the link dialogs (Edit, Details, Move to position,
+    Move to another list, Delete) and the group's Settings and Share, in light and dark on
+    chromium and mobile-chrome. What axe can't judge is in the manual
+    [QA checklist](../qa-checklist.md).
 11. Reporting (`e2e/tests/report.spec.ts`, since task 9.0): a signed-out visitor reports a
     public list and a public group through **Report…**, and the operator's email arrives in
     Mailpit; the owner has nothing to report. Axe on the report dialog in `a11y.spec.ts`. V1's

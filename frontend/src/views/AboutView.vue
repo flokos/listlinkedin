@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { mdiCookieOff, mdiEyeOffOutline, mdiShieldKeyOutline, mdiTimerSandEmpty } from '@mdi/js'
+import { mdiAccountLockOutline, mdiCookieOff, mdiEyeOffOutline, mdiTimerSandEmpty } from '@mdi/js'
 
 const principles = [
   {
-    icon: mdiEyeOffOutline,
-    title: 'No accounts',
-    text: "We don't ask for a name or email. A list is reached by a long random address, and search engines are asked not to index it.",
+    icon: mdiAccountLockOutline,
+    title: 'Only an email address',
+    text: 'An account needs an email address and a password, nothing else. Your address is for signing in, confirming it is yours and resetting your password. Nobody else sees it; people you share with see the name you choose.',
   },
   {
-    icon: mdiShieldKeyOutline,
-    title: 'Private edit links',
-    text: "Edit access is a secret link that's shown once. The secret part sits after the #, which browsers never send to servers, so it doesn't end up in logs.",
+    icon: mdiEyeOffOutline,
+    title: 'You choose who sees a list',
+    text: 'Lists start private. Share one with people by email, with anyone who has its link, or make it public in Explore. Search engines are asked not to index any page.',
   },
   {
     icon: mdiCookieOff,
     title: 'No tracking',
-    text: 'No analytics or third-party scripts; the only cookies keep you signed in. Fonts and QR codes are served from this site.',
+    text: "No analytics or third-party scripts; the only cookies keep you signed in. Fonts, QR codes and the links' icons are served from this site, so opening a list tells no other site about you.",
   },
   {
     icon: mdiTimerSandEmpty,
     title: 'You decide how long',
-    text: 'Lists last until you delete them, unless you give them an end date. Lists made before accounts existed keep their 30-day lifetime until you add them to your account.',
+    text: 'Lists last until you delete them, unless you give them an end date. Deleting your account removes everything you own at once and erases it 30 days later; signing in before then brings it back.',
   },
 ]
 </script>
@@ -64,28 +64,59 @@ const principles = [
             <td>http and https only, without passwords in them</td>
           </tr>
           <tr>
+            <th scope="row">Tags per list or group</th>
+            <td>10</td>
+          </tr>
+          <tr>
+            <th scope="row">Lists per group</th>
+            <td>100</td>
+          </tr>
+          <tr>
+            <th scope="row">Images you upload</th>
+            <td>PNG, JPEG, WebP or GIF, up to 2 MB</td>
+          </tr>
+          <tr>
             <th scope="row">New lists</th>
-            <td>30 per hour from one network</td>
+            <td>30 per hour</td>
           </tr>
         </tbody>
       </v-table>
 
       <h2 class="text-headline-small mb-4">Questions</h2>
       <v-expansion-panels variant="accordion" rounded="xl" class="mb-10">
-        <v-expansion-panel title="Do you check the links people add?">
+        <v-expansion-panel title="Do you visit the links people add?">
           <v-expansion-panel-text>
-            We check that a link is well-formed and uses http or https, but we never visit it. Short
-            links always lead to the destination the list's creator set, which they can change at
-            any time.
+            Once, to show their details: when a link is added or its address changes, our server
+            reads the page's title, description and icon. It only visits public addresses, never
+            runs the page, and never replaces what you typed. Short links always lead to the
+            destination the list's editors set, which they can change at any time.
           </v-expansion-panel-text>
         </v-expansion-panel>
-        <v-expansion-panel title="I lost my edit link. Can you recover it?">
+
+        <v-expansion-panel title="Who can see my email address?">
           <v-expansion-panel-text>
-            Not from us: without accounts there's no way to prove the list is yours. If this browser
-            still has edit access, open the list and choose “Show edit link” from its menu. If you
-            downloaded a backup, restore it on the My lists page.
+            Only you. People you share lists or groups with see your name, which you set on your
+            account page.
           </v-expansion-panel-text>
         </v-expansion-panel>
+
+        <v-expansion-panel title="Something on a public list looks harmful. What can I do?">
+          <v-expansion-panel-text>
+            Choose “Report…” in the list's or group's ⋮ menu. Your report goes to the people who run
+            listlinkedin, not to its owner.
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
+        <v-expansion-panel title="I have an edit link from an older list">
+          <v-expansion-panel-text>
+            Lists made before accounts existed are edited with their private edit link. Open it
+            while signed in and choose “Add to my account”: the list becomes yours and the edit link
+            stops working. Lost the link? Without it nobody can prove the list is yours. If this
+            browser still has it, choose “Show edit link” from the list's menu, or restore a backup
+            on the My lists page.
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
         <v-expansion-panel title="Someone else got my edit link. What do I do?">
           <v-expansion-panel-text>
             Open the list and choose “Replace edit link”. The old link stops working immediately;
