@@ -1,6 +1,10 @@
 # Dependency update pull requests (task 9.1, docs/v2/21-SECURITY-REVIEW.md#dependencies).
 # GitHub reads this file from the default branch, `main` (V2 since v2.0.0). Security updates arrive as soon as an advisory is published; version updates are
 # grouped weekly. Each pull request runs the full CI, including the vulnerability audit.
+# Runtime and language upgrades are planned PRs, one supported step at a time (D33 in
+# docs/v2/20): Python to the next version Django supports, Node from one LTS line to the
+# next, TypeScript when typescript-eslint and vue-tsc support it, and @types/node with the
+# Node that runs the code. Dependabot doesn't propose those; security updates still arrive.
 version: 2
 updates:
   - package-ecosystem: uv
@@ -18,6 +22,11 @@ updates:
     groups:
       frontend-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/node"  # follows the Node in frontend/Dockerfile
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /e2e
@@ -26,11 +35,19 @@ updates:
     groups:
       e2e-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "@types/node"  # follows the Node in the Playwright image
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directories: [/backend, /frontend, /e2e]
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: python  # 3.13 -> 3.14 is a language version: planned
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: node  # LTS lines only (24 -> 26 -> 28): planned
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /

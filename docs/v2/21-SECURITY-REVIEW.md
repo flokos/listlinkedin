@@ -100,7 +100,7 @@ Never logged: passwords, session or CSRF values, keys, edit-link tokens, email a
 
 - **Audit (2026-10-30):** `pip-audit` on `backend/uv.lock` and `npm audit` for `frontend/` and `e2e/`: no known vulnerabilities.
 - **In CI:** the `checks` job runs `pip-audit` (any advisory with a fix fails it) and `npm audit --audit-level=high` on every push and pull request.
-- **Dependabot** (`.github/dependabot.yml`): weekly grouped updates for Python, both npm projects, the Docker base images and the GitHub Actions; security updates as soon as an advisory appears. GitHub reads the file from the default branch, so it starts working once V2 is on `main`.
+- **Dependabot** (`.github/dependabot.yml`): weekly grouped updates for Python, both npm projects, the Docker base images and the GitHub Actions; security updates as soon as an advisory appears. GitHub reads the file from the default branch; it has been active since V2 reached `main` (2026-10-31). Runtime and language majors (Python and Node images, TypeScript, `@types/node`) are ignored there and upgraded as planned PRs, one supported step at a time (D33 in [20](20-DECISIONS-AND-OPEN-QUESTIONS.md)); its first five PRs were such jumps (#47–#51) and were closed for #53 and #54.
 - **Remediation times:** critical or high with a fix: within 7 days of the advisory. Others: with the next weekly update. An advisory without a fix that CI flags is ignored explicitly (`--ignore-vuln` with a comment) and added to this document with a review date.
 
 ## V1 regression checklist
