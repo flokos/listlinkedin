@@ -34,7 +34,7 @@ src/
   composables/
     useSession.ts         current user, sign-in state, route guard helper            (new)
     useListPage.ts        extended: permissions, ETag, tiles, reorder, history entry  (V1)
-    useOwnedLists.ts      V1 device tokens → "On this device" legacy section + claim  (V1, narrowed)
+    useOwnedLists.ts      V1 device tokens, "On this device" and claim: removed in 9.6     (V1)
     useGroupWorkspace.ts  group + visible lists + current list, persisted in the URL  (new)
     useSyncPreview.ts     load plan, hold decisions, apply with idempotency key       (new)
     useHistory.ts useDirectory.ts useViewPreference.ts useReorder.ts                  (new)
@@ -74,16 +74,16 @@ Caching and staleness (risk 28):
 - **Session and CSRF.** `credentials: 'same-origin'` (V1 used `'omit'` because there were no
   cookies). `GET /api/v2/session/` sets the `csrftoken` cookie and returns the user. The router
   loads it before pages marked `requiresAuth` or `guestOnly`, and in the background otherwise.
-  Unsafe requests without a bearer token send `X-CSRFToken`. If the cookie isn't there yet,
+  Unsafe requests send `X-CSRFToken`. If the cookie isn't there yet,
   the client calls the session endpoint first. Same-origin `fetch()` keeps sending a real
   `Origin` header under the app's `no-referrer` policy, which Django checks over HTTPS.
   Verified in all five e2e browser projects.
 - **allauth responses.** `ApiError` maps allauth's `{errors: [{message, code, param}]}` to
   field errors. allauth answers **401 when a step succeeded but left you signed out** (sign-out,
   password reset, verifying while signed out), and `api/auth.ts` treats those as success.
-- **Legacy tokens.** For lists in the device's legacy store, the client adds
-  `Authorization: Bearer` on writes to that list only (V1 behaviour). After a successful claim
-  the token is deleted from storage.
+- **Legacy tokens** (until v2.1.0). For lists in the device's legacy store, the client added
+  `Authorization: Bearer` on writes to that list only (V1 behaviour), and deleted the token
+  after a claim. Task 9.6 removed the store, the header and the claim flow.
 - **Types.** Written by hand next to the calls that use them (`frontend/src/api/*.ts`) and
   changed with their endpoints. Generating them from the schema with `openapi-typescript`
   (CI failing on a diff) was planned and not adopted; it stays an option ([09](09-API-DESIGN.md#openapi)).
@@ -107,7 +107,7 @@ reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes
 | `StatePanel`, `ConfirmDialog`, `CopyField`, `ExpiryChip`, `LinkLimitMeter`, `RouteAnnouncer`, `RouteProgress`, `ThemeMenu`, `AppFooter` | Unchanged or copy-only changes |
 | `ShareDialog` | Extended with a visibility selector and a members section. Since 4.3 it also shares groups (`kind="group"`), and `MembersPanel` serves both through `api/members.ts` |
 | `AppHeader`, `AppNavDrawer` | New nav items and an account menu. The drawer pattern is reused for the group sidebar on mobile |
-| `EditLinkReveal`, `ClaimTokenDialog`, `BackupCard` | Legacy only. They gain "Add to my account". Removed at the legacy sunset |
+| `EditLinkReveal`, `ClaimTokenDialog`, `BackupCard` | Legacy only, with "Add to my account". Removed in task 9.6 (v2.1.0), with `ClaimView`, `useOwnedLists`, `useEditLink`, `usePendingReveal` and `utils/backup.ts`; `/l/{code}/manage` now redirects to the list |
 | `ListView.vue` (619 lines) | Split into `ListHeader`, `ListToolbar`, `AddLinkCard`, `LinkCollection` (grid/list) and dialog components (`LinkEditDialog`, `LinkDetailsDialog`), since 2.4. `LinkMenu` (the ⋮ menu) and `LinkIcon` (icon or avatar) are shared by tiles and rows |
 
 New components: `LinkTile`, `ViewToggle`, `LiveRegion`, `MovePositionDialog`,

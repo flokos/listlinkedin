@@ -18,6 +18,8 @@ export TLS_CERT_DIR="$work/certs" ACME_WEBROOT="$work/acme"
 export HTTP_PORT="${HTTP_PORT:-8080}" HTTPS_PORT="${HTTPS_PORT:-8443}"
 # Its own maintenance switch: the checkout's deploy/maintenance may serve a real stack.
 export MAINTENANCE_DIR="$work/maintenance"
+# A low directory limit, so the rate-limit check below needs few requests (per client IP).
+export THROTTLE_DIRECTORY=10/hour
 
 compose() { docker compose -f compose.prod.yaml "$@"; }
 cleanup() {
@@ -61,30 +63,30 @@ check "health check over HTTPS" 200 "$(curl_ -o /dev/null -w '%{http_code}' "$ht
 check "HTTP redirects pages to HTTPS" "301 https://$SERVER_NAME/lists" \
     "$(curl_ -o /dev/null -w '%{http_code} %{redirect_url}' "$http/lists")"
 check "HTTP API requests are refused, not redirected" 403 \
-    "$(curl_ -o /dev/null -w '%{http_code}' "$http/api/v1/lists/")"
+    "$(curl_ -o /dev/null -w '%{http_code}' "$http/api/v2/lists/")"
 
-# Anonymous creation is retired in production (docs/v2/adr/ADR-011), so seed a legacy
-# (edit-link) list with the service V1 used and test the rest of the V1 API on it.
-check "anonymous list creation is retired" 410 \
+# Creating needs an account and V1's anonymous API is gone (task 9.6), so seed an account's
+# unlisted list with one link through the services and read it as a visitor.
+check "the V1 API is gone" 404 \
     "$(curl_ -o /dev/null -w '%{http_code}' -X POST "$https/api/v1/lists/" \
         -H 'Content-Type: application/json' -d '{"title":"smoke"}')"
-created=$(compose exec -T api python manage.py shell -c '
-import json
-from apps.sharing.serializers import ListCreatedSerializer
-from apps.sharing.services.legacy import create_list
-shared_list, shared_list.owner_token = create_list(title="smoke")
-print(json.dumps(ListCreatedSerializer(shared_list).data))' | tail -n 1)
-code=$(json '["public_code"]' <<<"$created")
-token=$(json '["owner_token"]' <<<"$created")
-check "public URL uses PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/l/$code" "$(json '["public_url"]' <<<"$created")"
-
-link=$(curl_ -X POST "$https/api/v1/lists/$code/links/" -H "Authorization: Bearer $token" \
-    -H 'Content-Type: application/json' -d '{"destination_url":"https://example.com/smoke"}')
-short_path=$(json '["short_url"]' <<<"$link" | sed "s#^$PUBLIC_BASE_URL##")
+code=$(compose exec -T api python manage.py shell -c '
+from apps.accounts.models import User
+from apps.sharing.policy import Visibility
+from apps.sharing.selectors import Principal
+from apps.sharing.services import links, lists
+owner = Principal(user=User.objects.create_user("smoke@example.test", "smoke-password-1"))
+shared_list = lists.create_list(owner, title="smoke", visibility=Visibility.UNLISTED)[0]
+links.add_link(owner, shared_list.pk, destination_url="https://example.com/smoke")
+print(shared_list.public_code)' | tail -n 1)
+listed=$(curl_ "$https/api/v2/lists/$code/")
+check "list URLs use PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/l/$code/smoke" "$(json '["url"]' <<<"$listed")"
+short_path=$(curl_ "$https/api/v2/lists/$code/links/" | json '["results"][0]["short_url"]' \
+    | sed "s#^$PUBLIC_BASE_URL##")
 check "short URL redirects through the proxy" "302 https://example.com/smoke" \
     "$(curl_ -o /dev/null -w '%{http_code} %{redirect_url}' "$https$short_path")"
 
-headers=$(curl_ -sI "$https/api/v1/lists/$code/" | tr -d '\r' | tr 'A-Z' 'a-z')
+headers=$(curl_ -sI "$https/api/v2/lists/$code/" | tr -d '\r' | tr 'A-Z' 'a-z')
 check "HSTS header from Django" "strict-transport-security: max-age=31536000; includesubdomains" \
     "$(grep '^strict-transport-security' <<<"$headers")"
 check "nginx hides its version" "server: nginx" "$(grep '^server:' <<<"$headers")"
@@ -123,7 +125,7 @@ check "TLS for unknown names is refused" 000 \
     "$(curl -sk -o /dev/null -w '%{http_code}' "https://127.0.0.1:$HTTPS_PORT/" || true)"
 check "oversized body rejected by nginx" 413 \
     "$(head -c 40000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X POST \
-        "$https/api/v1/lists/" -H 'Content-Type: application/json' --data-binary @-)"
+        "$https/api/v2/lists/" -H 'Content-Type: application/json' --data-binary @-)"
 
 # Media (docs/v2/13-SECURITY.md#media): the api container (non-root) writes the volume and
 # nginx serves it read-only, as inert files.
@@ -160,14 +162,13 @@ check "an oversized upload is rejected by nginx" 413 \
     "$(head -c 4000000 /dev/zero | curl_ -o /dev/null -w '%{http_code}' -X PUT \
         "$https/api/v2/lists/NoSuchList000000/image/" -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @-)"
 
-# 1 creation was attempted above; the limit is 30/hour per client and is checked before the
-# 410. A fresh spoofed X-Forwarded-For on every request must not reset it: nginx overwrites
-# the header.
-statuses=$(for i in $(seq 30); do
-    curl_ -o /dev/null -w '%{http_code}\n' -X POST "$https/api/v1/lists/" \
-        -H "X-Forwarded-For: 198.51.100.$i" -H 'Content-Type: application/json' -d '{"title":"t"}'
+# Directory searches are limited per client IP (10/hour here). A fresh spoofed
+# X-Forwarded-For on every request must not reset the count: nginx overwrites the header.
+statuses=$(for i in $(seq 11); do
+    curl_ -o /dev/null -w '%{http_code}\n' "$https/api/v2/directory/lists/" \
+        -H "X-Forwarded-For: 198.51.100.$i"
 done | sort | uniq -c | awk '{print $2 "x" $1}' | paste -sd' ')
-check "spoofed X-Forwarded-For cannot bypass rate limits" "410x29 429x1" "$statuses"
+check "spoofed X-Forwarded-For cannot bypass rate limits" "200x10 429x1" "$statuses"
 
 # `compose port` prints ":0" for a port that is exposed but has no host binding.
 published=$(compose port api 8000 2>/dev/null || true)

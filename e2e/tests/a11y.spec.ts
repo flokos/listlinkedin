@@ -161,12 +161,6 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
 
       await page.getByRole('button', { name: 'List options' }).click()
-      await page.getByRole('menuitem', { name: 'Show edit link' }).click()
-      await expect(page.getByRole('dialog', { name: 'Your edit link' })).toBeVisible()
-      await expectNoA11yViolations(page)
-      await page.getByRole('button', { name: 'Done' }).click()
-
-      await page.getByRole('button', { name: 'List options' }).click()
       await page.getByRole('menuitem', { name: 'Delete list' }).click()
       await expect(page.getByRole('dialog', { name: 'Delete this list?' })).toBeVisible()
       await expectNoA11yViolations(page)
@@ -201,9 +195,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expectNoA11yViolations(page)
     })
 
-    test("an edit link that doesn't work, and new accounts' empty pages", async ({ page }) => {
-      await page.goto('/l/AAAAAAAAAAAAAAAA/manage#t=not-a-token')
-      await expect(page.getByRole('heading', { name: /edit link no longer works|doesn't exist/ })).toBeVisible()
+    test("a list that doesn't exist, and new accounts' empty pages", async ({ page }) => {
+      await page.goto('/l/AAAAAAAAAAAAAAAA')
+      await expect(page.getByRole('heading', { name: "This list doesn't exist" })).toBeVisible()
       await expectNoA11yViolations(page)
 
       await signUpThroughApi(page, uniqueEmail('a11y-empty'))

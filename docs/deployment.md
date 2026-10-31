@@ -70,7 +70,7 @@ Copy [.env.example](../.env.example) to `.env` next to `compose.prod.yaml` and s
 | `MAINTENANCE_DIR` | `./deploy/maintenance` | The directory holding the maintenance page and its `on` switch ([below](#maintenance-mode)). Tests point it elsewhere so they can't switch a real stack |
 
 Development and test switches never belong in production: `DJANGO_EMAIL_BACKEND`,
-`AUTH_RATE_LIMITS=off`, `LEGACY_LIST_CREATION=on` and `FETCH_TEST_HOSTS`. The production
+`AUTH_RATE_LIMITS=off` and `FETCH_TEST_HOSTS`. The production
 compose file doesn't pass them.
 
 ## First deploy
@@ -151,10 +151,14 @@ serves until the new one replaces it, a few seconds later. A failed migration st
 
 Release notes say when an upgrade needs more than this, such as a one-off command.
 
-The V1 → V2 cutover has its own [runbook](v2/06-MIGRATION-PLAN.md#runbook), rehearsed in
-[22](v2/22-RELEASE-REHEARSAL.md). Afterwards, it fetches details for the links V1 left
-behind with `backfill_metadata`, in batches of 1,000 (the default). Larger batches leave
-tasks waiting long enough to make the worker unhealthy.
+**Moving a V1 install** (`release/v1`) to V2 goes through `v2.0.x`, the last releases that
+still serve V1's edit links: follow the [runbook](v2/06-MIGRATION-PLAN.md#runbook), rehearsed
+in [22](v2/22-RELEASE-REHEARSAL.md), and fetch details for V1's links with
+`backfill_metadata` in batches of 1,000 (the default; larger batches make the worker
+unhealthy). Upgrade to `v2.1.0` or later only once V1's lists have expired, at most 30 days
+later: its migration `sharing.0011` stops while a list without an account is still alive.
+`docker compose -f compose.prod.yaml run --rm -e RETIRE_LEGACY_LISTS=delete migrate` deletes
+those lists instead, with their links and short URLs.
 
 ## Maintenance mode
 

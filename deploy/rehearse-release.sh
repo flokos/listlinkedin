@@ -8,7 +8,10 @@
 #   bash deploy/rehearse-release.sh                  # V1 data seeded through V1 itself
 #   bash deploy/rehearse-release.sh v1-prod.dump     # a copy of production (pg_dump -Fc)
 #
-# 1. V1 (V1_REF, default origin/main) runs from a git worktree, with the dump restored, or
+# V1 (V1_REF, default v1.0.0) and V2 (V2_REF, default v2.0.0, the last release with the
+# legacy path: v2.1.0 retired it) each run from a git worktree.
+#
+# 1. V1 runs with the dump restored, or
 #    else seeded: lists created through V1's API (edit links included), then SEED_LISTS more
 #    (default 20000, 10 links each, 1% expired) in SQL.
 # 2. The cutover, in place as on the server: V2's nginx takes over with the maintenance page,
@@ -23,7 +26,8 @@ cd "$(dirname "$0")/.."
 
 dump=${1:-}
 [[ -z $dump ]] || dump=$(realpath "$dump")
-v1_ref=${V1_REF:-origin/main}
+v1_ref=${V1_REF:-v1.0.0}
+v2_ref=${V2_REF:-v2.0.0}
 seed_lists=${SEED_LISTS:-20000}
 work=$(mktemp -d)
 report="$work/report.txt"
@@ -38,7 +42,7 @@ export THROTTLE_LIST_CREATE=100000/hour THROTTLE_LIST_MANAGE=100000/hour
 
 # One project, as on the server: V1's and V2's compose files manage the same containers.
 v1() { docker compose -p listlinkedin-rehearsal -f "$work/v1/compose.prod.yaml" -f "$work/v1-images.yaml" "$@"; }
-v2() { docker compose -p listlinkedin-rehearsal -f compose.prod.yaml "$@"; }
+v2() { docker compose -p listlinkedin-rehearsal -f "$work/v2/compose.prod.yaml" "$@"; }
 psql_() { local stack=$1; shift; "$stack" exec -T db psql -qAtX -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 "$@"; }
 
 status=1
@@ -47,6 +51,7 @@ cleanup() {
     for stack in v2 v1; do "$stack" down -v --remove-orphans >/dev/null 2>&1 || true; done
     docker rmi listlinkedin-rehearsal-v1:prod listlinkedin-rehearsal-v1-nginx:prod >/dev/null 2>&1 || true
     git worktree remove --force "$work/v1" >/dev/null 2>&1 || true
+    git worktree remove --force "$work/v2" >/dev/null 2>&1 || true
     rm -rf "$work"
 }
 trap cleanup EXIT
@@ -74,8 +79,9 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$SERVER_NAME" \
     -addext "subjectAltName=DNS:$SERVER_NAME" \
     -keyout "$work/certs/privkey.pem" -out "$work/certs/fullchain.pem" 2>/dev/null
 
-say "Release rehearsal, $(date -u '+%F %T') UTC, V1 $(git rev-parse --short "$v1_ref"), V2 $(git rev-parse --short HEAD)"
+say "Release rehearsal, $(date -u '+%F %T') UTC, V1 $(git rev-parse --short "$v1_ref^{commit}"), V2 $(git rev-parse --short "$v2_ref^{commit}")"
 git worktree add --detach "$work/v1" "$v1_ref" >/dev/null 2>&1
+git worktree add --detach "$work/v2" "$v2_ref" >/dev/null 2>&1
 # V1 and V2 build the same image names; give V1's its own for the rehearsal.
 cat > "$work/v1-images.yaml" <<'EOF'
 services:

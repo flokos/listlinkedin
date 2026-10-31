@@ -131,8 +131,8 @@ only links that had to move (those outside a longest run kept in relative order,
 the first link moves nothing); `list` names the list fields that changed. Since task 3.1 this
 is `versioning/domain/diff.py`; the merge engine, when synchronization resumes, can reuse it.
 
-**Authorship:** `created_by_id` is the acting user. For legacy-token writes it is NULL, and
-the API presents those as "edit link". An erased account keeps its anonymous row
+**Authorship:** `created_by_id` is the acting user. For legacy-token writes (until v2.1.0) it
+is NULL, and the API presents those as "edit link". An erased account keeps its anonymous row
 ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)), so its revisions still point to it;
 the API presents it as "Deleted account".
 

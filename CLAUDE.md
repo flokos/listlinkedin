@@ -39,7 +39,7 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 
 | App | Owns |
 |---|---|
-| `sharing` | Lists (`SharedList`) and Links (`SharedLink`), list memberships, legacy owner tokens. Moderation since 9.0: `services/moderation.py` (reports, the operator email, operator actions; the commands live in each app) |
+| `sharing` | Lists (`SharedList`) and Links (`SharedLink`), list memberships. Moderation since 9.0: `services/moderation.py` (reports, the operator email, operator actions; the commands live in each app) |
 | `shortener` | Short codes, `ShortRedirect`, `/r/{code}` resolution (visibility checked through `sharing` selectors) |
 | `accounts` | Custom `User` (email login, UUID key), session authentication, `/api/v2/session/` and `/api/v2/me/`. Sign-up, sign-in and passwords via django-allauth's headless API under `/_allauth/`. Suspended accounts (`suspended_at`, since 9.0) are refused by `backends.py` and `adapter.py`; `is_active` means erased |
 | `common` (not a Django app) | `errors.py`: framework-free `DomainError` classes, mapped to HTTP by `config/exceptions.py` |
@@ -67,7 +67,8 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
 5. A Group never grants access to its Lists. Lists the viewer may not see are omitted entirely.
 6. Fetched metadata never overwrites user-entered fields. User URLs are fetched only through
    the SSRF-safe fetcher.
-7. A legacy owner token grants V1-equivalent rights on its own list only.
+7. Every list has an owner account. Nothing but an account's role grants rights on a list (the
+   V1 owner tokens were retired in v2.1.0, task 9.6).
 
 ## Commands (Docker only: no virtualenv, no host Python or Node)
 

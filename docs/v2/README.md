@@ -3,7 +3,7 @@
 Status: **released as [`v2.0.0`](https://github.com/flokos/listlinkedin/releases/tag/v2.0.0)
 on 2026-10-31**, on GitHub; V1 was never deployed (D32). Phases 0–5, 7 and 8 and tasks
 9.0–9.5 are done; synchronization (phase 6) is postponed
-([ADR-015](adr/ADR-015-postpone-synchronization.md)); the legacy sunset (9.6) comes next, as
+([ADR-015](adr/ADR-015-postpone-synchronization.md)); the legacy sunset (9.6) followed in
 `v2.1.0` ([roadmap](17-IMPLEMENTATION-ROADMAP.md)). Branch: `v2`, created from `main` at `fb5f901`
 (V1 as of PR #7). Source requirements:
 [project_prompt_for_Planning_v2.md](../../project_prompt_for_Planning_v2.md). The root
@@ -82,8 +82,8 @@ diagrams folder.
 | Short URL | `/l/{code}` (list), `/g/{code}` (group), `/r/{code}` (link redirect) | `config/urls.py`, nginx |
 | Owner | The account that owns a List or Group (`owner_id`) | |
 | Member | A user with an EDITOR or VIEWER role on one List or Group | `ListMembership`, `GroupMembership` |
-| Legacy list | A V1 list with no owner account, managed through its owner token (edit link) | `owner_id IS NULL` |
-| Claim | Turning a legacy list into an account-owned list by proving the token | |
+| Legacy list | A V1 list with no owner account, managed through its owner token (edit link). Retired in v2.1.0 | `owner_id IS NULL` (impossible since `sharing.0012`) |
+| Claim | Turning a legacy list into an account-owned list by proving the token (until v2.1.0) | |
 | Revision | Immutable, numbered full snapshot of a List's content | `versioning.ListRevision` |
 | Fork | An independent copy with no sync relationship ("Make a copy") | |
 | Branch | A copy that can pull changes from its parent ("Make a synced copy"). Postponed (ADR-015) | `versioning.ListBranch` |
@@ -105,12 +105,12 @@ These are the decisions everything else builds on. The details are in the linked
 1. **Keep `SharedList`/`SharedLink`** and their tables. No `WebApp` entity. ([ADR-001](adr/ADR-001-preserve-list-and-link.md))
 2. **Modular monolith** with pragmatic layering. Framework-free code is used only where the
    risk is: snapshots, diff/merge and the permission policy. ([ADR-002](adr/ADR-002-modular-monolith.md))
-3. **Accounts are required to create lists.** V1 lists stay manageable through their edit link
-   until they are claimed or expire. ([ADR-011](adr/ADR-011-accounts-required-legacy-lists.md))
+3. **Accounts are required to create lists.** V1 lists stayed manageable through their edit
+   link until claimed or expired; v2.1.0 retired that path (task 9.6). ([ADR-011](adr/ADR-011-accounts-required-legacy-lists.md))
 4. **A custom `User` in a new `accounts` app**, plus Django session auth with CSRF and
    django-allauth in headless browser mode. V1 has no auth tables, so this is a clean
    introduction. ([ADR-007](adr/ADR-007-authentication-and-ownership-migration.md))
-5. **`/api/v2/` with DRF ViewSets.** `/api/v1/` stays for legacy lists during the transition.
+5. **`/api/v2/` with DRF ViewSets.** `/api/v1/` served legacy lists until v2.1.0.
    ([ADR-010](adr/ADR-010-viewsets-and-api-v2.md))
 6. **Visibility** is PRIVATE, UNLISTED or PUBLIC. New lists default to PRIVATE. Migrated V1
    lists become UNLISTED, which is what they are today.

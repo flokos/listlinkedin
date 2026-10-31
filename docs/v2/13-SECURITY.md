@@ -13,7 +13,7 @@ the OWASP SSRF [R12], redirect [R16] and file upload [R15] cheat sheets.
 |---|---|
 | Private list and group content, revision history | Confidentiality is a new V2 promise |
 | Accounts (credentials, sessions, email addresses) | Account takeover gives control of everything the account owns |
-| Legacy owner tokens (unclaimed lists) | Full control of a list until claimed or expired |
+| Legacy owner tokens (unclaimed lists), until v2.1.0 | Full control of a list until claimed or expired. Retired in task 9.6: no token is stored or accepted |
 | The internal network (db, metadata endpoints, intranet) | Reachable from the worker, which fetches user-supplied URLs |
 | Short-URL and directory reputation | Phishing and abuse hurt every user |
 | Media storage | Uploaded files are untrusted bytes served from our origin |
@@ -28,7 +28,7 @@ Trust boundaries: browser ↔ nginx (TLS), nginx ↔ api (internal network), wor
 | **Anonymous sharing** | Only `unlisted` and `public` lists are readable without an account. Creation needs an account ([ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) | API matrix tests |
 | **Private collections** | The policy plus SQL-filtered querysets. 404 for unauthorized ([12](12-AUTHORIZATION.md)) | matrix and leak tests |
 | **Unlisted URLs** | Unchanged capability semantics: 96-bit codes, `no-referrer`, `noindex`. Never shown in the directory or in public groups | directory and group leak tests |
-| **Creator-token migration** | Claim needs a session and the token, runs under the lock, retires the token, and stores and logs only hashes ([06](06-MIGRATION-PLAN.md#ownership-transition)) | claim tests (double claim, wrong token, expired) |
+| **Creator-token migration** (until v2.1.0) | Claim needed a session and the token, ran under the lock, retired the token, and stored and logged only hashes. Since task 9.6 tokens grant nothing and the `/api/v1/` paths answer 404 (acceptance tests in `test_lists.py`); the column is gone ([06](06-MIGRATION-PLAN.md#ownership-transition)) | claim tests (double claim, wrong token, expired) |
 | **Authentication** | django-allauth headless: Django password hashing (PBKDF2 default) and the 4 default password validators, email verification, built-in rate limits on login and reset, enumeration prevention on signup and reset responses [R6] | auth API tests, e2e |
 | **Authorization / permission escalation** | One policy module. Owner-only settings and members. Role changes by the owner only. A user can't grant a role higher than their own. Group roles never reach lists | matrix tests including escalation attempts |
 | **IDOR / BOLA** [R13] | Every lookup starts from the parent resource and the visible queryset. Link UUIDs are always scoped to their list (V1 `_get_link` pattern). Nested ids are never trusted alone | tests swapping ids across lists and groups |
@@ -148,7 +148,7 @@ guessed by someone who already has the image. Moving private images behind an au
   [21](21-SECURITY-REVIEW.md#sessions).
 - Email verification and password-reset keys travel in the URL **fragment**
   (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
-  nginx logs, as V1's edit-link tokens do. The SPA removes them from the address bar on
+  nginx logs, as V1's edit-link tokens did. The SPA removes them from the address bar on
   arrival. Reset keys work once, for one hour (`PASSWORD_RESET_TIMEOUT`, since 9.1).
 - `?next=` after sign-in accepts only same-site paths (`safeRedirectPath`). It rejects `//host`,
   `/\host`, other schemes, and control characters that browsers strip into `//host`.
@@ -176,10 +176,10 @@ These are initial values. Tune them from logs.
 | Login and password reset | allauth defaults (failed login per IP and account) |
 | Signup | 10/h per IP |
 | List and group creation | 60/h per user |
-| Content writes (lists, links, groups, reorder) | 1200/h per user; legacy token writes 600/h per IP (V1) |
+| Content writes (lists, links, groups, reorder) | 1200/h per user |
 | Uploads | 120/h per user |
 | Metadata refresh | 60/h per user (`metadata_refresh`, since 8.1: missed in 7.3), 1/h per link |
-| Sync apply (postponed), restore, claim | 120/h per user |
+| Sync apply (postponed), restore | 120/h per user |
 | Directory search | 600/h per IP, signed in or not (`directory`, `ReadRateThrottle`, since 8.1) |
 | Adding members by email | 60/h per user |
 | Reports to the operator | 10/h per user or IP (`report`, since 9.0) |
@@ -192,8 +192,9 @@ configured values as `list_create` and `list_manage` (30/h and 600/h).
 Logs record ids (list, link, user, sync record) and error codes. They never record tokens,
 session or CSRF values, or email addresses (use the user id). V1's test that tokens never
 appear in logs is extended to sessions and claim (`tests/test_logging.py`, since 9.1: session
-and CSRF values, verification and reset keys, edit-link tokens and email addresses, through
-sign-up, verification, claims, invitations and resets). Since 9.1 every record also carries
+and CSRF values, verification and reset keys, bearer tokens and email addresses, through
+sign-up, verification, invitations and resets; claims until v2.1.0, and stale tokens sent
+with requests since). Since 9.1 every record also carries
 the request id and the user id, and authentication events are logged
 ([21](21-SECURITY-REVIEW.md#logging)). Secrets stay environment-only. New secrets are the SMTP
 credentials ([14](14-INFRASTRUCTURE.md)).
@@ -218,7 +219,7 @@ Codes can start with `-`, so always put `--` before a code (the report emails do
 
 | Command | Effect |
 |---|---|
-| `unpublish_list --reason … -- <code>` | The list becomes private: only its owner and the people it's shared with can open it, and its short URLs answer 404 to everyone else. A legacy list must stay unlisted (CHECK L3): delete it instead |
+| `unpublish_list --reason … -- <code>` | The list becomes private: only its owner and the people it's shared with can open it, and its short URLs answer 404 to everyone else |
 | `delete_list --reason … --yes -- <code>` | Deletes the list with its links, short URLs and memberships. Without `--yes` it only shows what it would delete |
 | `find_links <host>` | Every live link to a host or its subdomains, with its list: for sweeping a phishing domain. Then add the host to `BLOCKED_DESTINATION_HOSTS`, which also stops its existing short URLs (410) |
 | `unpublish_group --reason … -- <code>` | The group becomes private |

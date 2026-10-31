@@ -138,10 +138,11 @@ const router = createRouter({
       meta: { title: 'List' },
     },
     // V1's private edit link (/l/{code}/manage#t=…): edit links were retired in v2.1.0, so it
-    // opens the list itself. The fragment is dropped, and was never sent to the server.
+    // opens the list itself. The fragment (the old token) is dropped: it must not stay in the
+    // address bar, and was never sent to the server.
     {
       path: '/l/:code/manage',
-      redirect: (to) => ({ name: 'list', params: { code: to.params.code } }),
+      redirect: (to) => ({ name: 'list', params: { code: to.params.code }, hash: '' }),
     },
     // Living style guide: development builds only (tree-shaken from production).
     ...(import.meta.env.DEV

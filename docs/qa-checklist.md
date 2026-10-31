@@ -31,7 +31,7 @@ Run each with **VoiceOver** (macOS Safari and iOS Safari) and **NVDA** (Windows 
       to top, Move to bottom, Move to position…, Move to another list…, Edit, Delete).
 - [ ] Reorder with "Move up": the new position is announced, and focus stays on the moved link.
 - [ ] Grid and list view: the toggle reads its state; the links read in order in both.
-- [ ] Edit link: the page's own title is offered as a button that says what it fills in.
+- [ ] Edit a link: the page's own title is offered as a button that says what it fills in.
 - [ ] Share: "Who can see this list" reads as a radio group; "Allow copies" as a switch; the
       QR code has a description; adding a person reads the role choice and any error.
 - [ ] Settings: each section heading; saving announces the result; a refused description save

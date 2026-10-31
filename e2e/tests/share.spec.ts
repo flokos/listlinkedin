@@ -12,7 +12,7 @@ test('sharing shows the view link and a QR code, and Back closes the dialog', as
   await expect(page).toHaveURL(/\?dialog=share$/)
 
   const dialog = page.getByRole('dialog', { name: 'Share this list' })
-  await expect(dialog.getByRole('textbox', { name: 'Share link' })).toHaveValue(`${list.public_url}/share-me`)
+  await expect(dialog.getByRole('textbox', { name: 'Share link' })).toHaveValue(list.public_url)
   const qr = dialog.getByRole('img', { name: /QR code/ })
   await expect(qr).toHaveAttribute('src', /^data:image\/png;base64,/)
   expect(await qr.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(100)
@@ -21,7 +21,7 @@ test('sharing shows the view link and a QR code, and Back closes the dialog', as
   await dialog.getByRole('button', { name: 'Copy share link' }).click()
   await expect(page.getByText('Share link copied to clipboard')).toBeVisible()
   if (browserName === 'chromium') {
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${list.public_url}/share-me`)
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(list.public_url)
   }
 
   await page.goBack()

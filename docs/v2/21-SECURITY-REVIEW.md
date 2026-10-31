@@ -44,7 +44,7 @@ Requirements V2 doesn't meet, on purpose. Each is revisited after launch or when
 | V13.3.1 (L2) | Secrets live in the host's `.env` and reach containers as environment variables; no vault on a single host |
 | V13.3.2 (L2) | Only the deploying user should read `.env` (`chmod 600`, deployment guide in task 9.4) |
 | V14.2.1 (L1) | Tokens and keys travel in headers or URL fragments, never in paths or queries. List and short codes are capabilities in URLs by design, protected by `no-referrer` and `noindex` |
-| V14.3.3 (L2) | `localStorage` holds legacy lists' edit-link tokens (bearer credentials like a session token, V1's design) and preferences; removed with task 9.6 |
+| V14.3.3 (L2) | `localStorage` holds legacy lists' edit-link tokens (bearer credentials like a session token, V1's design) and preferences; removed with task 9.6 (done in v2.1.0: only preferences remain) |
 | V16.4.3 (L2) | Logs aren't shipped to a separate system yet; the deployment guide (task 9.4) recommends a log driver or collector |
 
 ## Context-specific words
@@ -64,7 +64,7 @@ Passwords may not contain the service's name, `listlinkedin`, in any case or spa
 |---|---|---|---|
 | Passwords | PBKDF2-SHA256, 1,000,000 iterations (Django 5.2) | per-password salt | Rehashed on sign-in when Django raises the cost |
 | Sessions, CSRF, email verification and reset links | HMAC-SHA256 (Django signing) | `DJANGO_SECRET_KEY` (50 random characters) | Rotate by moving the old key to `SECRET_KEY_FALLBACKS`; reset links expire in 1 hour, verification in 3 days |
-| Legacy edit links | 256-bit random token; SHA-256 hash stored | the token itself | Retired when claimed or rotated; all removed by task 9.6 |
+| Legacy edit links | 256-bit random token; SHA-256 hash stored | the token itself | Retired when claimed or rotated; all removed by task 9.6 (v2.1.0: the column is dropped) |
 | List, group and short codes | 96-bit random (`secrets`) | none | Permanent (invariant 1) |
 | Media file names | SHA-256 of the re-encoded image | none | Immutable |
 | TLS | TLS 1.2/1.3, ECDHE with AES-GCM or ChaCha20-Poly1305 | certificate key on the host (`TLS_CERT_DIR`) | Let's Encrypt, renewed every 60–90 days |
@@ -150,7 +150,7 @@ Reviewed against [15](15-TEST-STRATEGY.md#v1-regression-checklist) (risk 30): ev
 | V2.1.3 | 2 | Expectations for business logic limits and validations are documented, including both per-user … | Pass | Limits in [04](04-DOMAIN-MODEL.md) (100 links, 100 lists per group, 10 tags) and [13](13-SECURITY.md#rate-limits) |
 | V2.2.1 | 1 | Input is validated to enforce business or functional expectations for that input … | Pass | Serializers with allowlists: choice fields, `normalize_destination_url`, `normalize_tags` |
 | V2.2.2 | 1 | The application is designed to enforce input validation at a trusted service … | Pass | Every rule is enforced by the API; the frontend's `LIMITS` only give early hints |
-| V2.2.3 | 2 | The application ensures that combinations of related data items are reasonable according … | Pass | Database CHECKs (legacy lists unlisted and expiring, tombstones without positions) and service rules |
+| V2.2.3 | 2 | The application ensures that combinations of related data items are reasonable according … | Pass | Database CHECKs (legacy lists unlisted and expiring, tombstones without positions) and service rules Since 9.6 the legacy-list CHECK is gone with those lists, and the owner is NOT NULL. |
 | V2.3.1 | 1 | The application will only process business logic flows for the same user … | Pass | Claiming needs a session and the token; restore needs `If-Match`; verification and reset keys are single-use |
 | V2.3.2 | 2 | Business logic limits are implemented per the application's documentation to avoid business … | Pass | Caps enforced under row locks (links per list, lists per group), with concurrency tests |
 | V2.3.3 | 2 | Transactions are being used at the business logic level such that either … | Pass | Services are atomic; a content change and its revision commit together (invariant 3) |
@@ -216,7 +216,7 @@ Reviewed against [15](15-TEST-STRATEGY.md#v1-regression-checklist) (risk 30): ev
 |---|---|---|---|---|
 | V6.1.1 | 1 | Application documentation defines how controls such as rate limiting, anti-automation, and adaptive … | Pass | [13](13-SECURITY.md#rate-limits): allauth's failed sign-in limits per IP and per account, and sign-ups limited to 10/h per IP |
 | V6.1.2 | 2 | A list of context-specific words is documented in order to prevent their … | Fixed | Context-specific words: the service's name ([Context-specific words](#context-specific-words)) |
-| V6.1.3 | 2 | Verify that, if the application includes multiple authentication pathways, these are all documented together … | Pass | Two ways in, both documented: account sign-in with a password, and legacy edit links that only work on V1 lists until task 9.6 ([12](12-AUTHORIZATION.md#principals), [ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) |
+| V6.1.3 | 2 | Verify that, if the application includes multiple authentication pathways, these are all documented together … | Pass | Two ways in, both documented: account sign-in with a password, and legacy edit links that only work on V1 lists until task 9.6 ([12](12-AUTHORIZATION.md#principals), [ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) Since 9.6 (v2.1.0) there is one way in: account sign-in. |
 | V6.2.1 | 1 | User set passwords are at least 8 characters in length although a … | Pass | At least 8 characters (`MinimumLengthValidator`) |
 | V6.2.2 | 1 | Users can change their password. | Pass | Account page → Password |
 | V6.2.3 | 1 | Password change functionality requires the user's current and new password. | Pass | allauth's password change needs the current password |
@@ -258,7 +258,7 @@ Reviewed against [15](15-TEST-STRATEGY.md#v1-regression-checklist) (risk 30): ev
 | V7.1.2 | 2 | The documentation defines how many concurrent (parallel) sessions are allowed for one … | Fixed | Documented in [Sessions](#sessions): no limit on parallel sessions |
 | V7.1.3 | 2 | All systems that create and manage user sessions as part of a … | N/A | No federated identity |
 | V7.2.1 | 1 | The application performs all session token verification using a trusted, backend service. | Pass | Server-side Django sessions in PostgreSQL |
-| V7.2.2 | 1 | The application uses either self-contained or reference tokens that are dynamically generated … | Pass | A new session key per sign-in. Legacy edit links are V1 capabilities, not sessions, and go with task 9.6 |
+| V7.2.2 | 1 | The application uses either self-contained or reference tokens that are dynamically generated … | Pass | A new session key per sign-in. Legacy edit links are V1 capabilities, not sessions, and go with task 9.6 Gone in v2.1.0. |
 | V7.2.3 | 1 | If reference tokens are used to represent user sessions, they are unique … | Pass | 32 random characters from 36 (about 165 bits), from `secrets` |
 | V7.2.4 | 1 | The application generates a new session token on user authentication, including re-authentication … | Pass | Django replaces the session key on sign-in |
 | V7.3.1 | 2 | There is an inactivity timeout such that re-authentication is enforced according to … | Accepted | No inactivity timeout, by decision ([Sessions](#sessions)) |
@@ -354,9 +354,9 @@ All 29 L1/L2 requirements are N/A: No OAuth or OpenID Connect: no social or exte
 | V14.2.2 | 2 | The application prevents sensitive data from being cached in server components, such … | Pass | nginx doesn't cache proxied answers; the database cache holds only rate-limit counters |
 | V14.2.3 | 2 | Defined sensitive data is not sent to untrusted parties (e.g., user trackers) … | Pass | No trackers or third-party requests: the CSP allows only this origin, media is served locally, and the API docs are self-hosted (new) |
 | V14.2.4 | 2 | Controls around sensitive data related to encryption, integrity verification, retention, how the … | Pass | [13](13-SECURITY.md): logging, media, retention through expiry and account deletion |
-| V14.3.1 | 1 | Authenticated data is cleared from client storage, such as the browser DOM … | Fixed | Lists kept in memory for quick revisits are now dropped when the user signs out or changes (`onUserChange` in `useSession`). Legacy edit links stay on the device by design until task 9.6 |
+| V14.3.1 | 1 | Authenticated data is cleared from client storage, such as the browser DOM … | Fixed | Lists kept in memory for quick revisits are now dropped when the user signs out or changes (`onUserChange` in `useSession`). Legacy edit links stay on the device by design until task 9.6 Since 9.6 no edit links are stored at all. |
 | V14.3.2 | 2 | The application sets sufficient anti-caching HTTP response header fields (i.e., Cache-Control: no-store) … | Fixed | `Cache-Control: no-store` on API, account and short-URL answers (`config.middleware.no_store`) |
-| V14.3.3 | 2 | Data stored in browser storage (such as localStorage, sessionStorage, IndexedDB, or cookies) … | Accepted | `localStorage` holds legacy lists' edit-link tokens (bearer credentials like a session token, V1's design) and preferences; removed with task 9.6 |
+| V14.3.3 | 2 | Data stored in browser storage (such as localStorage, sessionStorage, IndexedDB, or cookies) … | Accepted | `localStorage` holds legacy lists' edit-link tokens (bearer credentials like a session token, V1's design) and preferences; removed with task 9.6 Since 9.6 (v2.1.0) only preferences remain. |
 
 ### V15 Secure Coding and Architecture
 
@@ -367,7 +367,7 @@ All 29 L1/L2 requirements are N/A: No OAuth or OpenID Connect: no social or exte
 | V15.1.3 | 2 | The application documentation identifies functionality which is time-consuming or resource-demanding. This must … | Pass | [13](13-SECURITY.md#rate-limits) and [14](14-INFRASTRUCTURE.md): image decoding, page fetching, directory search and restore, each rate-limited |
 | V15.2.1 | 1 | The application only contains components which have not breached the documented update … | Pass | No known vulnerabilities (2026-10-30), now checked by CI |
 | V15.2.2 | 2 | The application has implemented defenses against loss of availability due to functionality … | Pass | Rate limits, request size limits, the worker's 120 s time limit, fetch limits, database statement timeouts |
-| V15.2.3 | 2 | The production environment only includes functionality that is required for the application … | Pass | The production build has no `/design`; `DEBUG` is off; the test-only switches are off by default (`LEGACY_LIST_CREATION=off`, `FETCH_TEST_HOSTS` empty, allauth's limits on unless `AUTH_RATE_LIMITS=off`) |
+| V15.2.3 | 2 | The production environment only includes functionality that is required for the application … | Pass | The production build has no `/design`; `DEBUG` is off; the test-only switches are off by default (`LEGACY_LIST_CREATION=off`, `FETCH_TEST_HOSTS` empty, allauth's limits on unless `AUTH_RATE_LIMITS=off`) `LEGACY_LIST_CREATION` was removed with `/api/v1/` in 9.6. |
 | V15.3.1 | 1 | The application only returns the required subset of fields from a data … | Pass | Serializers list their fields; email addresses go only to their own account |
 | V15.3.2 | 2 | Where the application backend makes calls to external URLs, it is configured … | Pass | The fetcher follows at most 3 redirects itself, checking each; there are no other backend calls |
 | V15.3.3 | 2 | The application has countermeasures to protect against mass assignment attacks by limiting … | Pass | Write serializers accept only their fields (V1's mass-assignment test) |

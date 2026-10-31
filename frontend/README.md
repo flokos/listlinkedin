@@ -1,58 +1,56 @@
 # Frontend
 
 The listlinkedin web app: a Vue 3 + Vuetify 4 single-page app in TypeScript, built with
-Vite. It talks to the Django API in `../backend` under `/api/v1/` on the same origin.
+Vite. It talks to the Django API in `../backend` on the same origin: `/api/v2/` for lists,
+groups and accounts, and `/_allauth/browser/v1/` for sign-up, sign-in and passwords.
 
 - **Development:** run `docker compose up --build -d` from the repository root. That starts
-  the Vite dev server at http://localhost:5173 with hot reload. It proxies `/api/` and
-  `/r/` to the `api` container. The living style guide is at http://localhost:5173/design.
+  the Vite dev server at http://localhost:5173 with hot reload. It proxies `/api/`,
+  `/_allauth/`, `/r/` and `/media/` to the `api` container. The living style guide is at
+  http://localhost:5173/design.
 - **Production:** the `prod` target of the [Dockerfile](Dockerfile) builds the app and
   copies it into the nginx image used by `compose.prod.yaml`.
 
 Visual rules, tokens and component guidance are in
-[docs/design-system.md](../docs/design-system.md).
+[docs/design-system.md](../docs/design-system.md). The architecture is in
+[docs/v2/10-FRONTEND-ARCHITECTURE.md](../docs/v2/10-FRONTEND-ARCHITECTURE.md).
 
 ## Pages
 
-| Route                 | Page                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------- |
-| `/`                   | Home: create a list, how it works, recent lists on this device                                        |
-| `/l/:code`            | A list. Anyone can view it; owners also get add, edit, delete, rename, share and edit-link management |
-| `/l/:code/manage#t=…` | Private edit link: unlocks editing on this device, then opens the list                                |
-| `/lists`              | Saved lists: lists this browser can edit, plus backup and restore of their edit links                 |
-| `/about`              | Privacy, limits and FAQ                                                                               |
-| `/design`             | Style guide (development builds only)                                                                 |
+| Route                                                    | Page                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `/`                                                      | Home: create a list, how it works                                                 |
+| `/lists`                                                 | My lists: the lists in your account, owned or shared with you                     |
+| `/l/:code/:slug?`                                        | A list. Who sees it and what they may do comes from the server (`permissions`)    |
+| `/l/:code/settings`, `/l/:code/history`                  | A list's settings, and its versions with restore                                  |
+| `/l/:code/manage`                                        | V1's edit-link address: redirects to the list (edit links were retired in v2.1.0) |
+| `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode`     | Your groups, and a group's workspace with its sidebar                             |
+| `/explore`                                               | Public lists and groups, with search and tags                                     |
+| `/signin`, `/signup`, `/verify-email`, `/reset-password` | Accounts (allauth's headless API)                                                 |
+| `/account`, `/account/restore`                           | Your account; restoring one that is being deleted                                 |
+| `/about`                                                 | Privacy, limits and FAQ                                                           |
+| `/design`                                                | Style guide (development builds only)                                             |
 
-## How ownership works
+## Accounts and permissions
 
-The API returns a list's owner token once, when the list is created. The app:
-
-1. saves it in `localStorage` (`useOwnedLists`), so this browser can edit the list;
-2. gives the user a private **edit link**, `/l/{code}/manage#t={token}`. The token sits in
-   the URL fragment, which browsers never send to servers, so it stays out of request logs
-   and `Referer` headers. Opening the link on another device saves the token there, and
-   the app removes it from the address bar immediately.
-
-**Saved lists** (`/lists`) is this browser's index of those tokens. It isn't an account: a
-backup file (`utils/backup.ts`, JSON with every edit link) moves them to another device, and
-restore also accepts the `.txt` saved at creation. Every restored link is checked with the
-API before it is saved.
-
-"Replace edit link" rotates the token. Other devices then get a clear "your edit link was
-replaced" state on their next change.
+Every list belongs to an account. The session cookie identifies the user, and unsafe
+requests send Django's CSRF token (`api/client.ts`). The app never decides who may do what:
+each list and group comes with `permissions` from the server's policy, and the UI shows only
+those actions. (Until v2.1.0, lists from before accounts were also managed with an edit link
+saved in the browser.)
 
 ## Structure
 
 ```text
 src/
-  api.ts               typed API client, ApiError (field errors, Retry-After), NetworkError
+  api/                 typed API client per resource, ApiError (field errors, Retry-After), NetworkError
   router.ts            routes, titles, scroll restoration, stale-chunk reload
   navigation.ts        the site menu (app bar, drawer, footer)
   design/              tokens, theme roles, Vuetify themes/defaults, global CSS, contrast math
-  composables/         useListPage, useOwnedLists, useEditLink, useNotify, useClipboard, …
-  components/          shared UI (LinkCard, LinkForm, ShareDialog, EditLinkReveal, …)
+  composables/         useListPage, useSession, useNotify, useClipboard, …
+  components/          shared UI (LinkTile, LinkCard, ShareDialog, GroupSidebar, …)
   views/               one component per route
-  utils/               URL rules (mirroring the server), time formatting, downloads
+  utils/               URL rules (mirroring the server), time formatting, history wording
 scripts/check-contrast.ts   WCAG contrast check for the design tokens (runs in CI)
 ```
 

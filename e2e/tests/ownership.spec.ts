@@ -1,4 +1,4 @@
-import { cardTitle, editLinkFor, expect, openAsOwner, otherDevice, test } from './fixtures'
+import { cardTitle, expect, openAsOwner, otherDevice, test } from './fixtures'
 
 test('visitors see the list but no owner controls', async ({ page, api }) => {
   const list = await api.createList('Visitor view')
@@ -19,104 +19,29 @@ test('visitors see the list but no owner controls', async ({ page, api }) => {
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeHidden()
 })
 
-test('the edit link unlocks editing and never stays in the address bar', async ({ page, api }) => {
-  const list = await api.createList('Unlock me')
-  await page.goto(editLinkFor(list))
+// V1's edit links were retired in v2.1.0 (task 9.6): an old one opens the list read-only, and
+// its secret never stays in the address bar. Editing is the owner's account's.
+test('an old edit link opens the list without keeping its secret', async ({ page, api }) => {
+  const list = await api.createList('Old edit link')
+  await page.goto(`/l/${list.public_code}/manage#t=an-old-owner-token-0000000000000000`)
   await expect(page).toHaveURL(`/l/${list.public_code}`)
   expect(await page.evaluate(() => location.hash)).toBe('')
-  await expect(page.getByText('Your list', { exact: true })).toBeVisible()
-  await expect(page.getByText('Editing unlocked on this device')).toBeVisible()
-  // Going back must not land on a URL that still carries the token.
-  const history = await page.evaluate(() => history.length)
-  if (history > 1) {
-    await page.goBack()
-    expect(page.url()).not.toContain('#t=')
-  }
-})
-
-test('the secret leaves the address bar at once, even while checking or when rejected', async ({
-  page,
-  api,
-}) => {
-  const list = await api.createList('Hidden token')
-  // Hold the ownership check so the address bar can be inspected mid-check.
-  let release!: () => void
-  const held = new Promise<void>((resolve) => (release = resolve))
-  await page.route(`**/api/v1/lists/${list.public_code}/`, async (route) => {
-    if (route.request().method() === 'PATCH') await held
-    await route.continue()
-  })
-  await page.goto(editLinkFor(list))
-  await expect(page.getByRole('heading', { name: 'Opening your list…' })).toBeVisible()
-  expect(page.url()).not.toContain('#t=')
-  release()
-  await expect(page.getByText('Your list', { exact: true })).toBeVisible()
-
-  // A rejected link stays on its error page, but without the token.
-  await page.goto(`/l/${list.public_code}/manage#t=not-the-right-token-at-all-0000`)
-  await expect(page.getByRole('heading', { name: 'This edit link no longer works' })).toBeVisible()
-  expect(page.url()).not.toContain('#t=')
-})
-
-test('a wrong or incomplete edit link explains itself', async ({ page, api }) => {
-  const list = await api.createList('Wrong token')
-  await page.goto(`/l/${list.public_code}/manage#t=not-the-right-token-at-all-0000`)
-  await expect(page.getByRole('heading', { name: 'This edit link no longer works' })).toBeVisible()
-  await page.goto(`/l/${list.public_code}/manage`)
-  await expect(page.getByRole('heading', { name: 'This edit link is incomplete' })).toBeVisible()
-})
-
-test('replacing the edit link locks out other devices until they get the new one', async ({
-  page,
-  browser,
-  baseURL,
-  api,
-}) => {
-  const list = await api.createList('Rotate me')
-  await openAsOwner(page, list)
-  const laptop = await otherDevice(browser, baseURL)
-  await openAsOwner(laptop.page, list)
-
-  // Device A replaces the edit link.
-  await page.getByRole('button', { name: 'List options' }).click()
-  await page.getByRole('menuitem', { name: 'Replace edit link' }).click()
-  await page.getByRole('button', { name: 'Replace edit link' }).click()
-  const reveal = page.getByRole('dialog', { name: 'Here is your new edit link' })
-  await expect(reveal).toBeVisible()
-  const newLink = await reveal.getByRole('textbox', { name: 'Private edit link' }).inputValue()
-  expect(newLink).not.toContain(list.owner_token)
-  await reveal.getByRole('checkbox', { name: /saved my edit link/ }).check()
-  await reveal.getByRole('button', { name: 'Done' }).click()
-
-  // Device B's next change is refused and explained; the rename editor closes.
-  const b = laptop.page
-  await b.getByRole('button', { name: 'Rename list' }).click()
-  await b.getByRole('textbox', { name: 'List name' }).fill('Hijacked')
-  await b.getByRole('button', { name: 'Save name' }).click()
-  await expect(b.getByText('Your edit link was replaced')).toBeVisible()
-  await expect(b.getByRole('textbox', { name: 'List name' })).toBeHidden()
-  await expect(b.getByRole('heading', { level: 1, name: 'Rotate me' })).toBeVisible()
-
-  // Pasting the new edit link restores access.
-  await b.getByRole('button', { name: 'Paste edit link' }).click()
-  await b.getByRole('textbox', { name: 'Edit link' }).fill(newLink)
-  await b.getByRole('button', { name: 'Unlock editing' }).click()
-  await expect(b.getByText('Your edit link was replaced')).toBeHidden()
-  await expect(b.getByText('Your list', { exact: true })).toBeVisible()
-  await laptop.context.close()
-})
-
-test('forgetting a list removes edit access from this device only', async ({ page, api }) => {
-  const list = await api.createList('Forget me')
-  await openAsOwner(page, list)
-  await page.getByRole('button', { name: 'List options' }).click()
-  await page.getByRole('menuitem', { name: 'Forget on this device' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Old edit link' })).toBeVisible()
   await expect(page.getByText('Shared list', { exact: true })).toBeVisible()
-  await page.goto('/lists')
-  await expect(page.getByText('No lists on this device yet')).toBeVisible()
-  // The list itself still exists for everyone.
-  await page.goto(`/l/${list.public_code}`)
-  await expect(page.getByRole('heading', { level: 1, name: 'Forget me' })).toBeVisible()
+  await expect(page.getByText('Add a link')).toBeHidden()
+})
+
+test("signing in as the owner unlocks editing on any device", async ({ page, api, browser, baseURL }) => {
+  const list = await api.createList('Mine everywhere')
+  await openAsOwner(page, list)
+  await expect(page.getByRole('button', { name: 'Rename list' })).toBeVisible()
+
+  const laptop = await otherDevice(browser, baseURL)
+  await laptop.page.goto(`/l/${list.public_code}`)
+  await expect(laptop.page.getByText('Shared list', { exact: true })).toBeVisible()
+  await openAsOwner(laptop.page, list)
+  await expect(laptop.page.getByRole('button', { name: 'Rename list' })).toBeVisible()
+  await laptop.context.close()
 })
 
 test('renaming and deleting a list', async ({ page, api }) => {
