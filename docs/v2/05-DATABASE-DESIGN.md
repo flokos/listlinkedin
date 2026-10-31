@@ -270,9 +270,11 @@ expresses it: `sqlmigrate` shows `"search" tsvector GENERATED ALWAYS AS
 setweight(to_tsvector('simple'::regconfig, COALESCE("description", '')), 'B'))) STORED`, which
 PostgreSQL 17 accepts (the explicit config makes it immutable). No trigger fallback is needed.
 Since 8.1 lists and groups share the definitions (`sharing.models.search_field`, `tags_field`,
-`discovery_constraints_and_indexes`): GIN on `search` and `tags`, a GIN `gin_trgm_ops` index on
-`title` (partial words through `icontains`), a partial btree on `updated_at DESC` for public
-rows, and `CHECK cardinality(tags) <= 10`.
+`discovery_constraints_and_indexes`): GIN on `search` and `tags`, a GIN `gin_trgm_ops` index for
+partial words in titles (`icontains`), a partial btree on `updated_at DESC` for public rows, and
+`CHECK cardinality(tags) <= 10`. Since 9.2 the trigram index is on `UPPER(title)`, the
+expression Django's `icontains` compares: on plain `title` PostgreSQL couldn't use it, and a
+search scanned every row (`sharing.0010`, `groups.0003`).
 
 ## Size and performance assumptions
 

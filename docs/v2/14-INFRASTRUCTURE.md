@@ -164,15 +164,36 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
 
 ## Performance targets (initial)
 
-| Operation | Target (p95, single host, 3 Gunicorn workers) |
-|---|---|
-| List page API (detail + 100 links) | < 150 ms, ≤ 4 queries |
-| Group workspace (group + 30 visible lists) | < 200 ms, ≤ 5 queries |
-| `/r/{code}` redirect | < 50 ms, 1–2 queries |
-| Directory search (100k public lists) | < 300 ms |
-| Sync preview (100 links), postponed (ADR-015) | < 200 ms (3 snapshot reads + an in-memory plan) |
-| Sync apply (100 links), postponed (ADR-015) | < 500 ms |
-| Metadata fetch | asynchronous. 90 % of fetches finish within 15 s of creation |
+| Operation | Target (p95, single host, 3 Gunicorn workers) | Measured (task 9.2) |
+|---|---|---|
+| List page API (detail + 100 links) | < 150 ms, ≤ 4 queries | 25 + 38 ms; 1 + 3 queries (+2 for a signed-in session) |
+| Group workspace (group + 30 visible lists) | < 200 ms, ≤ 5 queries | 28 + 58 ms; 2 + 2 queries |
+| `/r/{code}` redirect | < 50 ms, 1–2 queries | 22 ms; 1 query |
+| Directory search (100k public lists) | < 300 ms | 236 ms for a word matching 17 % of all lists (334 ms before 9.2's index fix); 210 ms for a partial word; 46 ms for tags only; 79 ms newest first |
+| Sync preview (100 links), postponed (ADR-015) | < 200 ms (3 snapshot reads + an in-memory plan) | |
+| Sync apply (100 links), postponed (ADR-015) | < 500 ms | |
+| Metadata fetch | asynchronous. 90 % of fetches finish within 15 s of creation | |
+
+**Measured (task 9.2, 2026-10-30)** with `bash deploy/perf.sh`: the production stack (nginx,
+3 Gunicorn workers, PostgreSQL 17) on one 4-core host with 7 GB, with the client on the same
+host; 60 single requests per endpoint after a warm-up. The data: a 100-link public list, a
+public group of 30 lists, 100,000 public lists (titles and descriptions from 16 words, two tags
+each) and 20,000 rate-limit entries. Popular tags, which has no target, took 156 ms (it counts
+the tags of every public list on each request). Rerun the script after changes that touch
+these endpoints and on the production host before launch.
+
+What the measurement found: a directory search with words scanned every row, because the
+trigram index on `title` didn't match the `UPPER(title)` that Django's `icontains` compares.
+The index is now on `UPPER(title)` ([05](05-DATABASE-DESIGN.md)), and the plan combines it with
+the full-text index (database time 171 → 106 ms). What remains is ranking every match, which
+grows with how common the word is.
+
+Query budgets (`tests/test_query_counts.py`): every read endpoint is measured with little data
+and at the sizes above, and must cost the same with both, within its budget. A throttled
+request adds 8 statements of the PostgreSQL rate limiter, including Django's database cache
+counting its rows on every write. That count grows with the cache table: at 20,000 entries it
+stayed within the directory times above. Snapshots: 5.4 KiB stored for a typical 100-link list,
+at most 322 KiB at the cap with every field full and incompressible (risk 27).
 
 N+1 prevention: annotated querysets (V1's short-code subquery pattern), `select_related` and
 `prefetch_related` on group entries, and a `django_assert_max_num_queries` test per endpoint

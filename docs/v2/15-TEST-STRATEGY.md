@@ -73,7 +73,10 @@ Repositories and services (prompt 13.2):
   limits, content types) and a stubbed resolver (private IPs, mixed answers, **rebinding**:
   first answer public, second private → the connection still goes to the validated IP).
   Parser fixtures. Image pipeline (polyglot, bomb, wrong type, EXIF). Stale-result guard (URL
-  changed → no write). Since 9.1 (`tests/test_logging.py`, `tests/test_docs.py`, `apps/accounts/tests/test_api.py`):
+  changed → no write). Since 9.2 (`tests/test_query_counts.py`): every read endpoint's query
+  count, small and at the target sizes (100 links, 30 lists in a group, 30 of your own), equal
+  and within budget; snapshot size at the cap. Timings come from `deploy/perf.sh`
+  ([14](14-INFRASTRUCTURE.md#performance-targets-initial)), run by hand, not in CI. Since 9.1 (`tests/test_logging.py`, `tests/test_docs.py`, `apps/accounts/tests/test_api.py`):
   request ids from nginx or new, never forged; JSON log lines; authentication events; no
   secret or email address in any log line through sign-up, verification, claims, invitations
   and resets; `no-store` and the API's CSP; the self-hosted docs page; password rules (no

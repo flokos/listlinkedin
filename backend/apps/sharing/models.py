@@ -2,10 +2,11 @@ import uuid
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
-from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Upper
 from django.utils import timezone
 
 from apps.shortener.generators import SHORT_CODE_LENGTH
@@ -53,8 +54,10 @@ def discovery_constraints_and_indexes(prefix: str):
     indexes = [
         GinIndex(fields=["search"], name=f"{prefix}_search_gin"),
         GinIndex(fields=["tags"], name=f"{prefix}_tags_gin"),
-        # Partial words in titles ("dock" finds "Docker"): icontains through pg_trgm.
-        GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name=f"{prefix}_title_trgm"),
+        # Partial words in titles ("dock" finds "Docker"): icontains through pg_trgm. On
+        # UPPER(title), the expression Django's icontains compares, so PostgreSQL can use it
+        # (task 9.2: an index on plain `title` left directory searches scanning every row).
+        GinIndex(OpClass(Upper("title"), name="gin_trgm_ops"), name=f"{prefix}_title_upper_trgm"),
         # The directory's default order, over public rows only.
         models.Index(
             fields=["-updated_at"],
