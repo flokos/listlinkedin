@@ -75,8 +75,9 @@ iptables -I DOCKER-USER -s <worker_subnet> -d 10.0.0.0/8,172.16.0.0/12,192.168.0
 ```
 
 The worker still reaches `db` on the internal compose network. Give it its own network that
-contains only `db`, plus the default bridge for egress. This is optional; the README's
-deployment section describes both steps (since task 7.1).
+contains only `db`, plus the default bridge for egress. This is optional;
+[docs/deployment.md](../deployment.md#worker) describes both steps (since task 7.1; the
+README's deployment section until task 9.4).
 
 ## Email
 
@@ -132,6 +133,13 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
   incremental by nature.
 - Optional: WAL archiving for point-in-time recovery, if the host supports it.
 
+Since task 9.4 these are host scripts, not services: `deploy/backup.sh` (the dump, checked
+with `pg_restore --list`, and a tar of `media`; files mode 600; `BACKUP_KEEP_DAYS`, default 14)
+and `deploy/restore.sh` (stops the app, recreates the database, replaces `media`, starts the
+stack, which migrates). A restore into a separate compose project is the monthly test. Both
+were run against the production stack: a small database came back in 13 s. The schedule and
+commands are in [docs/deployment.md](../deployment.md#backups).
+
 ## Health checks and observability
 
 - `/healthz` (V1, DB round-trip). The worker's compose healthcheck is `check_worker` (since
@@ -140,9 +148,11 @@ V1 had none documented. V2 holds account data and permanent lists, so backups be
   crashes exits and is restarted. `deploy/smoke-test.sh` checks that every replica is healthy
   and runs a task through it. A task that hangs ends its worker (the hard time limit above).
   **Compose never restarts an unhealthy container, and nothing alerts**: a worker that hangs
-  outside a task stays hung until someone looks. Task 9.4 documents the recommended remedy
-  (restart unhealthy containers, e.g. an autoheal container or the host's systemd, and alert
-  on `check_worker`); adding a service for it needs an ADR.
+  outside a task stays hung until someone looks. Since task 9.4 the host script
+  `deploy/autoheal.sh`, run from cron or a systemd timer, restarts unhealthy containers,
+  reports stopped ones and passes its findings to `ALERT_COMMAND`
+  ([docs/deployment.md](../deployment.md#monitoring)). It isn't a compose service, so no ADR;
+  it was tested by making both workers unhealthy with a task stuck for an hour.
 - **Structured logging** (since task 9.1): nginx gives each request an id (`$request_id`),
   writes it in its access log (`requests` format) and sends it as `X-Request-ID`;
   `config.middleware.request_id` adopts it (or makes one), echoes it back, and every api

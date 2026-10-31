@@ -151,8 +151,11 @@ enforced in the service.
 ### `accounts_user` (new, `accounts/0001_initial`)
 
 `AbstractUser` subclass with `username` removed, `email` as `USERNAME_FIELD`, a unique index on
-`lower(email)`, and `display_name` varchar(80). allauth adds its own tables (email addresses,
-confirmations), and `django.contrib.sessions` adds `django_session`.
+`lower(email)`, and `display_name` varchar(80). Later columns: `deleted_at` (indexed; the
+30-day deletion grace period, `accounts.0002`, [ADR-016](adr/ADR-016-account-deletion-grace-period.md)),
+`sessions_revoked_at` (sign out everywhere) and `suspended_at` (the operator's suspension,
+`accounts.0003`, task 9.0). `is_active = false` means erased. allauth adds its own tables
+(email addresses, confirmations), and `django.contrib.sessions` adds `django_session`.
 
 ### `groups_group`, `groups_grouplist`, `groups_groupmembership` (new)
 
@@ -258,7 +261,7 @@ don't already cover [R10].
 | sharedlink | partial unique (list, URL) live; deferrable unique (list, position); partial unique (list, `source_link_id`) live | uniqueness, ordering, merges |
 | listmembership / groupmembership | (`user_id`) | "Shared with me" |
 | listrevision | UNIQUE (list, number) | history pages, head lookup |
-| listbranch | `parent_list_id` | "synced copies of this list" |
+| listbranch (postponed, ADR-015) | `parent_list_id` | "synced copies of this list" |
 | grouplist | `shared_list_id` | groups containing a list |
 
 Search uses a stored generated column, `GeneratedField(SearchVector(title, description,
@@ -280,7 +283,9 @@ search scanned every row (`sharing.0010`, `groups.0003`).
 
 - Lists: up to the low hundreds of thousands. Links: ≤100 live per list.
 - A snapshot is about 0.3 KB per link, so ~30 KB for a full list, and ~250 KB worst case with
-  2 KB URLs. PostgreSQL TOAST-compresses JSONB. One revision per content change, at a few
+  2 KB URLs. PostgreSQL TOAST-compresses JSONB. **Measured in task 9.2**
+  (`tests/test_query_counts.py`): 5.4 KiB stored for a typical 100-link list, 322 KiB at the
+  cap with every field at its maximum and incompressible. One revision per content change, at a few
   revisions per list per day, is negligible. A retention policy is deferred
   ([20](20-DECISIONS-AND-OPEN-QUESTIONS.md)).
 - Every hot read is index-backed: a list by code, links by (list, position), revisions by (list,

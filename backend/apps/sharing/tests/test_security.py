@@ -1,4 +1,4 @@
-"""Tests backing the claims in docs/security.md that are not covered elsewhere."""
+"""Tests backing the claims in docs/v1/security.md that are not covered elsewhere."""
 
 import json
 import logging

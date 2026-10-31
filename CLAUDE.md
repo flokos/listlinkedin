@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 Working rules for Claude Code sessions (and people) on the **`v2` branch** of listlinkedin.
-Version 1 is documented in [README.md](README.md) and [docs/](docs/). Version 2 is planned in
+Version 1 is documented in [docs/v1/](docs/v1/README.md). Version 2 is described in the root
+[README.md](README.md), operated per [docs/deployment.md](docs/deployment.md), and specified in
 [docs/v2/](docs/v2/README.md).
 
 ## Branches: V1 is `main`, V2 is `v2`

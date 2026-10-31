@@ -1,6 +1,6 @@
 # 13: Security
 
-V1's controls ([docs/security.md](../security.md)) all remain: 96-bit codes, hashed owner
+V1's controls ([docs/v1/security.md](../v1/security.md)) all remain: 96-bit codes, hashed owner
 tokens, the row-lock re-check, the advisory-locked throttles, the destination host policy,
 redirect headers, size limits, the nginx hardening and the strict CSP. V2 adds accounts,
 private data, server-side fetching and file handling, so the threat model grows. References:
@@ -238,4 +238,4 @@ Every command logs the ids and the reason.
 - Rate limits are per IP for anonymous users (V1 limitation, unchanged).
 - Phishing through public lists is reduced (verified email, denylist, reports and operator
   commands) but not solved. There is no automated reputation check. That is a later option for a fully
-  public launch (V1 `docs/security.md` reasoning still holds).
+  public launch (V1 `docs/v1/security.md` reasoning still holds).

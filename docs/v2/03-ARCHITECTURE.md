@@ -34,7 +34,7 @@ flowchart LR
 | nginx | V1, extended | TLS, the SPA, security headers and CSP, `/media/` (new), routes `/_allauth/` (new) |
 | api | V1, extended | HTTP API, short URLs, auth, all writes |
 | worker | **new** | Metadata fetching and image processing. The same image as api (`python manage.py db_worker`) |
-| cleanup | V1, extended | Daily: expired-list purge, throttle cache, sessions (`clearsessions`), task results |
+| cleanup | V1, extended | Scheduled jobs: expired lists and the throttle cache, sessions (`clearsessions`), task results, stuck tasks (every 5 minutes), erased accounts, unused media (weekly) |
 | db | V1 | All state, including sessions, the rate-limit cache and the task queue |
 | media volume | **new** | Re-encoded images (uploads and fetched icons) |
 
@@ -89,23 +89,29 @@ Rules:
 ## Modules
 
 ```text
-backend/apps/
+backend/
   common/       errors.py: framework-free DomainError classes (not a Django app)
-  accounts/     User (AbstractUser, email login, UUID key), SessionAuthentication, /api/v2/session|me
-  sharing/      SharedList, SharedLink, ListMembership
-                domain.py (URL rules, V1) · policy.py (pure permissions) · tokens.py (V1)
-                services/ (legacy: V1 token path · lists: v2; later links, members, claims) · selectors.py (Principal, access)
-                v2/ (ViewSets, serializers, LegacyTokenAuthentication) · views.py, serializers.py, urls.py (V1 API, kept for the transition)
-  shortener/    codes, ShortRedirect, /r/ (resolution adds the visibility check)
-  groups/       Group, GroupList, GroupMembership · services · selectors · ViewSets
-  versioning/   domain/{snapshot,merge,errors}.py (pure) · models · services · selectors · ViewSet actions
-  metadata/     fetcher.py (SSRF-safe) · parser.py · images.py (Pillow) · tasks.py · services.py
-backend/config/ settings (auth, sessions, CSRF, TASKS, MEDIA, email), urls (v1 + v2 + /_allauth/),
-                exceptions.py (DomainError → HTTP; `code` on /api/v2/ error bodies)
+  apps/
+    accounts/   User (AbstractUser, email login, UUID key, suspended_at), auth backends, allauth adapter,
+                services (deletion grace, restore, suspension) · ViewSets /api/v2/session|me|restore
+    sharing/    SharedList, SharedLink, ListMembership
+                domain.py (URL rules, V1) · policy.py (pure permissions) · tokens.py (V1) · selectors.py (Principal, access)
+                services/ (lists, links, members, forks, restore, media, metadata, moderation, legacy)
+                v2/ (ViewSets for lists, links, images, revisions, members, the directory; LegacyTokenAuthentication)
+                views.py, serializers.py, urls.py (the V1 API, until the legacy sunset)
+    shortener/  codes, ShortRedirect, /r/ (resolution adds the visibility check)
+    groups/     Group, GroupList, GroupMembership · services · selectors · ViewSets (groups, the group directory, tags)
+    versioning/ domain/{snapshot,diff}.py (pure) · models · services (record_revision) · selectors
+    metadata/   fetcher.py (SSRF-safe) · parser.py · extraction.py · images.py (Pillow) · tasks.py (the only queueing point)
+  config/       settings (auth, sessions, CSRF, TASKS, MEDIA, email, logging), urls (v1 + v2 + /_allauth/ + docs),
+                exceptions.py (DomainError → HTTP; `code` on /api/v2/ error bodies), middleware, logging.py, docs.py
 ```
 
-`sharing/services.py` becomes a package when V2 work makes it grow past one screenful per
-concern. V1 deliberately kept a single file while it held six functions.
+The revision endpoints live in `sharing/v2/views.py` next to the list they belong to; they call
+`versioning` selectors and `sharing.services.restore`. Fetched metadata is stored through
+`sharing/services/metadata.py`, so `metadata` never writes `sharing`'s tables. The merge
+engine (`versioning/domain/merge.py`) is postponed with synchronization
+([ADR-015](adr/ADR-015-postpone-synchronization.md)).
 
 ## Key interactions
 

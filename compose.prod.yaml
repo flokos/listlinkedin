@@ -17,6 +17,8 @@ x-app-env: &app-env
   WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}  # Gunicorn workers
   METADATA_FETCH_ENABLED: ${METADATA_FETCH_ENABLED:-true}  # link metadata (task 7.3)
   LOG_FORMAT: ${LOG_FORMAT:-json}  # one JSON object per log line; `text` to read by eye
+  DB_LOCK_TIMEOUT: ${DB_LOCK_TIMEOUT:-5s}  # PostgreSQL waits; `migrate` lifts the statement cap
+  DB_STATEMENT_TIMEOUT: ${DB_STATEMENT_TIMEOUT:-20s}
   FETCH_BLOCKED_NETWORKS: ${FETCH_BLOCKED_NETWORKS:-}  # extra CIDRs the fetcher never reaches
   THROTTLE_LIST_CREATE: ${THROTTLE_LIST_CREATE:-30/hour}  # per client IP
   THROTTLE_LIST_MANAGE: ${THROTTLE_LIST_MANAGE:-600/hour}

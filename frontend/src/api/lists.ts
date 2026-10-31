@@ -128,7 +128,7 @@ export const deleteLink = (code: string, token: string, id: string) =>
 /**
  * Checks that `token` owns the list: a PATCH with an empty body changes no content for the
  * owner and is a 401/403 for anyone else. It does bump the list's `updated_at`, which is
- * invisible in the UI; the API has no read-only owner check (docs/decisions.md).
+ * invisible in the UI; the API has no read-only owner check (docs/v1/decisions.md).
  */
 export const verifyOwnership = (code: string, token: string) =>
   request<SharedList>(v1(`/lists/${enc(code)}/`), { method: 'PATCH', body: {}, token })
