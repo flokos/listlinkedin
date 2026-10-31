@@ -18,7 +18,7 @@ ADD --chmod=755 \
 FROM supercronic-${TARGETARCH} AS supercronic
 
 
-FROM python:3.13-slim AS base
+FROM python:3.15-slim AS base
 COPY --from=supercronic /supercronic /usr/local/bin/supercronic
 
 # Dependencies are installed into the image's system interpreter: no virtualenv.
