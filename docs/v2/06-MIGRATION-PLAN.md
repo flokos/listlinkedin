@@ -146,9 +146,12 @@ rollback, with timings, in [22](22-RELEASE-REHEARSAL.md).
 
 ### Runbook
 
-The owner runs it on the server. The GitHub release happens first and separately (D32 in
-[20](20-DECISIONS-AND-OPEN-QUESTIONS.md)): when the cutover comes, step 1 and the merge and
-tag of step 5 are already done, so check out `v2.0.0` and continue. It assumes V1 runs from a checkout of `main` in
+**V1 was never deployed (D32 in [20](20-DECISIONS-AND-OPEN-QUESTIONS.md)), so this project
+has no cutover:** its first deployment is a fresh V2 install
+([deployment](../deployment.md#first-deploy)). The runbook stays as the rehearsed path for
+anyone running V1 from `release/v1`. It needs a V2 release that still has the legacy path
+(`v2.0.x`; 9.6 removes it in `v2.1.0`). Its git steps are done: check out the V2 tag and
+start at step 3. It assumes V1 runs from a checkout of `main` in
 `/srv/listlinkedin` (compose project `listlinkedin`, `.env` next to `compose.prod.yaml`).
 `dc` stands for `docker compose -f compose.prod.yaml`.
 
@@ -264,7 +267,8 @@ is the backup, not the migrations (prompt 11.7).
 ## After launch: contracting the legacy path
 
 When `max(expires_at)` of all legacy lists plus 24 h (the purge lag) has passed (roadmap task
-9.6):
+9.6). With no V1 deployment (D32) there are no legacy lists, so 9.6 follows `v2.0.0` directly,
+as `v2.1.0`:
 
 1. Remove the `/api/v1/` routes and the legacy bearer principal.
 2. Drop `owner_token_hash` in a later release (contract step). Drop the backup and restore UI

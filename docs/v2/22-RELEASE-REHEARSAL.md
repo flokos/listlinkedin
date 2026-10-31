@@ -9,8 +9,12 @@ runbook's own commands, in one isolated compose project, and checks the result:
 - V2's nginx takes over with the maintenance page;
 - V1 stops and is dumped;
 - V2 migrates and starts, and the page ends;
-- the rollback puts the dump and V1's images back in place. This page records what it measured and found, and answers Q9 as far as a
-rehearsal can.
+- the rollback puts the dump and V1's images back in place. This page records what it measured and found.
+
+**V1 was never deployed** (D32 in [20](20-DECISIONS-AND-OPEN-QUESTIONS.md)), so V2's release is
+on GitHub and its first deployment is a fresh install. This rehearsal remains the record that
+the V1 → V2 migrations, the legacy path and the rollback work. It also found the nginx and
+maintenance fixes, which every upgrade uses.
 
 ## What was rehearsed
 
@@ -21,11 +25,10 @@ rehearsal can.
 | Machine | 4 cores, 7 GB RAM, rootless Docker, SSD (the developer laptop of task 9.2) |
 | Data | No production dump was available here. The kept `listlinkedin-demo` volume already held early V2 migrations (`sharing.0002`, `accounts.0001`), so it isn't V1 data. V1 itself created the data instead: one list with 3 links through V1's API, with a real edit-link token, then 20,000 lists of 10 links each in SQL, in V1's schema. 1% of them were already expired, as in a live V1 database. Total: 20,001 lists, 200,003 links, 200,003 short URLs, 111 MB |
 
-[06](06-MIGRATION-PLAN.md#schema-and-data-migrations-by-phase) assumes production holds at
-most tens of thousands of lists. V1 lists live 30 days, so 20,000 is a generous stand-in.
-**Run the script again on a copy of the real production dump before release day**:
+V1 lists live 30 days, so 20,000 is a generous stand-in for a small deployment. Anyone moving
+a real V1 install should rehearse with a copy of its dump first:
 `bash deploy/rehearse-release.sh v1-prod.dump`. Only do that on a machine allowed to hold
-production data.
+that data.
 
 ## Timings
 
@@ -121,6 +124,6 @@ After the migration:
 
 - The full e2e suite against the migrated staging data. CI runs it against a fresh V2 stack
   on every PR. On migrated data, the checks above cover legacy lists and claiming.
-- A production-sized dump (see above).
+- A real V1 dump: none exists (D32).
 - The manual accessibility and device pass ([qa-checklist](../qa-checklist.md)), which is
   the owner's.
