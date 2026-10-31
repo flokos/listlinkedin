@@ -62,9 +62,9 @@ def process(data: bytes, kind: Kind, *, formats=UPLOAD_FORMATS) -> bytes:
                 image.seek(0)  # animations: the first frame
                 image.load()
                 picture = ImageOps.exif_transpose(image).convert("RGBA")
-        except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+        except Image.DecompressionBombError, Image.DecompressionBombWarning:
             raise ImageRejected(TOO_MANY_PIXELS) from None
-        except (UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError):
+        except UnidentifiedImageError, OSError, SyntaxError, ValueError, EOFError:
             # Truncated, corrupt, or another format: Pillow's decoders raise all of these.
             raise ImageRejected(UNSUPPORTED) from None
     picture.thumbnail((kind.bound, kind.bound), Image.Resampling.LANCZOS)  # never enlarges

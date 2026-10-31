@@ -121,7 +121,7 @@ docker compose exec frontend sh -c "npm run test && npm run check:contrast"
 Change them inside a container, then rebuild:
 
 ```bash
-docker run --rm -v "$PWD/backend":/app -w /app ghcr.io/astral-sh/uv:0.9.5-python3.13-bookworm-slim uv lock
+docker run --rm -v "$PWD/backend":/app -w /app ghcr.io/astral-sh/uv:0.9.5-python3.14-bookworm-slim uv lock
 docker run --rm -v "$PWD/frontend":/app -w /app node:24-alpine npm install --package-lock-only <package>
 docker compose up --build -d
 ```
