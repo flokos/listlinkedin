@@ -1,9 +1,10 @@
 # listlinkedin Version 2: architecture and migration plan
 
-Status: **implemented, release in preparation** (2026-10-31). Phases 0–5, 7 and 8 and tasks
-9.0–9.4 are done; synchronization (phase 6) is postponed
-([ADR-015](adr/ADR-015-postpone-synchronization.md)); the release is task 9.5
-([roadmap](17-IMPLEMENTATION-ROADMAP.md)). Branch: `v2`, created from `main` at `fb5f901`
+Status: **released as [`v2.0.0`](https://github.com/flokos/listlinkedin/releases/tag/v2.0.0)
+on 2026-10-31**, on GitHub; V1 was never deployed (D32). Phases 0–5, 7 and 8 and tasks
+9.0–9.5 are done; synchronization (phase 6) is postponed
+([ADR-015](adr/ADR-015-postpone-synchronization.md)); the legacy sunset (9.6) comes next, as
+`v2.1.0` ([roadmap](17-IMPLEMENTATION-ROADMAP.md)). Branch: `v2`, created from `main` at `fb5f901`
 (V1 as of PR #7). Source requirements:
 [project_prompt_for_Planning_v2.md](../../project_prompt_for_Planning_v2.md). The root
 [README.md](../../README.md) describes V2 and [docs/deployment.md](../deployment.md) runs it;

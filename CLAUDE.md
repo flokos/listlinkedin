@@ -1,26 +1,25 @@
 # CLAUDE.md
 
-Working rules for Claude Code sessions (and people) on the **`v2` branch** of listlinkedin.
-Version 1 is documented in [docs/v1/](docs/v1/README.md). Version 2 is described in the root
-[README.md](README.md), operated per [docs/deployment.md](docs/deployment.md), and specified in
-[docs/v2/](docs/v2/README.md).
+Working rules for Claude Code sessions (and people) on listlinkedin. **`main` is Version 2**
+(released as `v2.0.0` on 2026-10-31). Version 2 is described in the root [README.md](README.md),
+operated per [docs/deployment.md](docs/deployment.md), and specified in
+[docs/v2/](docs/v2/README.md). Version 1 is documented in [docs/v1/](docs/v1/README.md) and
+kept on `release/v1`.
 
-## Branches: V1 is `main`, V2 is `v2`
+## Branches: V2 is `main`, V1 is `release/v1`
 
-- `main` is Version 1. `v2` is the long-lived integration branch for Version 2. The default
-  branch stays `main`.
-- Start every V2 task from the current `v2`:
-  `git fetch origin && git switch -c feature/<area>-<topic> origin/v2`
-  (`feature/`, `fix/`, `docs/`, `chore/`). One roadmap task per branch and PR.
-- **Every V2 pull request targets `v2`:** `gh pr create --base v2`. To make that the default
-  for a branch: `git config branch.<branch>.gh-merge-base v2`. Never open a V2 PR against
-  `main`. CI's `checks` job fails one if it happens.
-- Never commit, merge or push to `main` from V2 work. Never force-push, rebase, reset or delete
-  `main` or `v2`. Both are protected by rulesets: PR plus the `checks` job required.
-- V1 bug fixes: `bugfix/v1-<topic>` from `main`, PR into `main`. Then port with
-  `git cherry-pick -x <sha>` on a branch from `v2`, PR into `v2`. Never merge `main` into `v2`
-  without reviewing each change ([16-GIT-WORKFLOW.md](docs/v2/16-GIT-WORKFLOW.md)).
-- `v2` reaches `main` only through the planned release PR (roadmap phase 9).
+- Start every task from the current `main`:
+  `git fetch origin && git switch -c feature/<area>-<topic> origin/main`
+  (`feature/`, `fix/`, `docs/`, `chore/`). One roadmap task per branch and PR, into `main`.
+- Never commit or push to `main` directly. Never force-push, rebase, reset or delete `main` or
+  `release/v1`. `main` is protected by a ruleset: PR plus the `checks` job required.
+- `release/v1` (tag `v1.0.0`) is Version 1, kept so it can be rebuilt. V1 fixes, if ever
+  needed: a branch from `release/v1`, PR into `release/v1`. Port to `main` only what still
+  applies, with `git cherry-pick -x <sha>` ([16-GIT-WORKFLOW.md](docs/v2/16-GIT-WORKFLOW.md)).
+- `v2` was the integration branch until the release (PR #46). It is frozen: don't branch from
+  it or merge into it.
+- Releases are tags on `main` (`v2.1.0`, …) with a GitHub Release. V1 was never deployed
+  (D32), so there is no production to cut over.
 
 ## Read before changing anything architectural
 
@@ -83,7 +82,7 @@ bash e2e/run.sh                                                # Playwright, pro
 
 ## Definition of done for every V2 PR
 
-- The PR targets `v2`, and CI (`checks`, `proxy`, `e2e`) is green.
+- The PR targets `main`, and CI (`checks`, `proxy`, `e2e`) is green.
 - New behaviour has tests at the right level ([15-TEST-STRATEGY.md](docs/v2/15-TEST-STRATEGY.md)).
   Concurrency-sensitive code has a real PostgreSQL concurrency test.
 - Migrations are reversible or documented as one-way in [06-MIGRATION-PLAN.md](docs/v2/06-MIGRATION-PLAN.md).
