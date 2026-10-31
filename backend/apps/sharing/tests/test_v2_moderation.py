@@ -72,7 +72,7 @@ def test_anyone_who_can_see_a_list_may_report_it(alice, bob, mailoutbox):
         "Visibility: public",
         f"Owner: user {alice.pk}",
         "Reported by: someone who wasn't signed in",
-        f"python manage.py unpublish_list {code}",
+        f"python manage.py unpublish_list --reason '…' -- {code}",
         f"python manage.py suspend_account {alice.pk}",
     ):
         assert expected in mail.body, expected
@@ -161,7 +161,7 @@ def test_unpublish_list_makes_it_private_and_stops_its_short_urls(alice):
     short = ShortRedirect.objects.get(link=link).code
     assert client_for().get(f"/r/{short}").status_code == 302
 
-    output = run("unpublish_list", shared_list.public_code, "--reason", "phishing")
+    output = run("unpublish_list", "--reason", "phishing", "--", shared_list.public_code)
     assert "is private now" in output
     shared_list.refresh_from_db()
     assert shared_list.visibility == "private"
@@ -170,20 +170,30 @@ def test_unpublish_list_makes_it_private_and_stops_its_short_urls(alice):
     assert client_for(alice).get(f"{URL}{shared_list.public_code}/").status_code == 200
 
 
+def test_codes_that_start_with_a_dash_work_after_double_dash(alice):
+    """Codes are Base64URL, so some start with "-", which argparse reads as an option: the
+    commands are always shown with `--` before the code."""
+    shared_list = make_list(alice)
+    SharedList.objects.filter(pk=shared_list.pk).update(public_code="-dashFirstCode00")
+    assert "is private now" in run("unpublish_list", "--reason", "spam", "--", "-dashFirstCode00")
+
+
 def test_unpublish_list_refuses_legacy_and_unknown_lists(owned_list):
     legacy, _ = owned_list
     with pytest.raises(CommandError, match="Delete it instead"):
-        run("unpublish_list", legacy.public_code, "--reason", "spam")
+        run("unpublish_list", "--reason", "spam", "--", legacy.public_code)
     with pytest.raises(CommandError, match="no list"):
-        run("unpublish_list", "no-such-code-000", "--reason", "spam")
+        run("unpublish_list", "--reason", "spam", "--", "no-such-code-000")
 
 
 def test_delete_list_shows_what_it_would_delete_without_yes(alice):
     shared_list = make_list(alice)
     with pytest.raises(CommandError, match="Add --yes"):
-        run("delete_list", shared_list.public_code, "--reason", "spam")
+        run("delete_list", "--reason", "spam", "--", shared_list.public_code)
     assert SharedList.objects.filter(pk=shared_list.pk).exists()
-    assert "is deleted" in run("delete_list", shared_list.public_code, "--reason", "spam", "--yes")
+    assert "is deleted" in run(
+        "delete_list", "--reason", "spam", "--yes", "--", shared_list.public_code
+    )
     assert not SharedList.objects.filter(pk=shared_list.pk).exists()
 
 
