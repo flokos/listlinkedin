@@ -42,7 +42,7 @@ class GroupAccess:
 
 
 def group_actor(principal: Principal, *, with_email: bool = False) -> Actor:
-    """Groups know no owner tokens: a legacy edit link grants nothing here."""
+    """Groups are for accounts: only the signed-in user counts here."""
     return Actor(
         user_id=principal.user.pk if principal.user is not None else None,
         email_verified=principal.email_verified if with_email else False,

@@ -13,7 +13,6 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.sharing import services as legacy_services
 from apps.sharing.models import SharedLink, SharedList
 from apps.sharing.policy import Visibility
 from apps.sharing.selectors import Principal, live_content
@@ -145,21 +144,6 @@ def test_moving_to_another_list_writes_one_revision_in_each(client):
         shared_list = SharedList.objects.get(public_code=code)
         assert revisions(shared_list) == expected
         assert head_matches_live(shared_list)
-
-
-def test_edit_link_writes_are_versioned_without_an_author(db):
-    shared_list, token = legacy_services.create_list(title="Legacy")
-    link = legacy_services.add_link(shared_list, destination_url="https://a.example/")
-    legacy_services.update_link(shared_list, link.pk, title="A")
-    legacy_services.update_list(shared_list, title="Renamed")
-    legacy_services.delete_link(shared_list, link.pk)
-    assert [kind for _, kind in revisions(shared_list)] == ["created", *["edited"] * 4]
-    assert set(ListRevision.objects.values_list("created_by", flat=True)) == {None}
-    assert head_matches_live(shared_list)
-    # Claiming changes who manages the list, not its content: no revision.
-    claimer = User.objects.create_user("claimer@example.com", "pw-correct-horse-1")
-    list_services.claim_list(Principal(user=claimer, token=token), shared_list.pk)
-    assert len(revisions(shared_list)) == 5
 
 
 def test_fetched_metadata_never_writes_a_revision(client):

@@ -22,7 +22,7 @@ Test data uses plain builder functions in `conftest.py` (V1 style). There is no 
 | Frontend unit and component | composables, components, client | `frontend/src/**/*.test.ts` | CI `checks` |
 | End-to-end | journeys on the production stack over HTTPS | `e2e/tests/*.spec.ts` | CI `e2e` |
 | Concurrency | real threads or processes on PostgreSQL | `transactional_db` tests (V1 `test_concurrent_*` pattern) | CI `checks` |
-| Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks; since 1.4 it asserts v1 create → 410 and seeds its legacy list with `manage.py shell`) | CI `proxy` |
+| Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks; since 9.6 it asserts `/api/v1/` → 404 and seeds an account's unlisted list with `manage.py shell`) | CI `proxy` |
 
 ## Unit tests (pure domain)
 
@@ -110,7 +110,7 @@ Repositories and services (prompt 13.2):
 ## API tests
 
 CRUD for every endpoint in [09](09-API-DESIGN.md). Authentication (session and CSRF:
-missing or wrong token → 403; legacy bearer). Authorization (matrix through HTTP, 404 vs 403
+missing or wrong token → 403; a bearer token grants nothing since 9.6). Authorization (matrix through HTTP, 404 vs 403
 vs 401). Visibility. Fork, branch and detach. Sync preview, status and apply (all error
 codes). Restore with `If-Match`. Idempotency replay. Error shapes and `code`s. Pagination.
 Directory filters and ordering. Throttles (V1 style). OpenAPI: v2 schema generation succeeds,
@@ -121,7 +121,7 @@ and public endpoints are unauthenticated (V1 test extended). Query counts:
 ## Authorization matrix tests
 
 Generated from the tables in [12](12-AUTHORIZATION.md): for each (principal ∈ anonymous,
-signed-in, viewer, editor, owner, legacy token) × (visibility) × (action), assert the HTTP
+signed-in, viewer, editor, owner; the legacy token until 9.6) × (visibility) × (action), assert the HTTP
 outcome. Since task 1.5 this lives in `apps/sharing/tests/test_v2_members.py`
 (`test_list_permission_matrix`), with the expected statuses written out rather than derived
 from the policy. **Leak tests:** compare responses for a nonexistent and a private code (identical
@@ -169,8 +169,9 @@ the phone projects run the journeys marked ★.
    icon without a reload, Details, refresh limit, edit suggestion, an unfetchable page).
    *Postponed with synchronization:* modify the parent → see "updates" →
    review, resolve a conflict → apply → verify the child.
-2. ★ Legacy owner: seed a legacy list (through `POST /api/v1/lists/`, which the e2e stack
-   keeps open with `LEGACY_LIST_CREATION=on`; production answers 410) → open the edit link → sign in → add to account → token gone
+2. ★ Legacy owner (until v2.1.0): seed a legacy list → open the edit link → sign in → add to
+   account → token gone (`claim.spec.ts`). Since task 9.6 an old edit link opens the list
+   read-only without keeping its secret (`ownership.spec.ts`)
    from storage → V1 short URL still redirects.
 3. ★ Group workspace on a phone: open the drawer, switch lists, focus lands on the `<h1>`, Escape
    closes (`e2e/tests/groups.spec.ts`, since task 4.3, which also covers building a group,
@@ -224,23 +225,56 @@ link to the decision.
 | `/r/` 302 to the current destination; `no-store`, `no-referrer`; 404 unknown; 410 expired, inactive or blocked; trailing slash tolerated | **Keep**. Add: private → 404, tombstoned → 404, revived → 302 |
 | The short code survives destination edits (`test_links.py`) | **Keep** (K1) |
 | Deleting a link removes its row and short code (`test_links.py::test_owner_can_remove_link`, `test_shortener.py::test_deleted_link_stops_redirecting`) | **Replaced** in task 2.1 ([ADR-013](adr/ADR-013-soft-delete-links-only.md)): the link becomes a tombstone, disappears from both APIs, and its short URL still answers 404; the row and short code are kept for history and restore |
-| Anonymous reads never expose secrets; token only on create or rotate (`test_lists.py`, `test_security.py`) | **Keep** for v1 and v2 representations |
-| Owner token checks, rotation, the token rotated mid-request → 403, a token from another list rejected | **Keep** for legacy lists. Claimed lists → 403 (new test) |
-| Mass assignment blocked; immutable fields | **Keep** (v1 + v2 serializers) |
+| Anonymous reads never expose secrets; token only on create or rotate (`test_lists.py`, `test_security.py`) | **Keep** for v2 representations; **replaced** in 9.6: no token exists, and no response carries the owner's address |
+| Owner token checks, rotation, the token rotated mid-request → 403, a token from another list rejected | Kept for legacy lists until v2.1.0; **replaced** in 9.6 by their account equivalents (only the owner may write, owning one list grants nothing on another, a removed editor's write is refused under the lock) and acceptance tests that bearer tokens grant nothing |
+| Mass assignment blocked; immutable fields | **Keep** (v2 serializers since 9.6) |
 | Normalization, IDNA, denylist, own-host block, byte limit (`test_domain.py`, `test_security.py`) | **Keep** |
 | Throttles exact under concurrency; spoofed `X-Forwarded-For` ignored; the cache isn't culled | **Keep**. Add the new scopes |
 | Expiry: 410 at the exact instant, edits don't extend, cleanup purges and is idempotent, overlapping runs skipped (`test_expiration.py`) | **Keep** for lists with `expires_at`. Add: permanent lists never expire; branches of purged parents get `parent_deleted_at` |
 | Link cap 100 including the concurrent race | **Keep** |
-| `/l/{code}` on Django → 302 to the API | **Keep** |
+| `/l/{code}` on Django → 302 to the API | **Keep** (the v2 representation since 9.6) |
 | `/healthz` behaviour; deploy checks pass | **Keep**. Deploy checks without the W003 silence |
-| OpenAPI marks only owner operations as authenticated | **Adapt**: v1 unchanged; a new v2 assertion with the session and bearer schemes |
-| `POST /api/v1/lists/` creates a list anonymously | **Replaced** (ADR-011): v1 create → 410, plus v2 create tests for signed-in users |
-| `GET /api/v1/…/links/` newest first, paginated | **Keep** for the v1 endpoint (compatibility). v2 orders by `position` |
-| Full workflow (`tests/integration/test_workflow.py`) | **Keep** on a legacy list (seeded through the ORM). Add a V2 workflow test |
-| Frontend: `api.test.ts`, `useOwnedLists`, `useEditLink`, backup, url and time utils, `LinkForm` | **Keep**. `api.test.ts` adapts to the split client. Backup and edit-link tests stay until the legacy sunset |
-| E2E: `create.spec` (anonymous create) | **Replaced** by signed-in create (task 1.4), plus `claim.spec` for the legacy journey (scenario 2) |
-| E2E: `ownership`, `share`, `links`, `navigation`, `keyboard`, `states`, `a11y`, `limits`, `content`, `lists-page`, `smoke` | **Keep** or adapt selectors to tiles and the new nav. `ownership` runs on seeded legacy lists. Since 1.4, `keyboard` and the creation case in `states` sign in first, and `states` mocks `/api/v2/` |
+| OpenAPI marks only owner operations as authenticated | **Replaced** in 9.6: the schema declares only the session scheme and no `/api/v1/` path |
+| `POST /api/v1/lists/` creates a list anonymously | **Replaced** (ADR-011): v1 create → 410, plus v2 create tests for signed-in users; since 9.6 every `/api/v1/` path → 404 |
+| `GET /api/v1/…/links/` newest first, paginated | Kept until v2.1.0; **replaced** in 9.6: v2's links paginate the same way in their stored order |
+| Full workflow (`tests/integration/test_workflow.py`) | **Keep**, run as an account on `/api/v2/` since 9.6 |
+| Frontend: `api.test.ts`, `useOwnedLists`, `useEditLink`, backup, url and time utils, `LinkForm` | **Keep**. `api.test.ts` adapts to the split client. The `useOwnedLists`, `useEditLink` and backup tests went with their modules in 9.6; `client.test.ts` asserts no `Authorization` header is ever sent |
+| E2E: `create.spec` (anonymous create) | **Replaced** by signed-in create (task 1.4), plus `claim.spec` for the legacy journey (scenario 2) until 9.6, which removed it |
+| E2E: `ownership`, `share`, `links`, `navigation`, `keyboard`, `states`, `a11y`, `limits`, `content`, `lists-page`, `smoke` | **Keep** or adapt selectors to tiles and the new nav. `ownership` ran on seeded legacy lists until 9.6; the `api` fixture now seeds an owner account's unlisted lists, and `openAsOwner` signs in as it. Since 1.4, `keyboard` and the creation case in `states` sign in first, and `states` mocks `/api/v2/` |
 | Manual QA checklist | **Extend** ([11](11-UI-UX-MIGRATION.md#accessibility-wcag-22-aa)) |
+
+### The legacy sunset (task 9.6)
+
+V1's lists, managed by an owner token, were retired in v2.1.0. V1 was never deployed (D32 in
+[20](20-DECISIONS-AND-OPEN-QUESTIONS.md)). Why the tests changed, and how, per CLAUDE.md:
+
+- **V1's backend tests** (`test_lists.py`, `test_links.py`, `test_security.py`,
+  `test_expiration.py`, `test_shortener.py`, `tests/integration/test_workflow.py`) run against
+  `/api/v2/` with an account-owned unlisted list (`conftest.owned_list`). The rules they
+  protect are V2's rules too: identity the client can't choose, title and URL limits,
+  normalization and duplicates, the 100-link cap under concurrency, the short code kept, links
+  only through their own list, expiry, cleanup and rate limits.
+- **Tests of the token itself** were replaced by acceptance tests in `test_lists.py`:
+  - every `/api/v1/` path, `claim` and `rotate-token` answer 404;
+  - a bearer token grants nothing;
+  - every list has an owner account.
+
+  Others were replaced by their account equivalents in `test_security.py`: only the owner
+  may write, owning one list grants nothing on another, and a removed editor's write is
+  refused under the lock.
+- **The edit-link tests in the V2 files** went (the claim flow, a token's rights, legacy
+  lists in groups, forks, history, uploads, reports and reordering): what they protected no
+  longer exists. Their non-token parts were kept, such as expired lists in groups and forks,
+  unknown codes in moderation, and private lists hidden from anonymous readers.
+- **The migration** is tested in `test_migration_legacy_sunset.py`: expired ownerless lists
+  are deleted, a live one stops it, and `RETIRE_LEGACY_LISTS=delete` deletes it. The older
+  migration replays end with that opt-in.
+- **E2E:**
+  - `claim.spec.ts` went;
+  - `lists-page.spec.ts` tests the new My lists;
+  - `ownership.spec.ts` checks that an old edit link opens the list without keeping its
+    secret, and that the owner signs in on any device;
+  - `a11y.spec.ts` lost the edit-link dialog and the broken-link page.
 
 ## Acceptance test matrix (summary)
 

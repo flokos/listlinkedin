@@ -71,29 +71,23 @@ def discovery_constraints_and_indexes(prefix: str):
 _LIST_DISCOVERY = discovery_constraints_and_indexes("sharing_list")
 
 # Lists whose owner is deleting their account are hidden from everyone: they read as unknown,
-# can't be changed, and their short URLs answer 404 (docs/v2/adr/ADR-016). Legacy lists have
-# no owner.
-OWNER_ACTIVE = Q(owner__isnull=True) | Q(owner__deleted_at__isnull=True)
+# can't be changed, and their short URLs answer 404 (docs/v2/adr/ADR-016).
+OWNER_ACTIVE = Q(owner__deleted_at__isnull=True)
 
 
 class SharedList(models.Model):
-    """A List (docs/v2/04-DOMAIN-MODEL.md). Its id and public code never change.
-
-    An account owns it (`owner`), or, for a list created before accounts existed, the
-    holder of its owner token manages it until it is claimed or expires: a legacy list.
+    """A List (docs/v2/04-DOMAIN-MODEL.md), owned by one account. Its id and public code
+    never change. (Lists from before accounts, managed by an owner token, were retired in
+    v2.1.0: docs/v2/06-MIGRATION-PLAN.md#after-launch-contracting-the-legacy-path.)
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     public_code = models.CharField(max_length=SHORT_CODE_LENGTH, editable=False)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
         on_delete=models.PROTECT,  # account deletion removes owned lists explicitly first
         related_name="owned_lists",
     )
-    # SHA-256 hex digest of a legacy list's owner token; NULL for account-owned lists.
-    owner_token_hash = models.CharField(max_length=64, null=True, blank=True, editable=False)  # noqa: DJ001
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     # A media path (apps.metadata.images), relative to MEDIA_ROOT. NULL: no image.
@@ -127,17 +121,6 @@ class SharedList(models.Model):
                 condition=Q(visibility__in=[v.value for v in Visibility]),
                 name="sharing_list_visibility_valid",
             ),
-            # L2: every list has a manager, an owner account or an owner token.
-            models.CheckConstraint(
-                condition=Q(owner__isnull=False) | Q(owner_token_hash__isnull=False),
-                name="sharing_list_has_manager",
-            ),
-            # L3: a legacy list stays unlisted and expiring until it is claimed.
-            models.CheckConstraint(
-                condition=Q(owner__isnull=False)
-                | Q(visibility=Visibility.UNLISTED.value, expires_at__isnull=False),
-                name="sharing_list_legacy_unlisted_expiring",
-            ),
             models.CheckConstraint(
                 condition=Q(head_revision__gte=0), name="sharing_list_head_revision_valid"
             ),
@@ -151,10 +134,6 @@ class SharedList(models.Model):
     @property
     def is_expired(self) -> bool:
         return self.expires_at is not None and timezone.now() >= self.expires_at
-
-    @property
-    def is_legacy(self) -> bool:
-        return self.owner_id is None
 
 
 class SharedLink(models.Model):

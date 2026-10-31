@@ -11,6 +11,9 @@ runbook's own commands, in one isolated compose project, and checks the result:
 - V2 migrates and starts, and the page ends;
 - the rollback puts the dump and V1's images back in place. This page records what it measured and found.
 
+The script rehearses `v1.0.0` → `v2.0.0`: since task 9.6, `v2.1.0` and later have no legacy
+path, so a V1 install moves through `v2.0.x` first ([deployment](../deployment.md#upgrades)).
+
 **V1 was never deployed** (D32 in [20](20-DECISIONS-AND-OPEN-QUESTIONS.md)), so V2's release is
 on GitHub and its first deployment is a fresh install. This rehearsal remains the record that
 the V1 → V2 migrations, the legacy path and the rollback work. It also found the nginx and

@@ -33,7 +33,7 @@ class ListRevision(models.Model):
     # Counts of what changed since the previous revision (apps.versioning.domain.diff).
     summary = models.JSONField(default=dict)
     restored_from = models.PositiveIntegerField(null=True, blank=True)
-    # NULL for edit-link (legacy token) writes, migrations, and deleted accounts.
+    # NULL for migrations, and for edit-link writes made before v2.1.0 retired edit links.
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

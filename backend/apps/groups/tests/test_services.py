@@ -19,7 +19,7 @@ from apps.sharing.policy import Role, Visibility
 from apps.sharing.selectors import get_list_for
 from apps.sharing.services import lists as list_services
 
-from .conftest import as_, make_legacy_list, make_list, make_user, share
+from .conftest import as_, make_list, make_user, share
 
 
 def codes(principal, group) -> list[str]:
@@ -152,10 +152,8 @@ def test_a_refusal_on_the_group_comes_before_one_on_the_list(alice, bob):
             services.add_list(as_(bob), group.pk, make_list(alice).public_code)
 
 
-def test_legacy_lists_and_expired_lists_cannot_be_added(alice):
+def test_expired_lists_cannot_be_added(alice):
     group = services.create_group(as_(alice), title="Tools")
-    with pytest.raises(errors.Forbidden):  # nobody has a role on an unclaimed list
-        services.add_list(as_(alice), group.pk, make_legacy_list().public_code)
     expired = make_list(alice, expires_at=timezone.now() - timedelta(seconds=1))
     with pytest.raises(errors.Expired):
         services.add_list(as_(alice), group.pk, expired.public_code)

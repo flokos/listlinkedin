@@ -1,5 +1,5 @@
 // People a list or group is shared with: /api/v2/{lists,groups}/{code}/members/
-// (docs/v2/09-API-DESIGN.md#lists). Session only: legacy (edit-link) lists have no members.
+// (docs/v2/09-API-DESIGN.md#lists). Session only.
 import { request } from './client'
 import type { Page } from './lists'
 

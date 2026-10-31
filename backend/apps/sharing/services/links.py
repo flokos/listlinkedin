@@ -13,10 +13,10 @@ changes (K1). V2 adds a stored order and tombstones:
 - A link never changes list (K4): "move to another list" copies it there and tombstones it
   here, in one transaction.
 
-The `*_on` functions work on a list the caller has already locked and authorized; both the
-v2 path below (policy, `Principal`) and the V1 owner-token path (`legacy`) call them. Their
-callers record the revision (apps.versioning) after them, under the same lock, and check the
-optional If-Match precondition (`expected_head`) before them.
+The `*_on` functions work on a list the caller has already locked and authorized (the
+policy path below, and copies between lists). Their callers record the revision
+(apps.versioning) after them, under the same lock, and check the optional If-Match
+precondition (`expected_head`) before them.
 """
 
 from uuid import UUID
@@ -40,7 +40,7 @@ from .lists import _lock, check_head, denied
 DUPLICATE_URL = "This URL is already in the list."
 
 
-# v2: authorized by the policy (editors, owners, or a legacy list's owner token).
+# Authorized by the policy: editors and owners.
 
 
 def _lock_for_edit(

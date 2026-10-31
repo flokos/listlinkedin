@@ -3,7 +3,6 @@ import {
   mdiAlertCircleOutline,
   mdiArrowLeft,
   mdiCalendarRemoveOutline,
-  mdiKeyOutline,
   mdiLinkOff,
   mdiLinkVariantPlus,
   mdiMagnify,
@@ -23,10 +22,8 @@ import {
   type Visibility,
 } from '../api'
 import AddLinkCard from '../components/AddLinkCard.vue'
-import ClaimTokenDialog from '../components/ClaimTokenDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import CopyListDialog from '../components/CopyListDialog.vue'
-import EditLinkReveal from '../components/EditLinkReveal.vue'
 import LinkCollection from '../components/LinkCollection.vue'
 import LinkDetailsDialog from '../components/LinkDetailsDialog.vue'
 import LinkEditDialog from '../components/LinkEditDialog.vue'
@@ -41,10 +38,8 @@ import StatePanel from '../components/StatePanel.vue'
 import { useListPage } from '../composables/useListPage'
 import { useNotify } from '../composables/useNotify'
 import { useQueryDialog } from '../composables/useQueryDialog'
-import { usePendingReveal } from '../composables/usePendingReveal'
 import { useSession } from '../composables/useSession'
 import { useViewPreference } from '../composables/useViewPreference'
-import { formatDate } from '../utils/time'
 
 const props = defineProps<{
   code: string
@@ -62,7 +57,7 @@ const route = useRoute()
 const router = useRouter()
 const notify = useNotify()
 const page = useListPage(toRef(props, 'code'))
-const { list, links, status, isOwner, ownerRevoked, token } = page
+const { list, links, status, isOwner } = page
 const session = useSession()
 const { view } = useViewPreference()
 
@@ -169,38 +164,10 @@ function openCopy(copy: ListDetail) {
   router.replace({ name: 'list', params: { code: copy.code, slug: copy.slug } })
 }
 
-// Edit link reveal: right after creation (handed over by Home), after rotation, or on demand.
-const reveal = ref<{ open: boolean; mode: 'created' | 'rotated' | 'view' }>({
-  open: false,
-  mode: 'view',
-})
-const pending = usePendingReveal()
-watch(
-  list,
-  (value) => {
-    if (value && pending.isPending(props.code)) reveal.value = { open: true, mode: 'created' }
-  },
-  { immediate: true },
-)
-// The created-list step counts as done once the user closes it (only possible after
-// confirming they saved the link).
-watch(
-  () => reveal.value.open,
-  (open) => {
-    if (!open && reveal.value.mode === 'created') pending.clear()
-  },
-)
-
 async function rename(title: string) {
-  try {
-    await page.rename(title)
-    notify.success('List renamed')
-    return true
-  } catch (error) {
-    // Lost edit access: the banner explains it, so close the editor instead.
-    if (ownerRevoked.value) return false
-    throw error
-  }
+  await page.rename(title)
+  notify.success('List renamed')
+  return true
 }
 
 // Link details, editing and deletion. Dialogs follow the link by id, so they show its latest
@@ -248,19 +215,8 @@ async function confirmDeleteLink() {
 }
 
 // Owner actions in the menu.
-const rotateOpen = ref(false)
 const deleteListOpen = ref(false)
-const claimOpen = ref(false)
 
-async function confirmRotate() {
-  try {
-    await page.rotate()
-    reveal.value = { open: true, mode: 'rotated' }
-  } catch (error) {
-    notify.error(errorMessage(error))
-    throw error
-  }
-}
 async function confirmDeleteList() {
   try {
     await page.removeList()
@@ -272,26 +228,6 @@ async function confirmDeleteList() {
     throw error
   }
 }
-// Adding a legacy list to the account. Its expiry stays unless the owner chooses otherwise.
-const permanentOpen = ref(false)
-async function claimHere() {
-  if (!session.isSignedIn.value) {
-    router.push({ name: 'signin', query: { next: route.fullPath } })
-    return
-  }
-  try {
-    await page.claim()
-    notify.success('Added to your account. Its edit link no longer works.')
-    if (list.value?.expires_at) permanentOpen.value = true
-  } catch (error) {
-    notify.error(errorMessage(error))
-  }
-}
-async function keepPermanently() {
-  await page.change({ expires_at: null })
-  notify.success('This list no longer expires')
-}
-
 async function setAllowFork(allow: boolean) {
   try {
     await page.change({ allow_fork: allow })
@@ -327,11 +263,6 @@ async function confirmLeave() {
     notify.error(errorMessage(error))
     throw error
   }
-}
-
-function forgetHere() {
-  page.forget()
-  notify.info('This browser no longer has edit access to the list')
 }
 </script>
 
@@ -414,35 +345,15 @@ function forgetHere() {
         :list="list"
         :link-count="links.length"
         :can-edit="isOwner"
-        :has-token="Boolean(token)"
         :can="page.can"
         :sign-in-to-copy="signInToCopy"
         :rename="rename"
         @share="shareOpen = true"
-        @claim="claimHere"
-        @show-edit-link="reveal = { open: true, mode: 'view' }"
-        @rotate="rotateOpen = true"
-        @forget="forgetHere"
         @leave="leaveOpen = true"
         @delete="deleteListOpen = true"
         @copy="startCopy"
         @report="reportOpen = true"
       />
-
-      <v-alert
-        v-if="ownerRevoked"
-        type="warning"
-        class="mb-6"
-        title="Your edit link was replaced"
-        text="This browser's edit link no longer works, probably because a new one was created. Paste the new edit link to keep editing."
-      >
-        <template #append>
-          <div class="d-flex flex-column flex-sm-row ga-2">
-            <v-btn variant="flat" color="warning" @click="claimOpen = true">Paste edit link</v-btn>
-            <v-btn variant="text" @click="forgetHere">Forget</v-btn>
-          </div>
-        </template>
-      </v-alert>
 
       <!-- Editors: add a link -->
       <AddLinkCard v-if="isOwner" :count="links.length" :submit="addLink" />
@@ -491,21 +402,9 @@ function forgetHere() {
           :icon="mdiLinkVariantPlus"
           title="Nothing here yet"
           text="The creator of this list hasn't added any links. Check back soon."
-        >
-          <template v-if="list.legacy" #actions>
-            <v-btn variant="text" :prepend-icon="mdiKeyOutline" @click="claimOpen = true"
-              >I have the edit link</v-btn
-            >
-          </template>
-        </StatePanel>
+        />
       </section>
       <LiveRegion :message="announcement" />
-
-      <p v-if="list.legacy && !isOwner && links.length && !ownerRevoked" class="text-center mt-10">
-        <v-btn variant="text" size="small" :prepend-icon="mdiKeyOutline" @click="claimOpen = true">
-          Created this list? Open it with your edit link
-        </v-btn>
-      </p>
 
       <!-- Dialogs -->
       <ShareDialog
@@ -513,7 +412,7 @@ function forgetHere() {
         :title="list.title"
         :url="list.url"
         :visibility="list.visibility"
-        :allow-fork="list.legacy ? undefined : list.allow_fork"
+        :allow-fork="list.allow_fork"
         :can-change="page.can('settings')"
         :email-verified="Boolean(session.user.value?.email_verified)"
         :people="
@@ -538,19 +437,10 @@ function forgetHere() {
         :send="sendReport"
         @sent="notify.success('Thanks. We\'ve received your report.')"
       />
-      <EditLinkReveal
-        v-if="token"
-        v-model="reveal.open"
-        :mode="reveal.mode"
-        :code="code"
-        :token="token"
-        :title="list.title"
-        :public-url="list.url"
-      />
       <LinkDetailsDialog
         v-model="detailsOpen"
         :link="byId(detailsId)"
-        :refresh="isOwner && !list.legacy ? () => page.refreshMetadata(detailsId!) : undefined"
+        :refresh="isOwner ? () => page.refreshMetadata(detailsId!) : undefined"
       />
       <MovePositionDialog
         v-model="positionOpen"
@@ -580,28 +470,12 @@ function forgetHere() {
         :on-confirm="confirmDeleteLink"
       />
       <ConfirmDialog
-        v-model="rotateOpen"
-        title="Replace the edit link?"
-        text="You'll get a new edit link. The current one, including copies you've saved or shared, will stop working immediately."
-        action="Replace edit link"
-        :on-confirm="confirmRotate"
-      />
-      <ConfirmDialog
         v-model="deleteListOpen"
         title="Delete this list?"
         text="The list, all its links and their short links will be removed for everyone. This can't be undone."
         action="Delete list"
         :confirm-text="list.title"
         :on-confirm="confirmDeleteList"
-      />
-      <ConfirmDialog
-        v-model="permanentOpen"
-        title="Keep this list permanently?"
-        :text="`It's set to expire on ${list.expires_at ? formatDate(list.expires_at) : ''}. You can remove that date now, or keep it.`"
-        action="Keep permanently"
-        cancel-label="Keep the date"
-        tone="neutral"
-        :on-confirm="keepPermanently"
       />
       <ConfirmDialog
         v-model="leaveOpen"
@@ -614,7 +488,6 @@ function forgetHere() {
         action="Leave list"
         :on-confirm="confirmLeave"
       />
-      <ClaimTokenDialog v-model="claimOpen" :code="code" @claimed="page.load()" />
     </template>
   </div>
 </template>

@@ -1,60 +1,27 @@
-import { readFile } from 'node:fs/promises'
+// My lists (/lists): the lists in your account, owned or shared with you. (Until v2.1.0 it
+// also held lists saved on this device with an edit link, and their backup file.)
+import { apiAs, createAccountList, expect, signUpThroughApi, test, uniqueEmail } from './fixtures'
 
-import { expect, openAsOwner, otherDevice, test } from './fixtures'
-
-test('My lists shows live status, and a backup restores access on another device', async ({
-  page,
-  browser,
-  baseURL,
-  api,
-}) => {
-  const keep = await api.createList('Backup keeper')
-  const gone = await api.createList('Backup goner')
-  await openAsOwner(page, keep)
-  await openAsOwner(page, gone)
-
+test('signed out, My lists asks you to sign in', async ({ page }) => {
   await page.goto('/lists')
-  const main = page.locator('main')
-  await expect(main.getByRole('link', { name: 'Backup keeper' })).toBeVisible()
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Download backup' }).click(),
-  ])
-  expect(download.suggestedFilename()).toMatch(/^listlinkedin-saved-lists-\d{4}-\d{2}-\d{2}\.json$/)
-  const file = (await download.path())!
-  const backup = JSON.parse(await readFile(file, 'utf8'))
-  expect(backup.lists).toHaveLength(2)
-
-  // A list deleted elsewhere is marked as such, with a way to remove it.
-  await api.deleteList(gone)
-  await page.reload()
-  await expect(main.getByText('Deleted', { exact: true })).toBeVisible()
-
-  // A fresh device restores the backup.
-  const phone = await otherDevice(browser, baseURL)
-  await phone.page.goto('/lists')
-  await expect(phone.page.getByText('No lists on this device yet')).toBeVisible()
-  await phone.page.locator('input[type=file]').setInputFiles(file)
-  const summary = phone.page.getByRole('status').filter({ hasText: '1 list no longer exists.' })
-  await expect(summary).toContainText('Restored 1 list')
-  await expect(phone.page.locator('main').getByRole('link', { name: 'Backup keeper' })).toBeVisible()
-
-  // Restoring again adds nothing.
-  await phone.page.locator('input[type=file]').setInputFiles(file)
-  await expect(phone.page.getByText('Nothing new to restore')).toBeVisible()
-  await expect(phone.page.getByText('1 list is already saved here.')).toBeVisible()
-
-  await phone.page.goto(`/l/${keep.public_code}`)
-  await expect(phone.page.getByText('Your list', { exact: true })).toBeVisible()
-  await phone.context.close()
+  await expect(page.getByRole('heading', { level: 1, name: 'My lists' })).toBeVisible()
+  await expect(page.getByText('Sign in to see your lists')).toBeVisible()
+  await expect(page.getByRole('main').getByRole('link', { name: 'Sign in' })).toBeVisible()
 })
 
-test('a file without edit links is rejected clearly', async ({ page }) => {
+test('My lists shows your lists with their role, visibility and size', async ({ page }) => {
+  await signUpThroughApi(page, uniqueEmail('mylists'))
   await page.goto('/lists')
-  await page.locator('input[type=file]').setInputFiles({
-    name: 'notes.txt',
-    mimeType: 'text/plain',
-    buffer: Buffer.from('just some notes'),
-  })
-  await expect(page.getByText('No lists found in that file')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'No lists yet' })).toBeVisible()
+
+  const list = await createAccountList(page, 'Reading list')
+  await apiAs(page, 'POST', `/api/v2/lists/${list.code}/links/`, { destination_url: 'https://example.com/' })
+  await page.goto('/lists')
+  const yours = page.getByRole('region', { name: 'Your lists' })
+  await expect(yours.getByRole('link', { name: 'Reading list' })).toBeVisible()
+  await expect(yours.getByText('Owner')).toBeVisible()
+  await expect(yours.getByText('Only people you add')).toBeVisible()
+  await expect(yours.getByText('1 link')).toBeVisible()
+  await yours.getByRole('link', { name: 'Reading list' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Reading list' })).toBeVisible()
 })

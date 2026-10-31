@@ -17,7 +17,7 @@ class Command(BaseCommand):
     def handle(self, *args, host: str, **options):
         found = moderation.find_links(host)
         for row in found:
-            owner = f"user {row['owner']}" if row["owner"] else "edit link"
+            owner = f"user {row['owner']}"
             self.stdout.write(
                 f"{row['list']}  {row['visibility']:<8}  {owner}  “{row['title']}”  {row['url']}"
             )

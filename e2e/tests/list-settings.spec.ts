@@ -1,7 +1,7 @@
 // A list's settings page (roadmap 8.3): each section shows only to whoever may change it, the
 // description is versioned and refused when someone else changed the list meanwhile, and the
 // header shows what was saved.
-import { apiAs, createAccountList, expect, openAsOwner, otherDevice, signUpThroughApi, test, uniqueEmail } from './fixtures'
+import { apiAs, createAccountList, expect, otherDevice, signUpThroughApi, test, uniqueEmail } from './fixtures'
 
 // A 1×1 PNG: the server re-encodes whatever it gets.
 const PNG = Buffer.from(
@@ -62,12 +62,7 @@ test('a description changed elsewhere meanwhile is refused, then shown', async (
   await expect(field).toHaveValue('From the other tab')
 })
 
-test("visitors can't change anything, and an edit link gets only what it may change", async ({
-  page,
-  browser,
-  baseURL,
-  api,
-}) => {
+test("visitors can't change anything", async ({ page, browser, baseURL }) => {
   await signUpThroughApi(page, uniqueEmail('settings-owner'))
   const { code } = await createAccountList(page, 'Open list')
   await apiAs(page, 'PATCH', `/api/v2/lists/${code}/`, { visibility: 'unlisted' }, 200)
@@ -80,11 +75,5 @@ test("visitors can't change anything, and an edit link gets only what it may cha
   await visitor.page.keyboard.press('Escape')
   await visitor.page.goto(`/l/${code}/settings`)
   await expect(visitor.page.getByRole('heading', { name: "You can't change this list's settings" })).toBeVisible()
-
-  // A list from before accounts, managed by its edit link: name, description and delete.
-  const legacy = await api.createList('Old list')
-  await openAsOwner(visitor.page, legacy)
-  await visitor.page.goto(`/l/${legacy.public_code}/settings`)
-  await expect(visitor.page.getByRole('heading', { level: 2 })).toHaveText(['Name and description', 'Delete this list'])
   await visitor.context.close()
 })

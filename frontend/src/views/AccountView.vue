@@ -235,8 +235,7 @@ async function signOut() {
       <h2 id="delete-heading" class="text-title-large mb-1">Delete account</h2>
       <p class="text-body-medium text-medium-emphasis mb-4">
         Deletes your account and the lists you own, for everyone. You can restore it by signing in
-        within 30 days; after that it is erased. Lists only saved on this device with an edit link
-        aren't affected.
+        within 30 days; after that it is erased.
       </p>
       <v-btn
         variant="tonal"

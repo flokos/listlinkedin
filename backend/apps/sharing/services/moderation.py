@@ -45,12 +45,12 @@ REASON_LABELS = {
 
 
 def report_list(principal: Principal, code: str, *, reason: Reason, details: str = "") -> None:
-    """Tell the operator about a list. Anyone who can view it may, except its owner (and
-    the holder of a legacy list's edit link). 404 if not viewable, 410 if expired."""
+    """Tell the operator about a list. Anyone who can view it may, except its owner. 404 if
+    not viewable, 410 if expired."""
     shared_list, access = selectors.get_list_for(principal, code)
     if not can(access.actor, Action.REPORT, access.facts):
         raise errors.Forbidden("You can't report your own list.")
-    owner = f"user {shared_list.owner_id}" if shared_list.owner_id else "an edit link (no account)"
+    owner = f"user {shared_list.owner_id}"
     notify_operator(
         kind="list",
         title=shared_list.title,
@@ -130,13 +130,8 @@ def notify_operator(
 @transaction.atomic
 def unpublish_list(code: str, *, reason: str) -> SharedList:
     """Make a list private: only its owner and the people on it can still open it, and its
-    short URLs answer 404 to everyone else. A legacy list must stay unlisted (CHECK L3), so
-    it can only be deleted."""
+    short URLs answer 404 to everyone else."""
     locked = _lock_by_code(code)
-    if locked.is_legacy:
-        raise errors.Conflict(
-            "This list has no account owner, so it can't be private. Delete it instead."
-        )
     if locked.visibility != Visibility.PRIVATE.value:
         locked.visibility = Visibility.PRIVATE.value
         locked.save(update_fields=["visibility", "updated_at"])

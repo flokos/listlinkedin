@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 
 from allauth.account.utils import has_verified_email
@@ -22,19 +22,15 @@ from rest_framework.exceptions import NotFound
 from apps.common import errors
 from apps.shortener.models import ShortRedirect
 
-from .exceptions import Gone
 from .models import OWNER_ACTIVE, ListMembership, SharedLink, SharedList
 from .policy import Action, Actor, ListFacts, Role, Visibility, can, can_view
-from .tokens import verify_owner_token
 
 
 @dataclass
 class Principal:
-    """Who is making a request, before any list is involved: the signed-in user (if any) and
-    the bearer token presented (if any, not yet verified against anything)."""
+    """Who is making a request, before any list is involved: the signed-in user, if any."""
 
     user: object | None = None
-    token: str | None = field(default=None, repr=False)
 
     @cached_property
     def email_verified(self) -> bool:
@@ -45,14 +41,9 @@ ANONYMOUS = Principal()
 
 
 def actor_for(principal: Principal, shared_list: SharedList, *, with_email: bool = False) -> Actor:
-    """The policy's view of `principal` on this list. The token counts only if it is this
-    list's own (constant-time check), so it can never reach another list (A3)."""
-    holds_token = principal.token is not None and verify_owner_token(
-        principal.token, shared_list.owner_token_hash
-    )
+    """The policy's view of `principal` on this list."""
     return Actor(
         user_id=principal.user.pk if principal.user is not None else None,
-        legacy_list_id=shared_list.pk if holds_token else None,
         email_verified=principal.email_verified if with_email else False,
     )
 
@@ -196,43 +187,14 @@ def members_of(shared_list: SharedList, access: Access) -> QuerySet[ListMembersh
     )
 
 
-# V1 (/api/v1/) reads.
-
-
-def get_active_list(public_code: str) -> SharedList:
-    """Return a non-expired list for the V1 API. Unknown codes raise 404, expired ones 410.
-
-    V1 has no sign-in, so it sees only lists anyone with the URL may see: private lists
-    answer 404 exactly like unknown ones.
-    """
-    shared_list = SharedList.objects.filter(OWNER_ACTIVE, public_code=public_code).first()
-    if shared_list is None or not can_view(Actor(), _anonymous_facts(shared_list)):
-        raise NotFound()
-    if shared_list.is_expired:
-        raise Gone()
-    return shared_list
-
-
-def _anonymous_facts(shared_list: SharedList) -> ListFacts:
-    return ListFacts(
-        id=shared_list.pk,
-        owner_id=shared_list.owner_id,
-        visibility=Visibility(shared_list.visibility),
-    )
-
-
-def links_with_short_codes(
-    shared_list: SharedList, *, newest_first: bool = False
-) -> QuerySet[SharedLink]:
+def links_with_short_codes(shared_list: SharedList) -> QuerySet[SharedLink]:
     """Live links of a list in their stored order, each annotated with its active
-    `short_code`. Deleted links (tombstones) never appear. `newest_first` is the V1 API's
-    order, kept as its contract."""
+    `short_code`. Deleted links (tombstones) never appear."""
     active_code = ShortRedirect.objects.filter(link=OuterRef("pk"), is_active=True).values("code")
-    order = ("-created_at", "-id") if newest_first else ("position",)
     return (
         SharedLink.objects.filter(shared_list=shared_list, deleted_at__isnull=True)
         .annotate(short_code=Subquery(active_code[:1]))
-        .order_by(*order)
+        .order_by("position")
     )
 
 

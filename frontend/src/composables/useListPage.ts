@@ -9,7 +9,6 @@ import {
   type SharedLink,
   type WriteOptions,
 } from '../api'
-import { useOwnedLists } from './useOwnedLists'
 import { onUserChange, useSession } from './useSession'
 
 export type ListStatus = 'loading' | 'ready' | 'not-found' | 'expired' | 'error'
@@ -21,25 +20,18 @@ onUserChange(() => cache.clear())
 
 /**
  * Everything the list page needs: loading, what this user may do, and every editing action.
- * The server decides permissions (`list.permissions`). A legacy list's edit-link token, if
- * this browser has one, is sent along; account lists use the session. Actions throw
+ * The server decides permissions (`list.permissions`) from the session. Actions throw
  * ApiError/NetworkError so the calling form can show field errors.
  */
 export function useListPage(code: Ref<string>) {
-  const owned = useOwnedLists()
   const session = useSession()
 
   const list = shallowRef<ListDetail>()
   const links = ref<SharedLink[]>([])
   const status = ref<ListStatus>('loading')
   const loadError = ref<unknown>()
-  /** This browser's edit link no longer works (replaced elsewhere, or the list was claimed). */
-  const ownerRevoked = ref(false)
-
-  const token = computed(() => owned.tokenFor(code.value))
   const can = (permission: string) => Boolean(list.value?.permissions.includes(permission))
   const isOwner = computed(() => can('edit'))
-  watch(token, () => (ownerRevoked.value = false))
 
   let controller: AbortController | undefined
 
@@ -57,8 +49,8 @@ export function useListPage(code: Ref<string>) {
     }
     try {
       const [listData, page] = await Promise.all([
-        api.getListDetail(code.value, token.value, signal),
-        api.listLinks(code.value, token.value, signal),
+        api.getListDetail(code.value, signal),
+        api.listLinks(code.value, signal),
       ])
       list.value = listData
       links.value = page.results
@@ -66,7 +58,6 @@ export function useListPage(code: Ref<string>) {
       loadError.value = undefined
       remember()
       startPolling()
-      if (token.value) reconcileToken(listData)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       cache.delete(code.value)
@@ -77,17 +68,6 @@ export function useListPage(code: Ref<string>) {
           : error instanceof ApiError && error.status === 410
             ? 'expired'
             : 'error'
-    }
-  }
-
-  /** Keeps the device's saved edit link in step with what the server says about it. */
-  function reconcileToken(listData: ListDetail) {
-    if (!listData.legacy && listData.my_role === 'owner') {
-      owned.forget(code.value) // added to this account: the edit link is retired
-    } else if (!listData.permissions.includes('edit')) {
-      ownerRevoked.value = true
-    } else {
-      owned.update(code.value, { title: listData.title, expiresAt: listData.expires_at ?? '' })
     }
   }
 
@@ -110,14 +90,11 @@ export function useListPage(code: Ref<string>) {
    */
   const based = (): WriteOptions => ({ ifMatch: list.value?.head_revision, onEtag: noteEtag })
 
-  /** Runs an editing action; a 401/403 with a saved edit link means it no longer works. */
-  async function act<T>(action: (token: string | undefined) => Promise<T>): Promise<T> {
+  /** Runs an editing action: a stale version reloads the list, an expired one says so. */
+  async function act<T>(action: () => Promise<T>): Promise<T> {
     try {
-      return await action(token.value)
+      return await action()
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        if (token.value) ownerRevoked.value = true
-      }
       if (error instanceof ApiError && error.status === 412) void load()
       if (error instanceof ApiError && error.status === 410) status.value = 'expired'
       throw error
@@ -125,15 +102,14 @@ export function useListPage(code: Ref<string>) {
   }
 
   async function change(changes: ListInput) {
-    list.value = await act((t) => api.changeList(code.value, changes, t, based()))
-    if (token.value && changes.title) owned.update(code.value, { title: changes.title })
+    list.value = await act(() => api.changeList(code.value, changes, based()))
     remember()
   }
 
   const rename = (title: string) => change({ title })
 
   async function addLink(input: api.LinkInput) {
-    const link = await act((t) => api.createLink(code.value, input, t, based()))
+    const link = await act(() => api.createLink(code.value, input, based()))
     links.value = [...links.value, link] // appended, as on the server
     remember()
     startPolling() // its details are being fetched
@@ -141,7 +117,7 @@ export function useListPage(code: Ref<string>) {
   }
 
   async function editLink(id: string, input: api.LinkInput) {
-    const link = await act((t) => api.changeLink(code.value, id, input, t, based()))
+    const link = await act(() => api.changeLink(code.value, id, input, based()))
     links.value = links.value.map((l) => (l.id === id ? link : l))
     remember()
     startPolling() // a new URL: its details are being fetched
@@ -185,7 +161,7 @@ export function useListPage(code: Ref<string>) {
   async function checkPending() {
     const listCode = code.value
     try {
-      const page = await api.listLinks(listCode, token.value)
+      const page = await api.listLinks(listCode)
       if (listCode !== code.value) return
       const fresh = new Map(page.results.map((l) => [l.id, l]))
       links.value = links.value.map((link) => {
@@ -222,7 +198,7 @@ export function useListPage(code: Ref<string>) {
       await act(() => api.removeLinkIcon(code.value, id, based()))
       const current = links.value.find((l) => l.id === id)!
       // The fetched icon, if any, shows again: reload the link's server view.
-      link = (await api.listLinks(code.value, token.value)).results.find((l) => l.id === id) ?? {
+      link = (await api.listLinks(code.value)).results.find((l) => l.id === id) ?? {
         ...current,
         icon_url: null,
       }
@@ -248,7 +224,7 @@ export function useListPage(code: Ref<string>) {
     links.value = next
     const seq = ++moveSeq
     try {
-      const order = await act((t) => api.reorderLinks(code.value, id, to, t, noteEtag))
+      const order = await act(() => api.reorderLinks(code.value, id, to, noteEtag))
       // Quick successive moves: only the latest answer describes the order on screen.
       if (seq === moveSeq) links.value = order
       remember()
@@ -269,26 +245,8 @@ export function useListPage(code: Ref<string>) {
   }
 
   async function removeLink(id: string) {
-    await act((t) => api.removeLink(code.value, id, t, based()))
+    await act(() => api.removeLink(code.value, id, based()))
     links.value = links.value.filter((l) => l.id !== id)
-    remember()
-  }
-
-  /** Issues a new edit link for a legacy list; the old one stops working. */
-  async function rotate() {
-    const { owner_token } = await act((t) => api.replaceToken(code.value, t!))
-    owned.update(code.value, { token: owner_token })
-    return owner_token
-  }
-
-  /** Adds this legacy list to the signed-in account. Its edit link stops working. */
-  async function claim() {
-    const current = token.value
-    if (!current) {
-      throw new ApiError(403, { detail: 'This browser has no edit link for this list.' })
-    }
-    list.value = await api.claimList(code.value, current)
-    owned.forget(code.value)
     remember()
   }
 
@@ -303,9 +261,8 @@ export function useListPage(code: Ref<string>) {
   }
 
   async function removeList() {
-    await act((t) => api.removeList(code.value, t))
+    await act(() => api.removeList(code.value))
     cache.delete(code.value)
-    owned.forget(code.value)
   }
 
   /** Leaves a list you were added to (removes your own membership). */
@@ -316,21 +273,8 @@ export function useListPage(code: Ref<string>) {
     cache.delete(code.value)
   }
 
-  function forget() {
-    owned.forget(code.value)
-    ownerRevoked.value = false
-    void load()
-  }
-
   // Reload when the list or the signed-in user changes: both change what you may do.
-  watch(
-    [code, () => session.user.value?.id],
-    () => {
-      ownerRevoked.value = false
-      void load()
-    },
-    { immediate: true },
-  )
+  watch([code, () => session.user.value?.id], () => void load(), { immediate: true })
 
   return {
     list,
@@ -338,8 +282,6 @@ export function useListPage(code: Ref<string>) {
     status,
     loadError,
     isOwner,
-    ownerRevoked,
-    token,
     can,
     load,
     change,
@@ -351,11 +293,8 @@ export function useListPage(code: Ref<string>) {
     moveLink,
     moveToList,
     removeLink,
-    rotate,
-    claim,
     leave,
     removeList,
     setImage,
-    forget,
   }
 }

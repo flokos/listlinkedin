@@ -57,7 +57,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     # DRF views are exempt; DRF's SessionAuthentication enforces CSRF itself for signed-in
-    # requests, so the V1 bearer-token API is unaffected.
+    # requests.
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -216,10 +216,6 @@ FETCH_TEST_HOSTS = env_list("FETCH_TEST_HOSTS")
 # Fetching link metadata (task 7.3). Off for locked-down deployments.
 METADATA_FETCH_ENABLED = os.environ.get("METADATA_FETCH_ENABLED", "true").lower() != "false"
 
-# V1's anonymous list creation (POST /api/v1/lists/) answers 410 since V2. Test and e2e stacks
-# turn it back on to create legacy lists for edit-link tests. Never on in production.
-LEGACY_LIST_CREATION = os.environ.get("LEGACY_LIST_CREATION", "off") == "on"
-
 # Hosts links may not point to (subdomains included), e.g. to shut down a phishing domain.
 # This service's own host is always blocked: it would only create redirect loops/chains.
 BLOCKED_DESTINATION_HOSTS = env_list("BLOCKED_DESTINATION_HOSTS")
@@ -229,8 +225,7 @@ SECURE_REFERRER_POLICY = "no-referrer"  # list/short URLs are capabilities; neve
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    # Every view declares its own: owner tokens per list in v1 (apps.sharing.permissions),
-    # session login in v2 (apps.accounts.authentication).
+    # Every view declares its own: session login (apps.accounts.authentication).
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -247,7 +242,7 @@ REST_FRAMEWORK = {
         "member_add": os.environ.get("THROTTLE_MEMBER_ADD", "60/hour"),
         # Per user: each upload is decoded and re-encoded, which costs CPU and disk.
         "upload": os.environ.get("THROTTLE_UPLOAD", "120/hour"),
-        # Per user or edit link: a restore rewrites a whole list (docs/v2/13-SECURITY.md).
+        # Per user: a restore rewrites a whole list (docs/v2/13-SECURITY.md).
         "restore": os.environ.get("THROTTLE_RESTORE", "120/hour"),
         # Per user: each refresh fetches a page (and 1/hour per link on top).
         "metadata_refresh": os.environ.get("THROTTLE_METADATA_REFRESH", "60/hour"),
@@ -270,17 +265,18 @@ SPECTACULAR_SETTINGS = {
         "MetadataStatusEnum": "apps.sharing.v2.serializers.METADATA_STATUSES",
         "VisibilityEnum": "apps.sharing.models.VISIBILITY_CHOICES",
     },
-    "TITLE": "Temporary Link Sharing API",
+    "TITLE": "listlinkedin API",
     "DESCRIPTION": (
-        "Anonymous, temporary link lists with a built-in URL shortener.\n\n"
-        "* Creating a list returns a private `owner_token` **once**. It cannot be recovered.\n"
-        "* Owner-only operations require `Authorization: Bearer <owner_token>`.\n"
-        "* Lists expire exactly 30 days after creation. Expired lists, their links and "
-        "short URLs answer `410 Gone` until they are physically deleted (`404` afterwards).\n"
-        "* `GET /r/{code}` redirects (302) to the link's current destination; "
+        "Lists of links with short URLs (docs/v2/09-API-DESIGN.md).\n\n"
+        "* Sign in through `/_allauth/browser/v1/` (session cookie). Unsafe requests send the "
+        "CSRF token from the `csrftoken` cookie as `X-CSRFToken`.\n"
+        "* Anyone may read what they are allowed to see: unlisted lists by their address, "
+        "public lists and groups in the directory.\n"
+        "* A list that has expired answers `410 Gone` until it is deleted (`404` afterwards).\n"
+        "* `GET /r/{code}` redirects (302) to a link's current destination; "
         "`GET /l/{code}` redirects (302) to the list's API representation."
     ),
-    "VERSION": "1.0.0",
+    "VERSION": "2.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     # Served by config.docs from this origin, never from a CDN.
     "SWAGGER_UI_DIST": "/api/docs/assets",

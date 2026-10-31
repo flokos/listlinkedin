@@ -17,16 +17,16 @@ vocabulary stays out of the UI.
 | Exclusion | "Ignored link", "Stop ignoring" | exclusion |
 | Revision | "Version", "History", "Restore this version" | revision, snapshot |
 | Visibility | "Only people you add" / "Anyone with the link" / "Public, listed in Explore" | private/unlisted (shown as secondary text) |
-| Legacy list | "Saved on this device", "Add to my account" | token, legacy, claim |
+| Legacy list (until v2.1.0) | "Saved on this device", "Add to my account" | token, legacy, claim |
 
 ## Screen inventory
 
 | Route | V1 screen | V2 fate | Notes |
 |---|---|---|---|
 | `/` | Home: hero, create form, recent on device, how it works, FAQ | **Modified** | Signed out: landing page with Sign up / Sign in and a short explainer. Signed in: redirect to `/lists`. Create moves into My lists |
-| `/lists` | Saved lists (device tokens, backup) | **Redesigned** as **My lists** | Tabs: Owned · Shared with me · On this device (legacy, with "Add to my account" and backup/restore until the sunset) |
+| `/lists` | Saved lists (device tokens, backup) | **Redesigned** as **My lists** | The account's lists, owned or shared with you, with role, visibility, expiry and link count. "On this device" (legacy, with "Add to my account" and backup/restore) was removed in task 9.6 |
 | `/l/:code/:slug?` | List page (rows) | **Extended** | Tile grid (default) or list view toggle, add link, ⋮ tile menus, provenance banner, sync chip |
-| `/l/:code/manage#t=` | Edit-link claim | **Kept** (legacy) | Saves the token to the device, then offers "Add to my account" if signed in |
+| `/l/:code/manage#t=` | Edit-link claim | **Redirect** since task 9.6 | Opens the list, dropping the fragment (the old token). Until v2.1.0 it saved the token and offered "Add to my account" |
 | `/l/:code/history` | — | **New** | Version timeline, diff, restore |
 | `/l/:code/sync` | — | **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)) | Review updates (merge preview) |
 | `/l/:code/settings` | — (owner menu) | **New** (task 8.3) | Name and description, image, tags, expiry and delete; sharing links to the Share dialog. See [List settings](#list-settings) |
@@ -51,6 +51,8 @@ flowchart LR
   A[Sign up] --> B[Verify email] --> C[My lists: New list] --> D[Add links: tiles fill in titles and icons]
   D --> E[Share: choose 'Anyone with the link'] --> F[Copy link or QR]
 ```
+
+The legacy journey below applied until v2.1.0 (task 9.6 retired edit links):
 
 ```mermaid
 flowchart LR
@@ -204,8 +206,8 @@ people on the list.
   a diff against the previous one (added, removed and changed with field before/after). It has
   a **Restore this version** button, confirmed, showing "Creates version 15 with this content.
   Nothing is lost."
-- Since task 3.4: `/l/:code/history?v=N` (from the list's ⋮ **History**, for editors, owners
-  and the edit link; others see "Only the list's editors can see its history"). The timeline is
+- Since task 3.4: `/l/:code/history?v=N` (from the list's ⋮ **History**, for editors and
+  owners, and the edit link until v2.1.0; others see "Only the list's editors can see its history"). The timeline is
   an ordered list of links (each version is bookmarkable, Back returns to the previous one),
   20 at a time with **Show older versions**. A version shows its changes (list fields, then
   links with Added, Removed, Edited and Moved, and each changed field as before → after) and
@@ -298,12 +300,12 @@ permission; the server checks every change again.
 
 | Section | Who | Notes |
 |---|---|---|
-| Name and description | owner, editor, edit link (`edit`) | Content: saving records a version, based on the version on screen (`If-Match`). If someone changed the list meanwhile (412), the list is reloaded, the form shows the current text and says so |
+| Name and description | owner, editor (`edit`; the edit link too until v2.1.0) | Content: saving records a version, based on the version on screen (`If-Match`). If someone changed the list meanwhile (412), the list is reloaded, the form shows the current text and says so |
 | Image | owner, editor (`upload`) | `ImageUploadField`; shown left of the title and on the Explore card |
 | Tags | owner, editor (`tags`) | `TagsField`, as in 8.2 |
 | Sharing | owner (`settings`) | Who can see it, in words, and a button to the Share dialog (`?dialog=share`), where visibility, copies and people stay |
 | Expiry | owner (`settings`) | "Keep it permanently" or "Delete it automatically on a date": the end of that local day, from tomorrow on |
-| Delete this list | owner, edit link (`delete`) | Type the name to confirm, as in ⋮ Delete list |
+| Delete this list | owner (`delete`; the edit link too until v2.1.0) | Type the name to confirm, as in ⋮ Delete list |
 
 Anyone else sees "You can't change this list's settings". The list header now shows the
 image and the description (line breaks kept). The create form stays a single name field: the
@@ -392,3 +394,8 @@ lists from before accounts. The account emails (confirmation, password reset, un
 account, account already exists) use the product's own wording from
 `backend/templates/account/email/` instead of allauth's "Hello from …" defaults; their links
 are unchanged.
+
+Task 9.6 (v2.1.0) removed edit links: the About FAQ about older edit links and replacing one,
+the "On this device" parts of Home, My lists and the menu, the backup card, the edit-link
+reveal, "Replace edit link", "Forget on this device" and the "Your edit link was replaced"
+banner. My lists got an empty state ("No lists yet") and a sign-in prompt.

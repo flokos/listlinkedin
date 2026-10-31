@@ -1,6 +1,8 @@
 # ADR-007: Custom user, session auth with allauth headless, claim-based ownership migration
 
-- Status: Accepted (2026-10-28, V2 planning)
+- Status: Accepted (2026-10-28, V2 planning). The claim-based migration of legacy lists was
+  retired with them in task 9.6 (v2.1.0, [ADR-011](ADR-011-accounts-required-legacy-lists.md));
+  the custom user and session authentication stand.
 - Related: [06 Ownership transition](../06-MIGRATION-PLAN.md#ownership-transition), [12](../12-AUTHORIZATION.md), [13](../13-SECURITY.md), [ADR-011](ADR-011-accounts-required-legacy-lists.md)
 
 ## Context

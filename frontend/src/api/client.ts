@@ -75,7 +75,7 @@ export function describeStatus(status: number): string {
   switch (status) {
     case 401:
     case 403:
-      return "You don't have permission to change this list. Your edit link may have been replaced."
+      return "You don't have permission to change this list."
     case 404:
       return "This list doesn't exist or was deleted."
     case 410:
@@ -112,8 +112,6 @@ export interface RequestOptions {
   method?: string
   /** Sent as JSON, or as multipart if it is a FormData. */
   body?: unknown
-  /** A V1 owner token, sent as a bearer header. Such requests need no CSRF token. */
-  token?: string
   signal?: AbortSignal
   /** Extra headers, e.g. allauth's key headers. */
   headers?: Record<string, string>
@@ -132,18 +130,17 @@ export function revisionOf(etag: string | null | undefined): number | undefined 
   return match ? Number(match[1]) : undefined
 }
 
-/** Requests `path` (absolute, e.g. `/api/v1/lists/`) and returns the parsed JSON body. */
+/** Requests `path` (absolute, e.g. `/api/v2/lists/`) and returns the parsed JSON body. */
 export async function request<T>(
   path: string,
-  { method = 'GET', body, token, signal, headers: extra, ifMatch, onEtag }: RequestOptions = {},
+  { method = 'GET', body, signal, headers: extra, ifMatch, onEtag }: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...extra }
   if (ifMatch !== undefined) headers['If-Match'] = `"r${ifMatch}"`
   // A FormData body (file uploads) sets its own multipart Content-Type with the boundary.
   const isForm = body instanceof FormData
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
-  if (token) headers.Authorization = `Bearer ${token}`
-  if (!SAFE_METHODS.has(method) && !token) {
+  if (!SAFE_METHODS.has(method)) {
     // Session-authenticated writes need Django's CSRF token. The first visit may not have
     // the cookie yet; the session endpoint sets it.
     if (!csrfToken()) await fetchOrThrow('/api/v2/session/', { credentials: 'same-origin' })

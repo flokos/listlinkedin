@@ -119,17 +119,6 @@ def test_lists_and_groups_are_created_with_tags(alice):
     assert bad.status_code == 400
 
 
-def test_an_edit_link_cant_set_tags(owned_list):
-    legacy, token = owned_list
-    response = APIClient().patch(
-        f"{URL}lists/{legacy.public_code}/",
-        {"tags": ["dev"]},
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-    assert response.status_code == 403
-
-
 def test_group_editors_set_tags(alice, bob):
     group = make_group(alice, "Portal", Visibility.PRIVATE)
     url = f"{URL}groups/{group.code}/"

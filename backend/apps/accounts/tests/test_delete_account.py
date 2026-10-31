@@ -14,7 +14,6 @@ from django.utils import timezone
 
 from apps.accounts.models import DELETION_GRACE, User
 from apps.accounts.services import purge_deleted_accounts
-from apps.sharing import services as legacy_services
 from apps.sharing.models import ListMembership, SharedLink, SharedList
 from apps.sharing.selectors import Principal
 from apps.sharing.services import lists as list_services
@@ -77,11 +76,11 @@ def test_deleting_hides_everything_at_once_and_signs_out(ada, bob):
     # This session is over.
     assert client.get("/api/v2/session/").json()["user"] is None
     assert client.get(ME).status_code == 401
-    # For everyone else, Ada's list is gone: unknown to its member and to the V1 API, and its
-    # short URL answers 404.
+    # For everyone else, Ada's list is gone: unknown to its member and to anonymous readers,
+    # and its short URL answers 404.
     bobs = signed_in(bob)
     assert bobs.get(f"/api/v2/lists/{mine.public_code}/").status_code == 404
-    assert Client().get(f"/api/v1/lists/{mine.public_code}/").status_code == 404
+    assert Client().get(f"/api/v2/lists/{mine.public_code}/").status_code == 404
     assert Client().get("/r/Abc123Abc123Abc1").status_code == 404
     assert [lst["code"] for lst in bobs.get("/api/v2/lists/").json()["results"]] == [
         theirs.public_code
@@ -196,15 +195,6 @@ def test_restoring_needs_a_session_and_is_harmless_when_not_deleted(ada):
     assert Client().post("/api/v2/me/restore/").status_code == 401
     response = signed_in(ada).post("/api/v2/me/restore/")
     assert response.status_code == 200 and response.json()["deletion_scheduled_for"] is None
-
-
-def test_legacy_lists_claimed_by_nobody_are_untouched(ada):
-    legacy, _ = legacy_services.create_list(title="Edit-link list")
-    assert delete(signed_in(ada), ada.email).status_code == 204
-    User.objects.filter(pk=ada.pk).update(deleted_at=timezone.now() - DELETION_GRACE * 2)
-    purge_deleted_accounts()
-    assert SharedList.objects.filter(pk=legacy.pk).exists()
-    assert Client().get(f"/api/v1/lists/{legacy.public_code}/").status_code == 200
 
 
 def test_my_lists_can_be_filtered_by_role(ada, bob):

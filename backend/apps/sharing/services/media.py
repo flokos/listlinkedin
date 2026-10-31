@@ -1,6 +1,6 @@
 """List images and link icons (docs/v2/adr/ADR-012-media-and-images.md).
 
-Uploading needs an editor or owner account (Action.UPLOAD): an edit link can't upload. The
+Uploading needs an editor or owner account (Action.UPLOAD). The
 image is decoded and re-encoded *outside* the list's row lock, so a slow decode never holds
 up the list's other writers. Permission is checked before (so strangers can't fill the disk)
 and again under the lock (so a removed editor can't commit after the removal). A stored file

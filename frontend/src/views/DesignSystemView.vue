@@ -213,7 +213,7 @@ const checked = ref(true)
             />
           </v-col>
         </v-row>
-        <v-checkbox v-model="checked" label="I've saved my edit link" hide-details />
+        <v-checkbox v-model="checked" label="I've read the guidelines" hide-details />
       </v-card>
 
       <v-card class="pa-6 mb-4">
@@ -225,8 +225,8 @@ const checked = ref(true)
           <v-chip color="warning">Expires in 2 days</v-chip>
           <v-chip color="error">Expired</v-chip>
         </div>
-        <v-alert type="info" class="mb-2" title="Your edit link is private">
-          Anyone with it can change or delete this list.
+        <v-alert type="info" class="mb-2" title="Only people you add can see this list">
+          Share it from the Share dialog.
         </v-alert>
         <v-alert type="success" class="mb-2" text="Link added." />
         <v-alert type="warning" class="mb-2" text="This list expires in 2 days." />

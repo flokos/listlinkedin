@@ -1,147 +1,182 @@
+"""V1's list tests, kept against /api/v2/ since the legacy path was retired (task 9.6).
+
+V1 created lists anonymously and managed them with an owner token. Both are gone: the same
+rules (identity the client can't choose, title limits, who may change or delete a list,
+secrets never exposed, rate limits) now hold for account-owned lists. The tests of the owner
+token itself are replaced by acceptance tests that the V1 API and bearer tokens are gone
+(docs/v2/15-TEST-STRATEGY.md#v1-regression-checklist).
+"""
+
 import uuid
 
 import pytest
+from rest_framework.test import APIClient
 from rest_framework.throttling import ScopedRateThrottle
 
-from apps.sharing import services
+from apps.accounts.models import User
 from apps.sharing.models import SharedList
-from apps.sharing.tokens import hash_owner_token
-from conftest import bearer
+from conftest import make_list
 
 pytestmark = pytest.mark.django_db
 
+URL = "/api/v2/lists/"
 
-def test_create_list_returns_identity_and_owner_token_once(api_client, settings):
-    response = api_client.post("/api/v1/lists/", {"title": "Friday"}, format="json")
+
+def test_create_list_returns_its_identity(owner_client, settings):
+    response = owner_client.post(URL, {"title": "Friday"}, format="json")
 
     assert response.status_code == 201
     body = response.json()
-    shared_list = SharedList.objects.get(pk=body["id"])
+    shared_list = SharedList.objects.get(public_code=body["code"])
     assert uuid.UUID(body["id"]).version == 4
-    assert len(body["public_code"]) == 16
-    assert body["public_url"] == f"{settings.PUBLIC_BASE_URL}/l/{body['public_code']}"
-    # Only the digest is stored, never the plaintext token.
-    assert shared_list.owner_token_hash == hash_owner_token(body["owner_token"])
-    assert body["owner_token"] not in shared_list.owner_token_hash
+    assert str(shared_list.pk) == body["id"]
+    assert len(body["code"]) == 16
+    assert body["url"] == f"{settings.PUBLIC_BASE_URL}/l/{body['code']}/friday"
+    assert "owner_token" not in body
 
 
-def test_create_list_requires_title(api_client):
-    assert api_client.post("/api/v1/lists/", {}, format="json").status_code == 400
+def test_create_list_requires_title(owner_client):
+    assert owner_client.post(URL, {}, format="json").status_code == 400
     too_long = {"title": "x" * 256}
-    assert api_client.post("/api/v1/lists/", too_long, format="json").status_code == 400
+    assert owner_client.post(URL, too_long, format="json").status_code == 400
 
 
-def test_create_list_ignores_client_supplied_identity(api_client):
+def test_create_list_ignores_client_supplied_identity(owner_client):
     forged = {
         "title": "t",
         "id": str(uuid.uuid4()),
+        "code": "AAAAAAAAAAAAAAAA",
         "public_code": "AAAAAAAAAAAAAAAA",
-        "expires_at": "2099-01-01T00:00:00Z",
+        "created_at": "2000-01-01T00:00:00Z",
     }
-    body = api_client.post("/api/v1/lists/", forged, format="json").json()
+    body = owner_client.post(URL, forged, format="json").json()
 
     assert body["id"] != forged["id"]
-    assert body["public_code"] != forged["public_code"]
-    assert not body["expires_at"].startswith("2099")
+    assert body["code"] != forged["code"]
+    assert not body["created_at"].startswith("2000")
 
 
-def test_anonymous_read_never_exposes_secrets(api_client, owned_list):
-    shared_list, _ = owned_list
-
-    response = api_client.get(f"/api/v1/lists/{shared_list.public_code}/")
+def test_anonymous_read_never_exposes_secrets(api_client, owned_list, owner):
+    response = api_client.get(f"{URL}{owned_list.public_code}/")
 
     assert response.status_code == 200
     assert response.json()["title"] == "Team links"
+    assert owner.email not in response.content.decode()
     assert "owner_token" not in response.json()
-    assert "owner_token_hash" not in response.json()
 
 
 def test_unknown_list_is_404(api_client, db):
-    assert api_client.get("/api/v1/lists/doesnotexist0000/").status_code == 404
+    assert api_client.get(f"{URL}doesnotexist0000/").status_code == 404
 
 
-def test_update_requires_owner_token(api_client, owned_list):
-    shared_list, _ = owned_list
-    url = f"/api/v1/lists/{shared_list.public_code}/"
+def test_update_requires_the_owner(api_client, owned_list):
+    url = f"{URL}{owned_list.public_code}/"
+    stranger = APIClient()
+    stranger.force_authenticate(User.objects.create_user("eve@example.com", "pw-correct-horse-9"))
 
     assert api_client.patch(url, {"title": "x"}, format="json").status_code == 401
-    wrong = api_client.patch(url, {"title": "x"}, format="json", **bearer("wrong-token"))
-    assert wrong.status_code == 403
-    shared_list.refresh_from_db()
-    assert shared_list.title == "Team links"
+    assert stranger.patch(url, {"title": "x"}, format="json").status_code == 403
+    owned_list.refresh_from_db()
+    assert owned_list.title == "Team links"
 
 
-def test_token_of_another_list_is_rejected(api_client, owned_list):
-    shared_list, _ = owned_list
-    _, other_token = services.create_list(title="Other")
+def test_owning_one_list_grants_nothing_on_another(owned_list):
+    other_owner = User.objects.create_user("other@example.com", "pw-correct-horse-8")
+    make_list(other_owner, title="Other")
+    client = APIClient()
+    client.force_authenticate(other_owner)
 
-    response = api_client.patch(
-        f"/api/v1/lists/{shared_list.public_code}/",
-        {"title": "hijack"},
-        format="json",
-        **bearer(other_token),
-    )
+    response = client.patch(f"{URL}{owned_list.public_code}/", {"title": "hijack"}, format="json")
     assert response.status_code == 403
 
 
-def test_owner_can_update_title_but_not_immutable_fields(api_client, owned_list):
-    shared_list, token = owned_list
-    original = SharedList.objects.get(pk=shared_list.pk)
+def test_owner_can_update_title_but_not_immutable_fields(owner_client, owned_list):
+    original = SharedList.objects.get(pk=owned_list.pk)
 
-    response = api_client.patch(
-        f"/api/v1/lists/{shared_list.public_code}/",
+    response = owner_client.patch(
+        f"{URL}{owned_list.public_code}/",
         {
             "title": "Renamed",
             "id": str(uuid.uuid4()),
+            "code": "BBBBBBBBBBBBBBBB",
             "public_code": "BBBBBBBBBBBBBBBB",
-            "owner_token_hash": "0" * 64,
+            "owner": None,
             "created_at": "2000-01-01T00:00:00Z",
-            "expires_at": "2099-01-01T00:00:00Z",
         },
         format="json",
-        **bearer(token),
     )
 
     assert response.status_code == 200
-    updated = SharedList.objects.get(pk=shared_list.pk)
+    updated = SharedList.objects.get(pk=owned_list.pk)
     assert updated.title == "Renamed"
-    for field in ("public_code", "owner_token_hash", "created_at", "expires_at"):
+    for field in ("id", "public_code", "owner_id", "created_at"):
         assert getattr(updated, field) == getattr(original, field)
 
 
-def test_owner_can_delete_list(api_client, owned_list):
-    shared_list, token = owned_list
-    url = f"/api/v1/lists/{shared_list.public_code}/"
+def test_owner_can_delete_list(api_client, owner_client, owned_list):
+    url = f"{URL}{owned_list.public_code}/"
 
     assert api_client.delete(url).status_code == 401
-    assert api_client.delete(url, **bearer(token)).status_code == 204
-    assert not SharedList.objects.filter(pk=shared_list.pk).exists()
+    assert owner_client.delete(url).status_code == 204
+    assert not SharedList.objects.filter(pk=owned_list.pk).exists()
     assert api_client.get(url).status_code == 404
-    # The token's hash was deleted with the list, so the token is now useless.
-    assert not SharedList.objects.filter(owner_token_hash=hash_owner_token(token)).exists()
-    stale = api_client.patch(url, {"title": "x"}, format="json", **bearer(token))
-    assert stale.status_code == 404
+    assert owner_client.patch(url, {"title": "x"}, format="json").status_code == 404
 
 
 def test_list_short_url_redirects_to_api_representation(api_client, owned_list):
-    shared_list, _ = owned_list
-
-    response = api_client.get(f"/l/{shared_list.public_code}")
+    response = api_client.get(f"/l/{owned_list.public_code}")
 
     assert response.status_code == 302
-    assert response["Location"] == f"/api/v1/lists/{shared_list.public_code}/"
+    assert response["Location"] == f"{URL}{owned_list.public_code}/"
 
 
-def test_list_creation_is_rate_limited(api_client, monkeypatch):
+def test_list_creation_is_rate_limited(owner_client, monkeypatch):
     monkeypatch.setattr(ScopedRateThrottle, "THROTTLE_RATES", {"list_create": "2/hour"})
 
-    statuses = [
-        api_client.post("/api/v1/lists/", {"title": "t"}, format="json").status_code
-        for _ in range(3)
-    ]
+    statuses = [owner_client.post(URL, {"title": "t"}, format="json").status_code for _ in range(3)]
     assert statuses == [201, 201, 429]
 
 
-def test_oversized_request_body_is_rejected(api_client, settings):
+def test_oversized_request_body_is_rejected(owner_client, settings):
     payload = {"title": "x" * (settings.DATA_UPLOAD_MAX_MEMORY_SIZE + 1)}
-    assert api_client.post("/api/v1/lists/", payload, format="json").status_code == 413
+    assert owner_client.post(URL, payload, format="json").status_code == 413
+
+
+# Acceptance: the legacy path is gone (task 9.6). V1 created lists anonymously and returned an
+# owner token; that token managed the list through /api/v1/ and /api/v2/.
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("post", "/api/v1/lists/"),
+        ("get", "/api/v1/lists/{code}/"),
+        ("patch", "/api/v1/lists/{code}/"),
+        ("delete", "/api/v1/lists/{code}/"),
+        ("get", "/api/v1/lists/{code}/links/"),
+        ("post", "/api/v1/lists/{code}/rotate-token/"),
+        ("post", "/api/v2/lists/{code}/rotate-token/"),
+        ("post", "/api/v2/lists/{code}/claim/"),
+    ],
+)
+def test_the_v1_api_and_the_token_endpoints_are_gone(api_client, owned_list, method, path):
+    response = getattr(api_client, method)(path.format(code=owned_list.public_code))
+    assert response.status_code == 404
+
+
+def test_a_bearer_token_grants_nothing(api_client, owned_list):
+    url = f"{URL}{owned_list.public_code}/"
+    headers = {"HTTP_AUTHORIZATION": "Bearer some-old-owner-token"}
+
+    assert api_client.patch(url, {"title": "x"}, format="json", **headers).status_code == 401
+    assert api_client.delete(url, **headers).status_code == 401
+    assert api_client.post(URL, {"title": "x"}, format="json", **headers).status_code == 401
+    assert SharedList.objects.filter(pk=owned_list.pk, title="Team links").exists()
+
+
+def test_every_list_has_an_owner_account(owner):
+    """CHECK L2 is now NOT NULL on the owner (docs/v2/05-DATABASE-DESIGN.md)."""
+    from django.db import IntegrityError, transaction
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        SharedList.objects.create(public_code="NoOwnerList00000", title="x")

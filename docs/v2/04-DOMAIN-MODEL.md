@@ -13,7 +13,7 @@ calls, never direct model writes).
 ```mermaid
 flowchart LR
   accounts[accounts<br/>User, auth]
-  sharing[sharing<br/>List, Link, ListMembership,<br/>legacy owner token]
+  sharing[sharing<br/>List, Link, ListMembership]
   shortener[shortener<br/>codes, ShortRedirect, /r/]
   groups[groups<br/>Group, GroupList, GroupMembership]
   versioning[versioning<br/>ListRevision, ListBranch,<br/>BranchExclusion, SyncRecord<br/>+ pure merge engine]
@@ -42,7 +42,7 @@ the import rules that keep the cycle at the service level, never at the model le
 
 | Aggregate (root) | Contains | Consistency mechanism |
 |---|---|---|
-| **List** (`SharedList`) | Links, ListMemberships, the legacy owner token, ListRevisions (append-only), its own ListBranch row as a child, BranchExclusions and SyncRecords of that branch | Every write takes `SELECT … FOR UPDATE` on the list row (V1's `_lock_active_list` pattern), then re-checks state and authorization |
+| **List** (`SharedList`) | Links, ListMemberships, ListRevisions (append-only), its own ListBranch row as a child, BranchExclusions and SyncRecords of that branch | Every write takes `SELECT … FOR UPDATE` on the list row (V1's `_lock_active_list` pattern), then re-checks state and authorization |
 | **Group** (`Group`) | GroupList entries, GroupMemberships | `SELECT … FOR UPDATE` on the group row |
 | **User** | Account data. allauth owns email addresses and sessions | Django auth |
 
@@ -54,7 +54,7 @@ and "add list to group", which lock rows in ascending `id` order to rule out dea
 ```mermaid
 classDiagram
   class User { id; email; display_name }
-  class SharedList { id; public_code; owner_id?; owner_token_hash?; title; description; image?; slug; visibility; allow_fork; allow_branch; tags[]; head_revision; forked_from_id?; expires_at? }
+  class SharedList { id; public_code; owner_id; title; description; image?; slug; visibility; allow_fork; allow_branch; tags[]; head_revision; forked_from_id?; expires_at? }
   class SharedLink { id; destination_url; title?; description?; icon?; position?; source_link_id?; metadata; deleted_at? }
   class ShortRedirect { code; is_active }
   class ListMembership { role }
@@ -90,8 +90,9 @@ Its stable identity is `id` (UUIDv4) plus `public_code` (16 characters, 96 bits,
 Its title, description, image, slug, visibility, fork and branch permissions, tags and expiry
 are mutable.
 
-- **Owner:** `owner_id`, which is authoritative and never duplicated in memberships. A legacy
-  list has `owner_id = NULL` and is managed by `owner_token_hash` until claimed.
+- **Owner:** `owner_id`, which is authoritative and never duplicated in memberships. Required
+  since v2.1.0 (task 9.6). Before, a legacy list had `owner_id = NULL` and was managed by an
+  owner token until claimed.
 - **Content** = title + description + the ordered live Links. Content is what revisions
   capture. Settings (visibility, members, `allow_*`, tags, image, expiry, slug) are not
   versioned ([07](07-REVISION-SPEC.md#what-a-snapshot-contains)).
@@ -173,8 +174,10 @@ does ([05](05-DATABASE-DESIGN.md#constraints-by-invariant)).
 
 **List**
 - **L1** `id` and `public_code` never change.
-- **L2** Every list has a manager: `owner_id IS NOT NULL OR owner_token_hash IS NOT NULL`.
-- **L3** A legacy list (`owner_id IS NULL`) is `unlisted` and has an `expires_at`.
+- **L2** Every list has an owner account: `owner_id IS NOT NULL` (since v2.1.0; before, an
+  owner token could stand in for it).
+- **L3** *Retired in v2.1.0 with the legacy lists it constrained:* a legacy list (no owner) was
+  `unlisted` and had an `expires_at`.
 - **L4** At most `MAX_LINKS_PER_LIST` (100, a setting) live links.
 - **L5** An expired list is inaccessible to everyone (410) and is never resurrected by expiry
   edits after the fact.
@@ -220,7 +223,8 @@ does ([05](05-DATABASE-DESIGN.md#constraints-by-invariant)).
 **Access and short URLs**
 - **A1** Every object access goes through the permission policy. Querysets are filtered in SQL.
 - **A2** Unauthorized access to a private resource answers 404 (no existence leak).
-- **A3** A legacy owner token grants V1-equivalent rights on its own list only.
+- **A3** *Retired in v2.1.0:* a legacy owner token granted V1-equivalent rights on its own list
+  only. Since then nothing but an account's role grants rights on a list.
 - **S1** Codes never change and are never intentionally reused.
 - **S2** Short URL resolution re-checks the list's state and visibility on every request.
 
@@ -258,9 +262,9 @@ work. An event bus would add indirection without solving a present problem (prom
 
 ## Ownership rules
 
-- A list or group has exactly one owner account (legacy lists: a token).
+- A list or group has exactly one owner account.
 - Ownership is never assigned implicitly. It comes from creation (the creator), from a claim
-  (proof of token plus a signed-in user), or later from an explicit transfer
+  (proof of token plus a signed-in user, until v2.1.0), or later from an explicit transfer
   ([02](02-PRODUCT-REQUIREMENTS.md): transfer is "later").
 - Deleting an account needs an explicit decision about owned lists. Since
   [ADR-016](adr/ADR-016-account-deletion-grace-period.md): deleting hides the user's lists from

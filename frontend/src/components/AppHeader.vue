@@ -12,7 +12,6 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDisplay } from 'vuetify'
 
-import { useOwnedLists } from '../composables/useOwnedLists'
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
 import { externalNav, shownNav, signInRoute, type NavItem } from '../navigation'
@@ -23,7 +22,6 @@ defineEmits<{ 'toggle-drawer': [] }>()
 
 const route = useRoute()
 const { mdAndUp } = useDisplay()
-const { count } = useOwnedLists()
 const { user, ready } = useSession()
 const signOut = useSignOut()
 const isActive = (item: NavItem) => item.match.includes(String(route.name))
@@ -59,13 +57,6 @@ const isDev = import.meta.env.DEV
           :aria-current="isActive(item) ? 'page' : undefined"
         >
           {{ item.label }}
-          <v-badge
-            v-if="item.badge && count"
-            :content="count"
-            inline
-            color="primary-container"
-            class="ml-1"
-          />
         </v-btn>
       </nav>
 

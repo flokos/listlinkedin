@@ -11,11 +11,15 @@ object-level authorization as the top API risk [R13], so every rule here maps to
 
 | Principal | How it is established |
 |---|---|
-| Anonymous | no session, no token |
+| Anonymous | no session |
 | Signed-in user | Django session (allauth headless browser flow, [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md)) |
 | **Owner** | `list.owner_id == user.id` (likewise `group.owner_id`) |
 | **Editor** / **Viewer** | a `ListMembership` (or `GroupMembership`) row with that role |
-| **Legacy token holder** | `Authorization: Bearer <owner token>` whose SHA-256 matches `owner_token_hash` of **that** list ([A3](04-DOMAIN-MODEL.md#invariants)). Only possible while the list is unclaimed |
+
+Until v2.1.0 a fifth principal existed: the **legacy token holder**, who presented a V1 list's
+owner token (`Authorization: Bearer`) and had V1's rights on that list only (A3) until it was
+claimed. Task 9.6 retired it: every list has an owner account, and a bearer token grants
+nothing.
 
 Roles never inherit across resources. Group roles grant nothing on lists. List roles grant
 nothing on other lists, including branches or forks of that list.
@@ -36,33 +40,30 @@ lists are `unlisted`, which is exactly their V1 semantics.
 
 ✓ = allowed, — = denied. "Can view" means the visibility rule above passes.
 
-| Action | Anonymous | Signed-in, no role | Viewer | Editor | Owner | Legacy token |
-|---|---|---|---|---|---|---|
-| View content and links | if can view | if can view | ✓ | ✓ | ✓ | ✓ |
-| Open a link's short URL `/r/{code}` | if can view | if can view | ✓ | ✓ | ✓ | n/a (redirects carry no token) |
-| View revision history | — | — | — | ✓ | ✓ | ✓ |
-| Edit content: title, description, add, edit, delete and reorder links, restore a revision | — | — | — | ✓ | ✓ | ✓ |
-| Upload images (list image, link icons) | — | — | — | ✓ | ✓ | — (requires an account) |
-| Edit tags, slug (`tags` permission since 8.1) | — | — | — | ✓ | ✓ | — |
-| Change visibility, expiry, `allow_fork`, `allow_branch` | — | — | — | — | ✓ | — |
-| See who has access (members) | — | — | — | ✓ | ✓ | — |
-| Manage members (add a verified account by email, change roles, remove) | — | — | — | — | ✓ | — |
-| Leave (remove own membership) | — | — | ✓ | ✓ | — | — |
-| Delete the list | — | — | — | — | ✓ | ✓ |
-| Rotate the legacy token | — | — | — | — | — | ✓ |
-| Claim (become owner) | — | ✓ with a valid token | — | — | — | (needs a session too) |
-| Fork ("Make a copy") | — | if can view **and** `allow_fork` | same | same | ✓ | — |
-| Branch ("Make a synced copy"), *postponed* | — | if can view **and** `allow_branch` | same | same | ✓ | — |
-| Preview or apply sync (as child), *postponed* | — | — | — | ✓ on the child **and** can view the parent | same as Editor | — |
-| Remove an exclusion | — | — | — | ✓ on the child | ✓ | — |
-| Detach a branch, *postponed* | — | — | — | — | ✓ (child owner) | — |
-| Create a list | — | ✓ | | | | — (no anonymous creation, [ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) |
-| Report to the operator (`report`, since 9.0) | if can view | if can view | ✓ | ✓ | — | — |
+| Action | Anonymous | Signed-in, no role | Viewer | Editor | Owner |
+|---|---|---|---|---|---|
+| View content and links | if can view | if can view | ✓ | ✓ | ✓ |
+| Open a link's short URL `/r/{code}` | if can view | if can view | ✓ | ✓ | ✓ |
+| View revision history | — | — | — | ✓ | ✓ |
+| Edit content: title, description, add, edit, delete and reorder links, restore a revision | — | — | — | ✓ | ✓ |
+| Upload images (list image, link icons) | — | — | — | ✓ | ✓ |
+| Edit tags, slug (`tags` permission since 8.1) | — | — | — | ✓ | ✓ |
+| Change visibility, expiry, `allow_fork`, `allow_branch` | — | — | — | — | ✓ |
+| See who has access (members) | — | — | — | ✓ | ✓ |
+| Manage members (add a verified account by email, change roles, remove) | — | — | — | — | ✓ |
+| Leave (remove own membership) | — | — | ✓ | ✓ | — |
+| Delete the list | — | — | — | — | ✓ |
+| Fork ("Make a copy") | — | if can view **and** `allow_fork` | same | same | ✓ |
+| Branch ("Make a synced copy"), *postponed* | — | if can view **and** `allow_branch` | same | same | ✓ |
+| Preview or apply sync (as child), *postponed* | — | — | — | ✓ on the child **and** can view the parent | same as Editor |
+| Remove an exclusion | — | — | — | ✓ on the child | ✓ |
+| Detach a branch, *postponed* | — | — | — | — | ✓ (child owner) |
+| Create a list | — | ✓ | | | |
+| Report to the operator (`report`, since 9.0) | if can view | if can view | ✓ | ✓ | — |
 
 A view-only capability never grants editing. In V2 the share URL (`/l/{code}`) is only ever a
-*view* capability. The single exception is the V1 edit link, a separate secret that works only
-on legacy lists until they are claimed or expire. Account-owned lists have no edit links:
-collaborators are added by account.
+*view* capability. Collaborators are added by account. (V1's edit link, a separate secret for
+legacy lists, was retired in v2.1.0.)
 
 ## Group permission matrix
 
@@ -98,7 +99,7 @@ is true:
    could have put them there (rule above).
 
 Lists nobody may open are never shown, whatever the rule says: expired lists and lists whose
-owner is deleting their account. A legacy edit link grants nothing on groups.
+owner is deleting their account.
 
 Otherwise the entry is **omitted entirely**: no title, no placeholder, no "1 hidden list"
 count, no position gap. Counts, sidebars and API pages are computed after filtering, in SQL.
@@ -127,7 +128,7 @@ existence**.
 |---|---|
 | `/r/{code}` | Resolve link → list. **404** if the link is tombstoned, the list is not viewable by the requester (session cookie, same origin) or `private` for anonymous requests. **410** if the list is expired, the redirect inactive or the host blocked (V1 semantics). Otherwise 302 to the current URL |
 | `/l/{code}`, `/g/{code}` | The SPA loads the API. The API applies the same rules |
-| `/api/v1/…` (transition) | Reads: `unlisted` and `public` lists only (private → 404). Writes: legacy token on legacy lists only. Claimed lists answer 403 to tokens |
+| `/api/v1/…` | Gone since v2.1.0: 404 ([09](09-API-DESIGN.md#api-v1-during-the-transition)) |
 | Directory and search | `visibility = 'public'` only, filtered in SQL. Tag facets count public resources only |
 | Media files `/media/…` | Random 128-bit filenames, served without an access check. Acceptable for icons and images; see [13](13-SECURITY.md#media) |
 
@@ -137,8 +138,7 @@ existence**.
 |---|---|
 | The actor can't view the resource (including private lists for anonymous or unauthorized users, and nonexistent codes) | **404**, the same body as nonexistent |
 | The actor can view but may not perform the action, and is signed in | **403** |
-| An action needs an account and the actor is anonymous | **401**, keeping V1's 401 vs 403 split. `WWW-Authenticate: Session` on session-only endpoints, `Bearer` where legacy owner tokens are also accepted |
-| A legacy token on a claimed or other list | 403 (V1 semantics: the token doesn't own this list) |
+| An action needs an account and the actor is anonymous | **401**, keeping V1's 401 vs 403 split. `WWW-Authenticate: Session` |
 
 ## Leak analysis
 
@@ -146,7 +146,7 @@ existence**.
 |---|---|
 | Existence of a private list (via `/l`, `/r`, API, group pages, branch banners) | uniform 404. Omission in groups. Neutral banners |
 | Titles or counts through groups | per-viewer SQL filtering. No placeholders. Counts after filtering |
-| Removed links through history | history only for editors, owners and legacy token holders |
+| Removed links through history | history only for editors and owners |
 | Content through sync preview | requires current view access to the parent |
 | Private or unlisted lists in the directory | `public` only. The directory query is built from `visible` + `public` filters |
 | Account enumeration when adding a member by email | owners with a verified email only, rate-limited (`member_add`), with one generic message for unknown and unverified addresses. Accepted residual risk. Email invitations for unregistered addresses are a later enhancement |
@@ -180,7 +180,7 @@ as for a wrong password. `is_active` stays reserved for erased accounts ([ADR-01
 ## Implementation notes
 
 - `policy.can(actor, action, resource) -> bool` is pure. Its inputs are an actor descriptor
-  `{user_id | None, legacy_list_id | None}` and resource facts (owner id, role of the actor,
+  `{user_id | None, email_verified}` and resource facts (owner id, role of the actor,
   visibility, flags, expiry), loaded by selectors in one query.
 - `policy.py` stays pure, so the SQL side lives in `sharing/selectors.py`: `get_list_for(principal, code)` (one list, 404 when not viewable) and `lists_of(user)` (owned or member lists; unlisted lists of others never enumerate). They, and later `visible_groups`, are the **only** way list
   and group querysets are filtered, in API lists, groups, directory and counts.

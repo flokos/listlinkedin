@@ -1,9 +1,7 @@
 import itertools
-from datetime import timedelta
 
 import pytest
 from allauth.account.models import EmailAddress
-from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.sharing.models import ListMembership, SharedList
@@ -26,17 +24,6 @@ def make_list(owner, visibility="private", *, title=None, **fields) -> SharedLis
         title=title or f"List {n}",
         visibility=visibility,
         **fields,
-    )
-
-
-def make_legacy_list() -> SharedList:
-    n = next(_codes)
-    return SharedList.objects.create(
-        public_code=f"lgcy{n:012d}",
-        owner_token_hash="0" * 64,
-        title=f"Legacy {n}",
-        visibility="unlisted",
-        expires_at=timezone.now() + timedelta(days=3),
     )
 
 

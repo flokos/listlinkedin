@@ -1,8 +1,8 @@
 """/api/v2/groups/ (docs/v2/09-API-DESIGN.md#groups).
 
-Views do HTTP only. Groups are for accounts: a legacy edit link grants nothing here, so only
-the session authenticates. A group's lists are always the ones it shows the requester,
-filtered in SQL (docs/v2/12-AUTHORIZATION.md#which-lists-a-group-shows-to-a-viewer).
+Views do HTTP only. Groups are for accounts, so only the session authenticates. A group's
+lists are always the ones it shows the requester, filtered in SQL
+(docs/v2/12-AUTHORIZATION.md#which-lists-a-group-shows-to-a-viewer).
 """
 
 import uuid
@@ -19,9 +19,9 @@ from rest_framework.response import Response
 
 from apps.accounts.authentication import SessionAuthentication
 from apps.common import errors
-from apps.sharing.permissions import ReadRateThrottle, WriteRateThrottle
 from apps.sharing.policy import Role
 from apps.sharing.selectors import Principal, access_in_listing, fork_sources
+from apps.sharing.throttling import ReadRateThrottle, WriteRateThrottle
 from apps.sharing.v2.authentication import principal_of
 from apps.sharing.v2.serializers import (
     DirectoryQuerySerializer,

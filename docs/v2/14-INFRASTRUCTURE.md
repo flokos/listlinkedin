@@ -86,7 +86,8 @@ V2 sends email: verification, password reset and collaborator notices. Configura
 `DEFAULT_FROM_EMAIL`. Dev and e2e send to Mailpit. Production uses any SMTP relay. Outside
 compose, Django's console backend is the base-settings default. The e2e stack also sets
 `AUTH_RATE_LIMITS=off`, because every browser there shares one client IP. Production keeps
-allauth's limits. It also sets `LEGACY_LIST_CREATION=on`, so specs can seed edit-link lists.
+allauth's limits. (Until v2.1.0 it also set `LEGACY_LIST_CREATION=on`, so specs could seed
+edit-link lists.)
 
 Since task 9.0, mail is sent with `EMAIL_TIMEOUT` (10 s by default), so a relay that hangs no
 longer holds a Gunicorn worker until its own 30 s timeout. Reports of abuse go to
@@ -100,7 +101,8 @@ address.
 | `DJANGO_EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | api | console backend in development, SMTP in production (since task 1.1) |
 | `EMAIL_TIMEOUT` | api | `10` seconds for every SMTP connection (since task 9.0) |
 | `MODERATION_EMAIL` | api | empty: reports are only logged. Set in production (since task 9.0) |
-| `LEGACY_LIST_CREATION` | api | `off`: `POST /api/v1/lists/` answers 410. `on` only in backend tests and the e2e stack, which still seed legacy lists (since task 1.4; removed in 9.6) |
+| `LEGACY_LIST_CREATION` | — | removed in task 9.6 with `/api/v1/` (it let backend tests and the e2e stack create legacy lists, since 1.4) |
+| `RETIRE_LEGACY_LISTS` | migrate (once) | unset: `sharing.0011` stops while a list without an account is alive. `delete` deletes those lists instead (since 9.6; for development databases, or a V1 install moving on early) |
 | `MEDIA_ROOT` | api, cleanup, worker | `/srv/media` (since task 2.3) |
 | `DB_STATEMENT_TIMEOUT`, `DB_LOCK_TIMEOUT` | api / migrate (production) | api 20s and 5s; `migrate` runs with a statement timeout of 0 (since task 1.1) |
 | `METADATA_FETCH_ENABLED` | api, worker | `true` (`false` disables fetching, for locked-down deployments; read from task 7.3) |

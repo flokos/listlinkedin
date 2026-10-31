@@ -1,8 +1,8 @@
 """List operations for /api/v2/: account ownership, visibility and settings.
 
 Authorization is decided by the policy, and re-decided after the list's row lock is taken:
-a request that was allowed before a concurrent change (token rotated or claimed, membership
-removed, visibility changed) can't commit after it (docs/v2/12-AUTHORIZATION.md).
+a request that was allowed before a concurrent change (membership removed, visibility
+changed) can't commit after it (docs/v2/12-AUTHORIZATION.md).
 """
 
 import logging
@@ -16,7 +16,6 @@ from apps.shortener.services import create_with_unique_code
 from apps.versioning.models import RevisionKind
 from apps.versioning.services import record_revision
 
-from .. import tokens
 from ..domain import slug_for
 from ..models import CREATION_KEY_CONSTRAINT, OWNER_ACTIVE, PUBLIC_CODE_CONSTRAINT, SharedList
 from ..policy import Action, Actor, ListFacts, Visibility, can, can_set_visibility
@@ -162,42 +161,6 @@ def delete_list(principal: Principal, list_id: UUID) -> None:
     logger.info("Deleted list %s", list_id)
 
 
-@transaction.atomic
-def rotate_owner_token(principal: Principal, list_id: UUID) -> str:
-    """Replace a legacy list's owner token; the old one stops working at once (V1 behaviour)."""
-    locked, actor, facts = _lock(principal, list_id)
-    if not can(actor, Action.ROTATE_TOKEN, facts):
-        raise denied(principal, "Only the holder of this list's edit link can replace it.")
-    owner_token = tokens.generate_owner_token()
-    locked.owner_token_hash = tokens.hash_owner_token(owner_token)
-    locked.save(update_fields=["owner_token_hash", "updated_at"])
-    logger.info("Rotated owner token of list %s", locked.id)
-    return owner_token
-
-
-@transaction.atomic
-def claim_list(principal: Principal, list_id: UUID) -> SharedList:
-    """Make the signed-in user the owner of a legacy list whose owner token they present.
-
-    The token is retired in the same transaction, so it can't be used again by anyone. The
-    list's visibility (unlisted) and expiry don't change; making it permanent is a separate,
-    explicit choice. Claiming a list you already own is a no-op (idempotent).
-    """
-    if principal.user is None:
-        raise errors.AuthenticationRequired("Sign in to add this list to your account.")
-    locked = SharedList.objects.select_for_update().filter(pk=list_id).first()
-    if locked is not None and locked.owner_id == principal.user.pk:
-        return locked
-    locked, actor, facts = _lock(principal, list_id)
-    if not can(actor, Action.CLAIM, facts):
-        raise errors.Forbidden("This edit link doesn't work for this list any more.")
-    locked.owner = principal.user
-    locked.owner_token_hash = None
-    locked.save(update_fields=["owner", "owner_token_hash", "updated_at"])
-    logger.info("List %s claimed by user %s", locked.id, principal.user.pk)
-    return locked
-
-
 def check_head(locked: SharedList, expected_head: int | None) -> None:
     """The If-Match precondition: the client's change was based on revision `expected_head`.
     Checked under the lock, so a write that landed in between is always noticed."""
@@ -215,7 +178,7 @@ def _relock(shared_list: SharedList) -> SharedList:
 def denied(principal: Principal, message: str) -> errors.DomainError:
     """The error for a refused action: 401 for an anonymous caller, who may be allowed once
     signed in (V1's 401 vs 403 split, docs/v2/12-AUTHORIZATION.md#status-codes), else 403."""
-    if principal.user is None and principal.token is None:
+    if principal.user is None:
         return errors.AuthenticationRequired(message)
     return errors.Forbidden(message)
 

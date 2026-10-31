@@ -70,16 +70,14 @@ def test_making_a_group_public_needs_a_verified_email():
     assert not can_set_group_visibility(editor, facts, Visibility.UNLISTED)
 
 
-LIST_ROLES = ["no role", "viewer", "editor", "owner", "legacy token"]
+LIST_ROLES = ["no role", "viewer", "editor", "owner"]  # edit links retired in 9.6
 
 
 def list_facts(list_role: str, visibility: Visibility) -> ListFacts:
     list_id = uuid.uuid4()
     return ListFacts(
         id=list_id,
-        owner_id=None
-        if list_role == "legacy token"
-        else (OTHER if list_role == "owner" else OWNER),
+        owner_id=OTHER if list_role == "owner" else OWNER,
         visibility=visibility,
         member_role=Role(list_role) if list_role in ("viewer", "editor") else None,
     )
@@ -93,8 +91,6 @@ def test_adding_a_list_needs_group_edit_and_the_right_to_share_the_list(
 ):
     actor, group = actor_and_facts(group_role)
     facts = list_facts(list_role, list_visibility)
-    if list_role == "legacy token":  # an edit link is no share right here
-        actor = Actor(user_id=actor.user_id, legacy_list_id=facts.id)
     expected = group_role in ("editor", "owner") and (
         list_role in ("editor", "owner") or list_visibility is Visibility.PUBLIC
     )

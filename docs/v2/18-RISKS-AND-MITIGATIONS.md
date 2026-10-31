@@ -65,4 +65,5 @@ numbers. Rows 31–35 were added by this planning.
 - Metadata failure rate per error code. Repeated `blocked_address` hits for one user suggest
   someone is probing.
 - 404 rate on `/r/` and `/l/`: enumeration attempts or broken migrations.
-- Legacy lists remaining unclaimed vs expired, which feeds the timing of the sunset task 9.6.
+- Legacy lists remaining unclaimed vs expired, which fed the timing of the sunset task 9.6
+  (none existed: D32; done in v2.1.0).

@@ -7,29 +7,57 @@ export interface CreatedList {
   id: string
   public_code: string
   public_url: string
-  owner_token: string
   title: string
+  /** The account that owns the list: `openAsOwner` signs in as it. */
+  owner: { email: string; password: string }
 }
 
-/** API helpers for fast setup (same origin as the app, through nginx). */
+/**
+ * API helpers for fast setup (same origin as the app, through nginx). Lists belong to an
+ * owner account created for the test, and are unlisted, so visitors can read them by their
+ * address. (Until v2.1.0 these were V1 lists managed by an edit link.)
+ */
 export function apiHelpers(request: APIRequestContext) {
+  const owner = { email: uniqueEmail('owner'), password: PASSWORD }
+  let signedUp: Promise<void> | undefined
+  const csrf = async () => {
+    const { cookies } = await request.storageState()
+    const named = (name: string) => cookies.find((c) => c.name === name)?.value
+    return named('__Host-csrftoken') ?? named('csrftoken') ?? ''
+  }
+  const headers = async () => ({ 'X-CSRFToken': await csrf(), Origin: ORIGIN })
+  const signUp = async () => {
+    await request.get('/api/v2/session/') // sets the CSRF cookie
+    const response = await request.post('/_allauth/browser/v1/auth/signup', {
+      data: owner,
+      headers: await headers(),
+    })
+    expect(response.status(), await response.text()).toBe(200)
+  }
+
   return {
     async createList(title = 'E2E list'): Promise<CreatedList> {
-      const response = await request.post('/api/v1/lists/', { data: { title } })
+      signedUp ??= signUp()
+      await signedUp
+      const response = await request.post('/api/v2/lists/', {
+        data: { title, visibility: 'unlisted' },
+        headers: await headers(),
+      })
       expect(response.status(), await response.text()).toBe(201)
-      return response.json()
+      const list = await response.json()
+      return { id: list.id, public_code: list.code, public_url: list.url, title, owner }
     },
     async addLink(list: CreatedList, destination_url: string, title?: string) {
-      const response = await request.post(`/api/v1/lists/${list.public_code}/links/`, {
+      const response = await request.post(`/api/v2/lists/${list.public_code}/links/`, {
         data: { destination_url, title },
-        headers: { Authorization: `Bearer ${list.owner_token}` },
+        headers: await headers(),
       })
       expect(response.status(), await response.text()).toBe(201)
       return response.json()
     },
     async deleteList(list: CreatedList) {
-      const response = await request.delete(`/api/v1/lists/${list.public_code}/`, {
-        headers: { Authorization: `Bearer ${list.owner_token}` },
+      const response = await request.delete(`/api/v2/lists/${list.public_code}/`, {
+        headers: await headers(),
       })
       expect(response.status()).toBe(204)
     },
@@ -142,13 +170,15 @@ export const cardTitle = (page: Page, title: string) =>
 /** All card title links, in display order. */
 export const cardTitles = (page: Page) => page.getByRole('link', { name: /\(opens in a new tab\)$/ })
 
-export const editLinkFor = (list: CreatedList) =>
-  `/l/${list.public_code}/manage#t=${encodeURIComponent(list.owner_token)}`
-
-/** Opens the list as its owner in this page's browser by visiting the private edit link. */
+/** Signs this page's browser in as the list's owner and opens the list. */
 export async function openAsOwner(page: Page, list: CreatedList) {
-  await page.goto(editLinkFor(list))
-  await expect(page).toHaveURL(new RegExp(`/l/${list.public_code}$`))
+  await page.request.get('/api/v2/session/') // sets the CSRF cookie
+  const response = await page.request.post('/_allauth/browser/v1/auth/login', {
+    data: list.owner,
+    headers: { 'X-CSRFToken': await csrfOf(page), Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(200)
+  await page.goto(`/l/${list.public_code}`)
   await expect(page.getByText('Your list', { exact: true })).toBeVisible()
 }
 

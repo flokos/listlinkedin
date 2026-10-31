@@ -4,7 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.sharing.permissions import WriteRateThrottle
+from apps.sharing.throttling import WriteRateThrottle
 
 from . import services
 from .authentication import SessionAuthentication

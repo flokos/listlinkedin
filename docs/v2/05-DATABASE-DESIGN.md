@@ -29,8 +29,7 @@ erDiagram
   sharing_sharedlist {
     uuid id PK
     char16 public_code UK
-    uuid owner_id FK "NULL = legacy"
-    char64 owner_token_hash "NULL once claimed"
+    uuid owner_id FK "required since v2.1.0"
     varchar255 title
     text description
     varchar255 image "media path, NULL"
@@ -91,9 +90,9 @@ because every model declares its own key. Time columns are `timestamptz`, in UTC
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id`, `public_code`, `title`, `created_at`, `updated_at` | as in V1 | | | unchanged |
-| `owner_token_hash` | char(64) | **yes** (was NOT NULL) | | legacy only; set to NULL on claim |
+| `owner_token_hash` | char(64) | | | **dropped in v2.1.0** (`sharing.0012`); held a legacy list's token digest, NULL once claimed |
 | `expires_at` | timestamptz | **yes** (was NOT NULL) | | NULL = permanent; index kept |
-| `owner_id` | uuid FK `accounts_user` | yes | | `ON DELETE PROTECT`; index |
+| `owner_id` | uuid FK `accounts_user` | **no** since v2.1.0 (was yes until 9.6) | | `ON DELETE PROTECT`; index |
 | `description` | text | no | `''` | ≤1000 characters (validated) |
 | `image` | varchar(255) | yes | | relative media path |
 | `slug` | varchar(80) | no | `''` | cosmetic, not unique |
@@ -190,8 +189,8 @@ django-tasks-db task table ([ADR-008](adr/ADR-008-background-metadata-extraction
 | Invariant | Enforced by |
 |---|---|
 | L1 stable identity | no update path in services; `editable=False`; serializers read-only |
-| L2 every list managed | CHECK `owner_id IS NOT NULL OR owner_token_hash IS NOT NULL` |
-| L3 legacy lists | CHECK `owner_id IS NOT NULL OR (visibility = 'unlisted' AND expires_at IS NOT NULL)` |
+| L2 every list owned | `owner_id` NOT NULL since v2.1.0 (`sharing.0012`); a CHECK allowing an owner token before |
+| L3 legacy lists | dropped in v2.1.0 with the legacy lists (`sharing.0012`) |
 | L4 link cap | count under the list lock (V1 pattern, concurrency-tested) |
 | K2 unique live URLs | partial unique index |
 | K3 positions | deferrable unique + tombstone CHECK + renumbering under the lock |
@@ -231,7 +230,7 @@ aggregate row before any read that informs the write.
 | Restore revision | list | links (revive, update, tombstone, reposition) + revision `restored` |
 | Create fork or branch | none on the parent (reads its immutable head revision) | child list + links + redirects + revision 1 (`forked`/`branched`) + `ListBranch` for branches |
 | Apply sync | child list | child links + revision `merged` (if content changed) + `ListBranch` base + exclusions + `SyncRecord` |
-| Claim legacy list | list | `owner_id`, `owner_token_hash = NULL`, `visibility` unchanged |
+| Claim legacy list (until v2.1.0) | list | `owner_id`, `owner_token_hash = NULL`, `visibility` unchanged |
 | Store fetched metadata | none | conditional `UPDATE … WHERE id = ? AND destination_url = ? AND deleted_at IS NULL` |
 | Group writes | group | group, entries or memberships |
 | Delete list | list | branch rows (`parent_deleted_at`) + cascade |

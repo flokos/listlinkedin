@@ -1,8 +1,8 @@
 import pytest
 from django.core.exceptions import ValidationError
 
-from apps.sharing import tokens
 from apps.sharing.domain import MAX_URL_LENGTH, normalize_destination_url
+from apps.sharing.models import SharedList
 
 
 @pytest.mark.parametrize(
@@ -59,11 +59,9 @@ def test_rejects_invalid_destinations(raw):
         normalize_destination_url(raw)
 
 
-def test_owner_token_is_256_bit_and_hashed_with_sha256():
-    token = tokens.generate_owner_token()
-    digest = tokens.hash_owner_token(token)
-
-    assert len(token) >= 43  # 32 bytes, base64url
-    assert len(digest) == 64 and digest != token
-    assert tokens.verify_owner_token(token, digest)
-    assert not tokens.verify_owner_token(token + "x", digest)
+def test_lists_store_no_owner_token():
+    """V1 tested its 256-bit tokens and their SHA-256 digests here. Since task 9.6 no token is
+    generated or stored: the column is gone (sharing.0011), and an account owns every list."""
+    names = {field.name for field in SharedList._meta.get_fields()}
+    assert "owner_token_hash" not in names
+    assert not SharedList._meta.get_field("owner").null

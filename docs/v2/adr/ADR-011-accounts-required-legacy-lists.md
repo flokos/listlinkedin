@@ -1,6 +1,9 @@
 # ADR-011: Accounts required to create lists; V1 lists become legacy lists
 
-- Status: Accepted (2026-10-28. **Product owner decision**, asked during planning)
+- Status: Accepted (2026-10-28. **Product owner decision**, asked during planning). **Carried
+  out in full in task 9.6 (v2.1.0, 2026-10-31):** V1 was never deployed (D32), so no legacy list
+  ever existed in production and the sunset followed `v2.0.0` directly; `sharing.0011` refuses
+  to drop a live one.
 - Related: [ADR-007](ADR-007-authentication-and-ownership-migration.md), [06 Ownership transition](../06-MIGRATION-PLAN.md#ownership-transition), [12](../12-AUTHORIZATION.md)
 
 ## Context

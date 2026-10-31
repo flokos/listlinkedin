@@ -22,8 +22,8 @@ has a stable address (`/l/{code}`).
   The operator acts with management commands ([moderation](docs/deployment.md#moderation)).
 
 Version 1, the anonymous 30-day lists with an edit link, is described in
-[docs/v1/](docs/v1/README.md). V1 lists keep working, and their owners can add them to an
-account.
+[docs/v1/](docs/v1/README.md) and kept on the `release/v1` branch. Since v2.1.0 every list
+belongs to an account: V1's API and edit links are gone (V1 was never deployed).
 
 Everything runs in Docker. You need Docker Engine or Desktop with Compose, Git and an editor.
 You don't need a virtualenv or host Python or Node.
@@ -175,7 +175,6 @@ request:
 |---|---|
 | `/api/v2/` | The API the app uses. Session cookie plus CSRF; anonymous visitors can read what they're allowed to see |
 | `/_allauth/browser/v1/` | Sign-up, sign-in, email verification, password reset (allauth headless) |
-| `/api/v1/` | V1's API, for lists made before accounts (an edit link's token). Creating new ones is off. It is removed in the legacy sunset ([roadmap 9.6](docs/v2/17-IMPLEMENTATION-ROADMAP.md)) |
 | `/r/{code}` | A link's short URL: `302` to its current destination, if you may see its list |
 | `/l/{code}` | A list's page in the app |
 | `/healthz` | `200 {"status": "ok"}`, or `503` when the database is unreachable |

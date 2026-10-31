@@ -170,14 +170,7 @@ def test_permissions_include_fork_only_when_allowed(alice, bob):
     assert "fork" in client_for(alice).get(f"{URL}{source.public_code}/").json()["permissions"]
 
 
-def test_legacy_and_expired_lists_cant_be_copied(alice, bob, owned_list, expire):
-    legacy, token = owned_list
-    response = client_for().post(
-        f"{URL}{legacy.public_code}/fork/", {}, format="json", HTTP_AUTHORIZATION=f"Bearer {token}"
-    )
-    assert response.status_code == 401  # an edit link isn't an account
-    assert fork(bob, legacy).status_code == 403  # legacy lists never allow copies
-
+def test_expired_lists_cant_be_copied(alice, expire):
     source = make_source(alice, links=0)
     expire(source)
     assert fork(alice, source).status_code == 410
@@ -369,11 +362,11 @@ def test_copies_made_during_edits_match_a_revision_of_the_source():
         assert urls in source_urls
 
 
-def test_v1_reads_dont_show_copies(alice):
-    """A copy is a private account list: the V1 API (no sign-in) answers 404 for it."""
+def test_anonymous_reads_dont_show_copies(alice):
+    """A copy is a private account list: without signing in it answers 404."""
     source = make_source(alice, visibility=Visibility.UNLISTED, allow_fork=True, links=0)
     copy, _ = fork_services.fork_list(Principal(user=alice), source.public_code)
-    assert client_for().get(f"/api/v1/lists/{copy.public_code}/").status_code == 404
+    assert client_for().get(f"{URL}{copy.public_code}/").status_code == 404
 
 
 def resolves(user, code):

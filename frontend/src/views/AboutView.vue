@@ -107,22 +107,6 @@ const principles = [
           </v-expansion-panel-text>
         </v-expansion-panel>
 
-        <v-expansion-panel title="I have an edit link from an older list">
-          <v-expansion-panel-text>
-            Lists made before accounts existed are edited with their private edit link. Open it
-            while signed in and choose “Add to my account”: the list becomes yours and the edit link
-            stops working. Lost the link? Without it nobody can prove the list is yours. If this
-            browser still has it, choose “Show edit link” from the list's menu, or restore a backup
-            on the My lists page.
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-
-        <v-expansion-panel title="Someone else got my edit link. What do I do?">
-          <v-expansion-panel-text>
-            Open the list and choose “Replace edit link”. The old link stops working immediately;
-            save the new one.
-          </v-expansion-panel-text>
-        </v-expansion-panel>
         <v-expansion-panel title="Is there an API?">
           <v-expansion-panel-text>
             Yes. Everything this site does is available through a documented REST API:

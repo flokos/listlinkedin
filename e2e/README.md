@@ -34,7 +34,8 @@ It exits non-zero if any test fails.
   (`getByRole('button', { name: 'Add link' })`), never by CSS classes. If something can't
   be found that way, that's usually an accessibility bug in the app.
 - Set data up through the API (`api.createList`, `api.addLink`) and use the UI only for what
-  the test is about. `openAsOwner(page, list)` unlocks a list through its edit link.
+  the test is about. Those lists are unlisted and belong to an owner account made for the
+  test; `openAsOwner(page, list)` signs the page in as that owner.
 - States the real stack can't easily produce (429, 5xx, offline, a missing chunk after a
   deploy) are covered in `states.spec.ts` with `page.route` mocks. Those run in Chromium
   only.

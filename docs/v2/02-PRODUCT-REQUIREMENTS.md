@@ -25,14 +25,14 @@ source (**postponed**, [ADR-015](adr/ADR-015-postpone-synchronization.md)), and 
 | Share a collection through a URL | MVP | `/l/{code}` unchanged; visibility chosen in the Share dialog |
 | URL shortener, copy short URLs | MVP | `/r/{code}` unchanged, visibility-aware |
 | Stable collection identifiers | MVP | `id` and `public_code` preserved forever |
-| Creator-controlled management | MVP | Owners and roles. V1 edit links keep working for unclaimed V1 lists |
+| Creator-controlled management | MVP | Owners and roles. V1 edit links worked for unclaimed V1 lists until v2.1.0 |
 | Anonymous access to shared collections | MVP | Anonymous viewing of `unlisted` and `public` lists |
 | Temporary collections | MVP | Optional expiry. V1 lists keep their dates |
 | No mandatory accounts | **Changed** | Viewing needs no account; creating does (user decision, 2026-10-28) |
 | Dockerized development | MVP | Unchanged; adds a worker service |
 | DRF ViewSets, business logic separate from the API | MVP | `/api/v2/` ViewSets ([ADR-010](adr/ADR-010-viewsets-and-api-v2.md)) |
 | Client-side search and sort inside a list | MVP | Kept, plus "Custom order" |
-| Edit-link backup and restore, token rotation | MVP (legacy only) | Until the legacy sunset (task 9.6) |
+| Edit-link backup and restore, token rotation | MVP (legacy only) | Removed in the legacy sunset (task 9.6, v2.1.0) |
 
 ## Accounts and access [5.1, 5.6, 8.8]
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { addLink, ApiError, errorMessage, getLinks, NetworkError, request } from '.'
+import { ApiError, createLink, errorMessage, listLinks, NetworkError, request } from '.'
 
 function respond(status: number, body: unknown, headers: Record<string, string> = {}) {
   vi.stubGlobal(
@@ -69,23 +69,17 @@ describe('ApiError', () => {
 })
 
 describe('request', () => {
-  it('sends the owner token as a bearer header and JSON body', async () => {
+  it('sends a JSON body with the session cookie and never an Authorization header', async () => {
+    setCookie('csrftoken=abc123')
     respond(201, { id: '1' })
-    await addLink('CODE', 'secret', { destination_url: 'https://example.com/' })
+    await createLink('CODE', { destination_url: 'https://example.com/' })
     const [url, init] = vi.mocked(fetch).mock.calls[0]!
-    expect(url).toBe('/api/v1/lists/CODE/links/')
+    expect(url).toBe('/api/v2/lists/CODE/links/')
     expect(init?.method).toBe('POST')
-    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer secret')
+    // V1's edit links went as bearer tokens; they were retired in v2.1.0 (task 9.6).
+    expect((init?.headers as Record<string, string>).Authorization).toBeUndefined()
     expect(init?.body).toBe('{"destination_url":"https://example.com/"}')
     expect(init?.credentials).toBe('same-origin')
-  })
-
-  it('needs no CSRF token for owner-token requests', async () => {
-    respond(201, { id: '1' })
-    await addLink('CODE', 'secret', { destination_url: 'https://example.com/' })
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
-    const headers = vi.mocked(fetch).mock.calls[0]![1]!.headers as Record<string, string>
-    expect(headers['X-CSRFToken']).toBeUndefined()
   })
 
   it('sends the CSRF cookie back as a header on session writes', async () => {
@@ -122,13 +116,13 @@ describe('request', () => {
 
   it('loads a whole list of links in one page', async () => {
     respond(200, { count: 0, next: null, previous: null, results: [] })
-    await getLinks('CODE')
-    expect(vi.mocked(fetch).mock.calls[0]![0]).toBe('/api/v1/lists/CODE/links/?page_size=100')
+    await listLinks('CODE')
+    expect(vi.mocked(fetch).mock.calls[0]![0]).toBe('/api/v2/lists/CODE/links/?page_size=100')
   })
 
   it('throws ApiError with status and parsed body', async () => {
     respond(429, { detail: 'Request was throttled.' }, { 'Retry-After': '30' })
-    const error = await getLinks('CODE').catch((e) => e)
+    const error = await listLinks('CODE').catch((e) => e)
     expect(error).toBeInstanceOf(ApiError)
     expect(error.status).toBe(429)
     expect(error.retryAfter).toBe(30)
@@ -136,7 +130,7 @@ describe('request', () => {
 
   it('wraps network failures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-    const error = await getLinks('CODE').catch((e) => e)
+    const error = await listLinks('CODE').catch((e) => e)
     expect(error).toBeInstanceOf(NetworkError)
     expect(errorMessage(error)).toMatch(/connection/)
   })

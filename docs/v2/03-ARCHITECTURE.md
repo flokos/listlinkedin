@@ -96,9 +96,9 @@ backend/
                 services (deletion grace, restore, suspension) · ViewSets /api/v2/session|me|restore
     sharing/    SharedList, SharedLink, ListMembership
                 domain.py (URL rules, V1) · policy.py (pure permissions) · tokens.py (V1) · selectors.py (Principal, access)
-                services/ (lists, links, members, forks, restore, media, metadata, moderation, legacy)
-                v2/ (ViewSets for lists, links, images, revisions, members, the directory; LegacyTokenAuthentication)
-                views.py, serializers.py, urls.py (the V1 API, until the legacy sunset)
+                services/ (lists, links, members, forks, restore, media, metadata, moderation)
+                v2/ (ViewSets for lists, links, images, revisions, members, the directory)
+                throttling.py (rate limits shared with groups and accounts; the V1 API went in 9.6)
     shortener/  codes, ShortRedirect, /r/ (resolution adds the visibility check)
     groups/     Group, GroupList, GroupMembership · services · selectors · ViewSets (groups, the group directory, tags)
     versioning/ domain/{snapshot,diff}.py (pure) · models · services (record_revision) · selectors

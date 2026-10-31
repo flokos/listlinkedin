@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A list's history (/l/:code/history?v=N): its versions, what each changed, and restoring one
-// (docs/v2/11-UI-UX-MIGRATION.md#copy-synced-copy-and-history). Editors, owners and a legacy
-// list's edit link only; the server enforces it.
+// (docs/v2/11-UI-UX-MIGRATION.md#copy-synced-copy-and-history). Editors and owners only; the
+// server enforces it.
 import {
   mdiAlertCircleOutline,
   mdiArrowLeft,
@@ -36,7 +36,7 @@ const route = useRoute()
 const router = useRouter()
 const notify = useNotify()
 const page = useListPage(toRef(props, 'code'))
-const { list, status, token } = page
+const { list, status } = page
 
 const revisions = ref<Revision[]>([])
 const nextPage = ref<number | null>(1)
@@ -56,7 +56,7 @@ async function loadHistory(reset = false) {
   }
   if (nextPage.value === null) return
   try {
-    const result = await listRevisions(props.code, nextPage.value, token.value)
+    const result = await listRevisions(props.code, nextPage.value)
     revisions.value = [...revisions.value, ...result.results]
     nextPage.value = result.next ? nextPage.value + 1 : null
     historyError.value = undefined
@@ -80,7 +80,7 @@ watch(
     detailError.value = undefined
     if (!number || !list.value?.permissions.includes('view_history')) return
     try {
-      detail.value = await getRevision(props.code, number, token.value)
+      detail.value = await getRevision(props.code, number)
     } catch (error) {
       detailError.value = error
     }
@@ -89,7 +89,7 @@ watch(
 )
 watch(list, () => {
   if (selected.value && !detail.value && !detailError.value) {
-    void getRevision(props.code, selected.value, token.value).then(
+    void getRevision(props.code, selected.value).then(
       (d) => (detail.value = d),
       (e) => (detailError.value = e),
     )
@@ -112,7 +112,7 @@ async function confirmRestore() {
   if (!detail.value) return
   const number = detail.value.number
   try {
-    const result = await restoreRevision(props.code, number, head.value, token.value)
+    const result = await restoreRevision(props.code, number, head.value)
     notify.success(
       result.changed
         ? `Restored version ${number}. It is now version ${result.revision}.`

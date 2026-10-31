@@ -17,7 +17,6 @@ export interface NavItem {
   icon: string
   /** Route names that count as "inside" this item, for the active state. */
   match: string[]
-  badge?: 'owned-lists'
   /** Shown only to signed-in visitors. */
   account?: boolean
 }
@@ -29,7 +28,6 @@ export const mainNav: NavItem[] = [
     to: { name: 'saved-lists' },
     icon: mdiFormatListBulletedSquare,
     match: ['saved-lists'],
-    badge: 'owned-lists',
   },
   {
     label: 'Groups',
