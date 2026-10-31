@@ -29,4 +29,5 @@ production backend or worker) and built-in CSP support. It also changed the
 - One framework version across `main` and `v2` until after the release, so V1 fixes port
   cleanly.
 - django-tasks is a backport dependency until the 6.2 upgrade.
-- Python stays at 3.13, which fits both 5.2 and 6.x.
+- Python stays at 3.13, which fits both 5.2 and 6.x. *Update 2026-10-31 (D33):* Python is 3.14,
+  which Django 5.2 supports since 5.2.8 and 6.x supports too. The Django decision is unchanged.
