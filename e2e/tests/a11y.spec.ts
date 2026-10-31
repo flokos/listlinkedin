@@ -3,11 +3,15 @@
 import {
   apiAs,
   createAccountList,
+  csrfOf,
+  emailTo,
   expect,
   expectNoA11yViolations,
   openAsOwner,
   signUpThroughApi,
   signUpVerified,
+  linkIn,
+  PASSWORD,
   test,
   uniqueEmail,
 } from './fixtures'
@@ -165,6 +169,107 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'List options' }).click()
       await page.getByRole('menuitem', { name: 'Delete list' }).click()
       await expect(page.getByRole('dialog', { name: 'Delete this list?' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
+    // Task 9.3: every route and state not covered above.
+
+    test('email verification, both ways, and restoring an account', async ({ page }) => {
+      const email = uniqueEmail('a11y-verify')
+      await signUpThroughApi(page, email)
+      await page.goto('/verify-email#key=not-a-real-key')
+      await expect(page.getByRole('heading', { name: /expired or was already used|Couldn't verify/ })).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      const link = new URL(linkIn(await emailTo(page.request, email, /confirm/i), '/verify-email'))
+      await page.goto(link.pathname + link.hash)
+      await expect(page.getByRole('heading', { name: 'Your email is verified' })).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      const deleted = await page.request.fetch('/api/v2/me/', {
+        method: 'DELETE',
+        data: { confirm: email },
+        headers: { 'X-CSRFToken': await csrfOf(page), Origin: new URL(page.url()).origin },
+      })
+      expect(deleted.status()).toBe(204)
+      // Deleting signs out; signing in again within the grace period lands on the restore page.
+      await page.goto('/signin')
+      await page.getByRole('textbox', { name: 'Email' }).fill(email)
+      await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+      await page.getByRole('button', { name: 'Sign in' }).last().click()
+      await expect(page.getByRole('heading', { level: 1, name: 'Your account is being deleted' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
+    test("an edit link that doesn't work, and new accounts' empty pages", async ({ page }) => {
+      await page.goto('/l/AAAAAAAAAAAAAAAA/manage#t=not-a-token')
+      await expect(page.getByRole('heading', { name: /edit link no longer works|doesn't exist/ })).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      await signUpThroughApi(page, uniqueEmail('a11y-empty'))
+      await page.goto('/lists')
+      await expect(page.getByRole('heading', { level: 1, name: 'My lists' })).toBeVisible()
+      await expectNoA11yViolations(page)
+      await page.goto('/groups')
+      await expect(page.getByRole('heading', { name: 'No groups yet' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
+    test('Explore with results, a tag filter, and no results', async ({ page }) => {
+      const word = `zq${Date.now().toString(36)}${colorScheme}`
+      await signUpVerified(page, uniqueEmail('a11y-explore'), 'Explorer')
+      const { code } = await createAccountList(page, `${word} tools`)
+      await apiAs(page, 'PATCH', `/api/v2/lists/${code}/`, { visibility: 'public', tags: ['a11y'] }, 200)
+      await page.goto(`/explore?q=${word}&tags=a11y`)
+      await expect(page.getByRole('list', { name: 'Public lists' }).getByRole('link')).toHaveText([`${word} tools`])
+      await expectNoA11yViolations(page)
+      await page.goto(`/explore?q=${word}-nothing`)
+      await expect(page.getByRole('heading', { name: 'No lists match' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
+    test("a link's menu and dialogs, as its owner", async ({ page }) => {
+      await signUpThroughApi(page, uniqueEmail('a11y-links'))
+      const { code } = await createAccountList(page, 'Links to check')
+      await createAccountList(page, 'Another list')
+      for (const url of ['https://example.com/one', 'https://example.org/two']) {
+        await apiAs(page, 'POST', `/api/v2/lists/${code}/links/`, { destination_url: url, title: url.slice(-3) })
+      }
+      await page.goto(`/l/${code}`)
+      const menu = () => page.getByRole('button', { name: /^More actions for one/ })
+      await menu().click()
+      await expect(page.getByRole('menuitem', { name: 'Edit' })).toBeVisible()
+      await expectNoA11yViolations(page)
+      for (const [item, dialog] of [
+        ['Edit', 'Edit link'],
+        ['Details', 'Link details'],
+        ['Move to position…', 'Move to position'],
+        ['Move to another list…', 'Move to another list'],
+      ] as const) {
+        if (item !== 'Edit') await menu().click()
+        await page.getByRole('menuitem', { name: item }).click()
+        await expect(page.getByRole('dialog', { name: dialog })).toBeVisible()
+        await expectNoA11yViolations(page)
+        await page.keyboard.press('Escape')
+        await expect(page.getByRole('dialog', { name: dialog })).toBeHidden()
+      }
+      await menu().click()
+      await page.getByRole('menuitem', { name: 'Delete' }).click()
+      await expect(page.getByRole('dialog', { name: 'Delete this link?' })).toBeVisible()
+      await expectNoA11yViolations(page)
+    })
+
+    test("a group's settings and Share dialogs", async ({ page }) => {
+      await signUpVerified(page, uniqueEmail('a11y-group-dialogs'), 'Group owner')
+      const group = await apiAs(page, 'POST', '/api/v2/groups/', { title: 'Dialog group', tags: ['team'] })
+      await page.goto(new URL(group.url).pathname)
+      await page.getByRole('button', { name: 'More actions for the group Dialog group' }).click()
+      await page.getByRole('menuitem', { name: 'Settings' }).click()
+      await expect(page.getByRole('dialog', { name: 'Group settings' })).toBeVisible()
+      await expectNoA11yViolations(page)
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Share the group Dialog group' }).click()
+      await expect(page.getByRole('dialog', { name: 'Share this group' })).toBeVisible()
       await expectNoA11yViolations(page)
     })
   })

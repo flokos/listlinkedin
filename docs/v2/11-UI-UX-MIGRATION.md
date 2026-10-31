@@ -93,7 +93,9 @@ lists you search for) → reorder in the sidebar → share the group link.
   the uploaded icon, then the fetched icon, then `DomainAvatar`. Then the name (2-line clamp)
   and the description (2-line clamp; the full text is in the ⋮ menu's **Details** and in list
   view, so it stays available to every authorized viewer). The whole tile is the link, opened
-  through the short URL as in V1. The ⋮ button is separate and keyboard-focusable.
+  through the short URL as in V1. The ⋮ button is separate and keyboard-focusable. In the
+  dark theme an icon image sits on a light plate (the light theme's surface), because many
+  sites' icons are dark on transparent and would vanish on a dark tile (task 9.3).
 - **⋮ menu:** Open · Copy short link · Details · (editors) Edit · Move up / down / to top /
   to bottom / to position… · Move to another list… · Delete.
 - **Order:** "Custom order" (the stored order, the default), plus V1's client-side "Newest" and
@@ -367,8 +369,14 @@ merges, restores or claims.
 - Errors are announced (V1 pattern). Validation focuses the first invalid field or the first
   undecided conflict.
 - Reduced motion turns off tile and drag animations (V1 rule).
-- The manual QA checklist ([docs/qa-checklist.md](../qa-checklist.md)) gains the merge preview,
-  drag alternatives and the sidebar on VoiceOver and NVDA (task 9.3).
+- axe runs on every page, state and dialog in light and dark, on desktop and a phone
+  (`e2e/tests/a11y.spec.ts`; since task 9.3 also email verification both ways, the restore
+  page, a broken edit link, empty My lists and Groups, Explore with and without results, the
+  link dialogs and the group's Settings and Share).
+- The manual QA checklist ([docs/qa-checklist.md](../qa-checklist.md)) was rewritten for V2
+  in task 9.3: VoiceOver and NVDA on accounts, lists, groups and Explore; real phones (iOS
+  touch drag, the share sheet, QR, the group drawer); zoom, forced colours, reduced motion.
+  The merge preview joins it when synchronization resumes (ADR-015).
 
 ## Copy that changes
 
@@ -376,3 +384,11 @@ The "Gone after 30 days", "Free, no sign-up. Lists expire after 30 days", footer
 page texts, and the expired-state wording, are rewritten for permanent lists with optional
 expiry and for accounts (task 1.4). The About page explains what is stored now (an account
 email, owned lists, history) and how to delete it.
+
+Task 9.3 removed the V1-era copy that was left: the About page's principles, limits and FAQ
+describe V2 (accounts, visibility, fetching a link's details once, reports, the 30-day
+deletion grace, older lists' edit links); the backup card and the edit-link reveal speak of
+lists from before accounts. The account emails (confirmation, password reset, unknown
+account, account already exists) use the product's own wording from
+`backend/templates/account/email/` instead of allauth's "Hello from …" defaults; their links
+are unchanged.

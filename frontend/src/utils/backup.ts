@@ -1,4 +1,5 @@
-// Backup and restore of the lists saved in this browser. There are no accounts, so this
+// Backup and restore of the lists saved in this browser: lists from before accounts, edited
+// with edit links. Until they are added to an account (or the legacy sunset, task 9.6), this
 // file is how owners move their edit access to another device or keep a safety copy.
 // It contains edit links: anyone holding it can change those lists.
 import { buildEditLink } from '../composables/useEditLink'

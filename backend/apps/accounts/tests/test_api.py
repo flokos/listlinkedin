@@ -91,6 +91,21 @@ def test_password_rules(password, accepted):
 
 
 @pytest.mark.django_db
+def test_account_emails_use_our_own_wording(client, user):
+    """Task 9.3: allauth's stock emails greeted with "Hello from {host}!"."""
+    post_json(client, f"{AUTH}/signup", {"email": "new@example.com", "password": PASSWORD})
+    post_json(Client(), f"{AUTH}/password/request", {"email": user.email})
+    confirm, reset = mail.outbox
+    assert confirm.subject == "[listlinkedin] Confirm your email address"
+    assert reset.subject == "[listlinkedin] Your password reset link"
+    for message in (confirm, reset):
+        assert message.body.startswith("Hi,") and "Hello from" not in message.body
+        assert "listlinkedin" in message.body
+    assert "/verify-email#key=" in confirm.body and "3 days" in confirm.body
+    assert "/reset-password#key=" in reset.body and "one hour" in reset.body
+
+
+@pytest.mark.django_db
 def test_sign_in_and_sign_out(client, user):
     wrong = post_json(client, f"{AUTH}/login", {"email": user.email, "password": "nope-nope"})
     assert wrong.status_code == 400

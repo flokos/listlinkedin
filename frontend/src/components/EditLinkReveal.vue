@@ -64,8 +64,8 @@ function download() {
       <v-card-text class="pt-4">
         <p class="text-body-medium mb-4">
           Use this private link to edit <strong>{{ title }}</strong> from any device. It's saved in
-          this browser, but there's no account, so if you lose it,
-          <strong>no one can recover it</strong>.
+          this browser, but the list isn't in an account yet, so if you lose it,
+          <strong>no one can recover it</strong>. Add the list to your account to keep it safe.
           <template v-if="mode === 'rotated'"> Your previous edit link no longer works.</template>
         </p>
 
