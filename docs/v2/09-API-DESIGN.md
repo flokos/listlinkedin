@@ -16,7 +16,7 @@ per version).
 | Authorization | [12-AUTHORIZATION.md](12-AUTHORIZATION.md). Not viewable → 404. Viewable but forbidden → 403. Account required → 401 with `WWW-Authenticate: Session` (`Bearer` on endpoints that also accept legacy owner tokens) |
 | Pagination | `PageNumberPagination` shape `{count, next, previous, results}` (V1-compatible). Default 20, max 100. A list's links default to 100 per page, which is the whole list |
 | Ordering and filtering | `?ordering=` on collections where documented. `?q=` and `?tags=a,b` on the directory |
-| Versioning | URL path. `/api/v1/` is frozen and deprecated (`Deprecation` and `Sunset` headers once V2 ships). Breaking changes inside v2 are forbidden after release; additive changes are fine |
+| Versioning | URL path. `/api/v1/` is frozen and deprecated. It sends no `Deprecation` or `Sunset` headers: its end depends on when the last legacy list expires, which no date set at release can say (checked in task 9.4). The release notes announce it, and 9.6 removes it. Breaking changes inside v2 are forbidden after release; additive changes are fine |
 | Concurrency | List representations carry `ETag: "r{head_revision}"`. Content writes accept `If-Match` (412 on mismatch). **Restore and sync require it** (428 if missing) |
 | Idempotency | `Idempotency-Key: <uuid>` is accepted on create list, create link, fork and branch (stored as `creation_key`). It is **required** on sync apply ([08](08-SYNCHRONIZATION-SPEC.md#identifiers-fingerprints-and-idempotency)) |
 | Rate limits | DRF scoped throttles keyed by user id when signed in and by client IP otherwise, stored in the PostgreSQL DatabaseCache with V1's advisory-lock fix. Reads aren't throttled except directory search |
@@ -222,7 +222,8 @@ Since task 3.3:
 | DELETE | `/api/v2/groups/{code}/lists/{list_code}/` | group editor | |
 | POST | `/api/v2/groups/{code}/reorder/` | group editor | `{"list": "<code>", "to_index": n}` |
 | PUT, DELETE | `/api/v2/groups/{code}/image/` | group editor | |
-| GET, POST, PATCH, DELETE | `/api/v2/groups/{code}/members/…` | group owner | As for lists |
+| GET, POST | `/api/v2/groups/{code}/members/` | group owner (editors may read; viewers 403) | As for lists: POST `{email, role}` → 201 |
+| PATCH, DELETE | `/api/v2/groups/{code}/members/{user_id}/` | group owner; members can DELETE themselves (leave) | As for lists |
 
 Since 4.2. Groups use the session only: a legacy edit link grants nothing on them.
 

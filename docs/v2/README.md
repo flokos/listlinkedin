@@ -1,9 +1,16 @@
 # listlinkedin Version 2: architecture and migration plan
 
-Status: **planning complete, implementation not started** (2026-10-28).
-Branch: `v2`, created from `main` at `fb5f901` (V1 as of PR #7). Source requirements:
-[project_prompt_for_Planning_v2.md](../../project_prompt_for_Planning_v2.md). V1 is described
-by the root [README.md](../../README.md) and [docs/](../).
+Status: **implemented, release in preparation** (2026-10-31). Phases 0–5, 7 and 8 and tasks
+9.0–9.4 are done; synchronization (phase 6) is postponed
+([ADR-015](adr/ADR-015-postpone-synchronization.md)); the release is task 9.5
+([roadmap](17-IMPLEMENTATION-ROADMAP.md)). Branch: `v2`, created from `main` at `fb5f901`
+(V1 as of PR #7). Source requirements:
+[project_prompt_for_Planning_v2.md](../../project_prompt_for_Planning_v2.md). The root
+[README.md](../../README.md) describes V2 and [docs/deployment.md](../deployment.md) runs it;
+V1 is described in [docs/v1/](../v1/README.md).
+
+These documents were written as the plan and kept current as it was built: where the code
+went another way, the document says so and names the task.
 
 Version 2 turns the anonymous, 30-day link lists of V1 into a collaborative platform. People
 have accounts. Lists can be private, unlisted or public, and can be permanent. Groups collect
@@ -48,7 +55,7 @@ contains Links** stays the core of the model.
 | 19 | [Research references](19-RESEARCH-REFERENCES.md) | Sources, dates, what was verified and how |
 | 20 | [Decisions and open questions](20-DECISIONS-AND-OPEN-QUESTIONS.md) | Decision log, open questions |
 | 21 | [Security review](21-SECURITY-REVIEW.md) | ASVS 5.0 L1/L2 review before release (task 9.1): every requirement, fixes, accepted deviations, logging, sessions, crypto and data inventories |
-| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-014 |
+| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-016 |
 
 Diagrams are Mermaid blocks inside the documents (GitHub renders them), so there is no separate
 diagrams folder.

@@ -320,7 +320,7 @@ All 29 L1/L2 requirements are N/A: No OAuth or OpenID Connect: no social or exte
 | V12.1.2 | 2 | Only recommended cipher suites are enabled, with the strongest cipher suites set … | Pass | Mozilla's intermediate suites: AEAD with forward secrecy |
 | V12.1.3 | 2 | The application validates that mTLS client certificates are trusted before using the … | N/A | No client certificates |
 | V12.2.1 | 1 | TLS is used for all connectivity between a client and external facing … | Pass | HTTPS only: pages redirect, API and account requests are refused over HTTP |
-| V12.2.2 | 1 | External facing services use publicly trusted TLS certificates. | Pass | Let's Encrypt certificates (deployment notes in the README) |
+| V12.2.2 | 1 | External facing services use publicly trusted TLS certificates. | Pass | Let's Encrypt certificates ([docs/deployment.md](../deployment.md#first-deploy), the README's deployment notes before task 9.4) |
 | V12.3.1 | 2 | An encrypted protocol such as TLS is used for all inbound and … | Accepted | nginx → api and api → PostgreSQL stay on the host's private compose network, unencrypted. SMTP uses STARTTLS by default; the fetcher validates TLS. Revisit if services leave the single host |
 | V12.3.2 | 2 | TLS clients validate certificates received before communicating with a TLS server. | Pass | The fetcher validates certificates for the original host name; Django's SMTP STARTTLS uses a validating default context |
 | V12.3.3 | 2 | TLS or another appropriate transport encryption mechanism used for all connectivity between … | Accepted | As V12.3.1 |

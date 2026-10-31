@@ -37,10 +37,14 @@ Settled decisions, with where each is justified. Changing one needs a supersedin
 | D28 | **A page's preview image (`og:image`) is fetched and stored, not shown**: once per link, again when its URL changes or on a manual refresh, through the image pipeline (512 px); showing it waits for Q16. Page thumbnails stay postponed | **user (2026-10-30)** | [13](13-SECURITY.md#ssrf-safe-fetcher), [ADR-008](adr/ADR-008-background-metadata-extraction.md) |
 | D29 | **Moderation at launch: operator commands and a report button**, answering Q10. Anyone who can see a list or group, except its owner, can report it; the report emails `MODERATION_EMAIL`. The operator unpublishes, deletes, finds links to a host and suspends accounts with management commands. No Django admin | **user (2026-10-30)** | [13](13-SECURITY.md#moderation), [12](12-AUTHORIZATION.md#operator-actions) |
 | D30 | **Group positions keep their gaps**, answering Q17: removing a list leaves a gap that the group's next write closes; the API numbers entries after ordering, so nobody sees gaps. No trigger | **user (2026-10-30)** | [04](04-DOMAIN-MODEL.md#invariants) |
+| D31 | **Backups and monitoring are host scripts, not services**: `deploy/backup.sh`, `deploy/restore.sh` and `deploy/autoheal.sh` run from the host's cron or systemd timers, so the stack gains no container and needs no ADR. Alerts go through any command the operator names (`ALERT_COMMAND`) | phase 9 plan, approved by the **user (2026-10-30)** | [14](14-INFRASTRUCTURE.md#backups), [docs/deployment.md](../deployment.md#monitoring) |
 
 ## Open questions
 
 Each has a recommendation, so work isn't blocked. Owners decide before the task named.
+After the release the open ones are product questions for later versions. The first to plan is
+Q16 (link pictures), then the "after launch" rows as usage data arrives; Q15 decides whether
+phase 6 resumes.
 
 | # | Question | Recommendation | Decide before |
 |---|---|---|---|
