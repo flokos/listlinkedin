@@ -16,6 +16,8 @@ export DJANGO_SECRET_KEY="$(openssl rand -base64 48)"
 export POSTGRES_DB=smoke POSTGRES_USER=smoke POSTGRES_PASSWORD="$(openssl rand -hex 16)"
 export TLS_CERT_DIR="$work/certs" ACME_WEBROOT="$work/acme"
 export HTTP_PORT="${HTTP_PORT:-8080}" HTTPS_PORT="${HTTPS_PORT:-8443}"
+# Its own maintenance switch: the checkout's deploy/maintenance may serve a real stack.
+export MAINTENANCE_DIR="$work/maintenance"
 
 compose() { docker compose -f compose.prod.yaml "$@"; }
 cleanup() {
@@ -25,7 +27,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$work/certs" "$work/acme"
+mkdir -p "$work/certs" "$work/acme" "$work/maintenance"
+cp deploy/maintenance/maintenance.html "$work/maintenance/"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$SERVER_NAME" \
     -addext "subjectAltName=DNS:$SERVER_NAME" \
     -keyout "$work/certs/privkey.pem" -out "$work/certs/fullchain.pem" 2>/dev/null
@@ -170,6 +173,22 @@ check "spoofed X-Forwarded-For cannot bypass rate limits" "410x29 429x1" "$statu
 published=$(compose port api 8000 2>/dev/null || true)
 check "API port is not published" "not published" \
     "$([[ -z "$published" || "$published" == ":0" ]] && echo "not published" || echo "$published")"
+
+# Maintenance mode (task 9.5): while the switch file exists every request gets the static 503
+# page, the API's included; removing it restores service without a reload.
+touch "$MAINTENANCE_DIR/on"
+maintenance_headers=$(curl_ -sI "$https/l/$code" | tr -d '\r' | tr 'A-Z' 'a-z')
+check "maintenance mode answers 503" 503 "$(awk 'NR==1 {print $2}' <<<"$maintenance_headers")"
+check "maintenance mode asks clients to retry" "retry-after: 600" "$(grep '^retry-after' <<<"$maintenance_headers")"
+check "maintenance mode covers the API" 503 "$(curl_ -o /dev/null -w '%{http_code}' "$https/healthz")"
+check "maintenance mode serves its page" 1 "$(curl_ "$https/r/x" | grep -c "We'll be right back")"
+rm -f "$MAINTENANCE_DIR/on"
+check "service returns when maintenance ends" 200 "$(curl_ -o /dev/null -w '%{http_code}' "$https/healthz")"
+
+# nginx looks the API up per request, so a recreated api container (possibly at a new
+# address, as after an upgrade) is reached without restarting nginx.
+compose up -d --no-deps --force-recreate --wait api >/dev/null 2>&1
+check "nginx reaches a recreated API" 200 "$(curl_ -o /dev/null -w '%{http_code}' "$https/healthz")"
 
 # The background worker (docs/v2/adr/ADR-008): every replica becomes healthy, and a task
 # queued by the API runs (a test task: the only real one arrives with link metadata, 7.3).

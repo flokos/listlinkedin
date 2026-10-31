@@ -20,3 +20,5 @@ e2e/test-results/
 
 # Screenshots and video of the app for partners (ui-showcase/README.md); not part of the code
 ui-showcase/
+# Maintenance mode switch (deploy/maintenance/on), set on the server only
+deploy/maintenance/on

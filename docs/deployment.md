@@ -67,6 +67,7 @@ Copy [.env.example](../.env.example) to `.env` next to `compose.prod.yaml` and s
 | `TLS_CERT_DIR` | `./deploy/certs` | The directory holding `fullchain.pem` and `privkey.pem` |
 | `ACME_WEBROOT` | `./deploy/acme` | Let's Encrypt HTTP-01 challenges, served at `/.well-known/acme-challenge/` |
 | `HTTP_PORT`, `HTTPS_PORT` | `80`, `443` | Host ports for nginx |
+| `MAINTENANCE_DIR` | `./deploy/maintenance` | The directory holding the maintenance page and its `on` switch ([below](#maintenance-mode)). Tests point it elsewhere so they can't switch a real stack |
 
 Development and test switches never belong in production: `DJANGO_EMAIL_BACKEND`,
 `AUTH_RATE_LIMITS=off`, `LEGACY_LIST_CREATION=on` and `FETCH_TEST_HOSTS`. The production
@@ -126,14 +127,18 @@ app and `/media/` yourself. Your proxy must also:
 
 ```bash
 cd /srv/listlinkedin
-bash deploy/backup.sh                              # always, before migrating
 git fetch --tags && git checkout <new tag>
-docker compose -f compose.prod.yaml up --build -d --wait
+docker compose -f compose.prod.yaml build              # while the old version still serves
+touch deploy/maintenance/on                            # optional: the maintenance page
+bash deploy/backup.sh                                  # always, before migrating
+docker compose -f compose.prod.yaml up -d --wait
+rm -f deploy/maintenance/on
 curl https://go.example.com/healthz
 ```
 
-`up` rebuilds the images and runs `migrate` before starting the new `api`, `worker` and
-`cleanup`. A failed migration stops there and the stack doesn't come up. Read
+`up` runs `migrate` before starting the new `api`, `worker` and `cleanup`. Use the maintenance
+page when the release notes say an upgrade migrates a lot of data. Otherwise the old `api`
+serves until the new one replaces it, a few seconds later. A failed migration stops there and the stack doesn't come up. Read
 `docker compose -f compose.prod.yaml logs migrate`, then fix the problem or roll back.
 
 **Rolling back:**
@@ -144,15 +149,29 @@ curl https://go.example.com/healthz
    code.
 3. Start the stack.
 
-Release notes say when an upgrade needs more than this, such as a one-off command. One such
-command is `backfill_metadata`, after the upgrade that introduced link details (V2):
+Release notes say when an upgrade needs more than this, such as a one-off command.
+
+The V1 → V2 cutover has its own [runbook](v2/06-MIGRATION-PLAN.md#runbook), rehearsed in
+[22](v2/22-RELEASE-REHEARSAL.md). Afterwards, it fetches details for the links V1 left
+behind with `backfill_metadata`, in batches of 1,000 (the default). Larger batches leave
+tasks waiting long enough to make the worker unhealthy.
+
+## Maintenance mode
+
+While the file `deploy/maintenance/on` exists, nginx answers every request with a static
+503 page ([deploy/maintenance/maintenance.html](../deploy/maintenance/maintenance.html)),
+with `Retry-After: 600`, the API included. nginx checks on every request, so there's nothing
+to reload:
 
 ```bash
-docker compose -f compose.prod.yaml exec api python manage.py backfill_metadata
+touch deploy/maintenance/on       # start
+rm deploy/maintenance/on          # end
 ```
 
-The V1 → V2 cutover has its own runbook in
-[docs/v2/06-MIGRATION-PLAN.md](v2/06-MIGRATION-PLAN.md#deployment-strategy-release-day).
+The page doesn't need the API, so it stays up while the `api` container is stopped or being
+replaced. nginx looks the API's address up per request, so a recreated `api` is reached
+without restarting nginx. The V1 → V2 release uses the page for its whole window
+([runbook](v2/06-MIGRATION-PLAN.md#runbook)).
 
 ## Worker
 
