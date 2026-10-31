@@ -184,3 +184,10 @@ def test_a_full_snapshot_stays_small(alice):
             [typical.pk],
         )
         assert cursor.fetchone()[0] < 32 * 1024
+
+
+def test_session_and_account_take_one_query_each(alice):
+    client = signed_in(alice)
+    assert count(client, f"{URL}session/") - SESSION <= 1
+    assert count(client, f"{URL}me/") - SESSION <= 1
+    assert count(APIClient(), f"{URL}session/") <= 1  # signed out: no user to load
