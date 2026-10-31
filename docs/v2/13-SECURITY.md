@@ -1,0 +1,241 @@
+# 13: Security
+
+V1's controls ([docs/v1/security.md](../v1/security.md)) all remain: 96-bit codes, hashed owner
+tokens, the row-lock re-check, the advisory-locked throttles, the destination host policy,
+redirect headers, size limits, the nginx hardening and the strict CSP. V2 adds accounts,
+private data, server-side fetching and file handling, so the threat model grows. References:
+OWASP API Security Top 10 2023 [R13], ASVS 5.0 (levels 1–2 as a review checklist) [R14], and
+the OWASP SSRF [R12], redirect [R16] and file upload [R15] cheat sheets.
+
+## Assets and trust boundaries
+
+| Asset | Why it matters |
+|---|---|
+| Private list and group content, revision history | Confidentiality is a new V2 promise |
+| Accounts (credentials, sessions, email addresses) | Account takeover gives control of everything the account owns |
+| Legacy owner tokens (unclaimed lists) | Full control of a list until claimed or expired |
+| The internal network (db, metadata endpoints, intranet) | Reachable from the worker, which fetches user-supplied URLs |
+| Short-URL and directory reputation | Phishing and abuse hurt every user |
+| Media storage | Uploaded files are untrusted bytes served from our origin |
+
+Trust boundaries: browser ↔ nginx (TLS), nginx ↔ api (internal network), worker ↔ internet
+(**new**, outbound), and api/worker ↔ PostgreSQL.
+
+## Threats and mitigations
+
+| Threat (prompt Part 14) | Mitigation | Verified by |
+|---|---|---|
+| **Anonymous sharing** | Only `unlisted` and `public` lists are readable without an account. Creation needs an account ([ADR-011](adr/ADR-011-accounts-required-legacy-lists.md)) | API matrix tests |
+| **Private collections** | The policy plus SQL-filtered querysets. 404 for unauthorized ([12](12-AUTHORIZATION.md)) | matrix and leak tests |
+| **Unlisted URLs** | Unchanged capability semantics: 96-bit codes, `no-referrer`, `noindex`. Never shown in the directory or in public groups | directory and group leak tests |
+| **Creator-token migration** | Claim needs a session and the token, runs under the lock, retires the token, and stores and logs only hashes ([06](06-MIGRATION-PLAN.md#ownership-transition)) | claim tests (double claim, wrong token, expired) |
+| **Authentication** | django-allauth headless: Django password hashing (PBKDF2 default) and the 4 default password validators, email verification, built-in rate limits on login and reset, enumeration prevention on signup and reset responses [R6] | auth API tests, e2e |
+| **Authorization / permission escalation** | One policy module. Owner-only settings and members. Role changes by the owner only. A user can't grant a role higher than their own. Group roles never reach lists | matrix tests including escalation attempts |
+| **IDOR / BOLA** [R13] | Every lookup starts from the parent resource and the visible queryset. Link UUIDs are always scoped to their list (V1 `_get_link` pattern). Nested ids are never trusted alone | tests swapping ids across lists and groups |
+| **Short URL enumeration** | 96-bit random codes (V1). Private targets answer 404 like unknown codes | V1 tests + visibility tests |
+| **SSRF** | The [SSRF-safe fetcher](#ssrf-safe-fetcher) in the worker only. The api process never fetches user URLs | fetcher unit tests with simulated DNS rebinding |
+| **XSS** | Vue escapes by default. `v-html` is banned (`vue/no-v-html` is a lint error since 9.1; it was a warning). Fetched strings are stored as plain text. SVG is never accepted. The CSP stays `script-src 'self'` (default-src). Link `href`s are always our `/r/` short URL or a server-validated http(s) URL | lint, component tests, CSP smoke test |
+| **CSRF** | New with cookies: `CsrfViewMiddleware` and DRF `SessionAuthentication` enforce CSRF on authenticated unsafe requests [R8]. `SameSite=Lax` session cookie. Remove V1's `security.W003` silence. Legacy bearer requests carry no ambient credentials, so they need no CSRF | API tests without and with a wrong token; `check --deploy` in CI |
+| **Malicious URL schemes** | Server-side http/https only (V1 `normalize_destination_url`), also for metadata-derived image URLs. `HttpResponseRedirect` refuses other schemes (V1) | V1 tests + new ones |
+| **Open redirects** | `/r/` redirects only to stored, validated URLs (V1). `next`/redirect parameters must be same-origin paths. allauth redirect settings point to SPA routes only [R16] | tests for `next=//evil`, `next=https://…` |
+| **Metadata fetching** | Fetcher policy plus size, time and type limits, results stored as text, failures as codes | fetcher tests |
+| **File and image handling** | The [media pipeline](#media): type sniffing, pixel limits, re-encode, random paths, `nosniff`, a sandbox CSP on `/media/` [R15] | image tests (polyglots, bombs, wrong types) |
+| **Rate limiting** | [Rate limits](#rate-limits) per user or IP, DB-backed (V1 mechanism) | throttle tests incl. concurrency (V1 style) |
+| **Sensitive data leakage** | No tokens, session ids, CSRF tokens or email addresses in logs. Emails are visible only to their owner. Owner names only on public lists. History only for editors ([12](12-AUTHORIZATION.md#leak-analysis)) | log-capture tests (V1 has one for tokens) |
+| **Expired and deleted resources** | V1 semantics: 410 from expiry, purge, tombstoned links 404, deleted lists 404, sync status for orphaned children | V1 tests + new ones |
+| **Concurrent permission changes** | Authorization re-checked under the aggregate lock. Membership changes take the same lock ([12](12-AUTHORIZATION.md#concurrent-permission-changes)) | concurrency test: revoke during a write |
+| **Phishing via public lists or directory** | V1 denylist (applied on write and on redirect). Making something public needs a **verified email**. Since 9.0: **Report…** on lists and groups emails the operator, whose commands unpublish or delete them, find links to a host and suspend accounts ([Moderation](#moderation)) | tests for the verified-email gate; report and command tests (`test_v2_moderation.py`, `groups/tests/test_moderation.py`, `accounts/tests/test_suspension.py`); e2e `report.spec.ts` |
+
+## SSRF-safe fetcher
+
+`metadata/fetcher.py` is the **only** code that fetches user-supplied URLs (CLAUDE.md). It
+follows OWASP's "Case 2" guidance for arbitrary external destinations [R12]:
+
+1. **Input:** the stored, normalized URL. Re-run `normalize_destination_url` and the host
+   policy (own hosts and `BLOCKED_DESTINATION_HOSTS`). Schemes http/https only. **Ports 80
+   and 443 only**: links on other ports simply get no metadata, which removes internal-service
+   probing on odd ports.
+2. **Resolve** A and AAAA records. **Every** address must be globally routable:
+   `ipaddress.ip_address(a).is_global`, with IPv4-mapped, 6to4, Teredo and NAT64
+   (`64:ff9b::/96`) IPv6 addresses unwrapped first and judged by the IPv4 address they carry.
+   NAT64 matters: Python counts the prefix as global, but `64:ff9b::7f00:1` reaches 127.0.0.1
+   through a NAT64 gateway (found by a test in task 7.2). Explicit denies cover `0.0.0.0/8`, `127.0.0.0/8`, RFC 1918, `100.64.0.0/10`,
+   `169.254.0.0/16` (cloud metadata), `fc00::/7`, `fe80::/10`, multicast and `::1`. These
+   are a fixed floor in code; a deployment can only **add** ranges, with
+   `FETCH_BLOCKED_NETWORKS` (for internal services on public addresses, such as a company's
+   own range). An invalid entry stops the app at startup. Any
+   non-global answer rejects the URL. A blocklist is the only option for open-ended
+   destinations, and OWASP calls it necessary but not sufficient, hence the steps below.
+3. **Pin the connection** to the validated address. Use the original hostname for the `Host`
+   header, TLS SNI and certificate verification. Never let the HTTP client resolve the name
+   again, because that second lookup is the DNS-rebinding gap [R12]. Implementation: urllib3
+   2.x connection pools opened on the IP with `server_hostname` and `assert_hostname` set to
+   the original host. The surveyed SSRF wrapper libraries (drawbridge, ssrfguard,
+   httpx-secure, Champion/Advocate) have unverified maintenance [R30], so we own about 150
+   lines with exhaustive tests instead. Since task 7.2: `apps/metadata/fetcher.py`; one pool
+   per hop, closed after it; a 4xx, an unknown name, a TLS failure or an unacceptable body
+   raise `FetchFailed`, the policy `FetchRefused` (neither retried), and timeouts, connection
+   errors, 429 and 5xx `TemporaryFailure` (retried by the task). `parser.py` reads the page,
+   and `extraction.py` fetches the icon (up to 3 candidates, then `/favicon.ico`) and the
+   `og:image` through the image pipeline, within a 30 s budget for images.
+4. **Redirects off.** Follow up to 3 manually. Each hop re-runs steps 1–3. A relative hop
+   resolves against the current URL.
+5. **Limits:** connect 3 s, read 5 s, 10 s wall clock per URL. HTML ≤512 KB and images ≤1 MB,
+   counted **after** decompression. Stop reading at the limit.
+6. **Content types:** pages `text/html` or `application/xhtml+xml`. Images png, jpeg, gif,
+   webp, x-icon. Anything else is ignored. SVG is never fetched or stored.
+7. **Request hygiene:** a fixed `User-Agent` naming the service, no cookies, no auth headers,
+   no `Referer`.
+8. **Parsing:** the stdlib `html.parser` over the capped bytes. Extract `<title>`,
+   `meta[name=description]`, `og:title`, `og:description`, `og:image`, `og:site_name` [R20], and
+   `link[rel~=icon]` / `apple-touch-icon`, falling back to `/favicon.ico`. Values are trimmed,
+   control characters removed, and truncated to field limits. HTML is never stored.
+9. **Throughput and abuse:** worker concurrency 2. At most one refresh per link per hour. Link
+   creation is already throttled. One request per host per second per worker.
+10. **End-to-end tests only:** `FETCH_TEST_HOSTS` (`name=service`) lets the fetcher reach a
+    fixture site on the private compose network. Only names under `.test` (reserved by
+    RFC 2606, so they never exist on the internet) are accepted, only the public-address check
+    is skipped for them, and the app logs a warning at startup when it is set. The e2e stack
+    also sets `FETCH_BLOCKED_NETWORKS=0.0.0.0/0,::/0`, so tests never reach the internet.
+    Production never sets either.
+11. **Network layer (defence in depth, recommended):** a host firewall rule (`DOCKER-USER`
+    chain) that drops worker egress to private ranges and `169.254.169.254`. It is optional,
+    because the application-layer pinning is the primary control
+    ([14](14-INFRASTRUCTURE.md#worker-egress)).
+
+## Media
+
+Uploaded images (list and group image, link icon) and fetched icons and images go through one
+Pillow pipeline (Pillow 13.0 current [R24]) [Decision, ADR-012]:
+
+1. Uploads ≤2 MB (a per-route request limit, [09](09-API-DESIGN.md#uploads)). Fetched images
+   ≤1 MB.
+2. Identify by content, never by name or `Content-Type`. Allow PNG, JPEG, WebP, GIF (first
+   frame) and ICO (fetched only). Set `Image.MAX_IMAGE_PIXELS` to 16 MP and treat Pillow's
+   `DecompressionBombWarning` as an error.
+3. `verify()`, reopen, `load()`, apply `exif_transpose`, convert to RGBA, shrink to fit
+   128×128 (icons) or 512×512 (list or group images), never enlarging (`thumbnail`), and
+   **re-encode** to WebP. Re-encoding
+   destroys polyglots and embedded payloads [R15] and strips EXIF and GPS metadata.
+4. Store at `media/{kind}/{hh}/{sha256}.webp`, content-addressed, so files are never
+   overwritten and are deduplicated.
+5. nginx serves `/media/` with `X-Content-Type-Options: nosniff`, an explicit
+   `image/webp` type (every other file is `application/octet-stream`),
+   `Content-Security-Policy: default-src 'none'; sandbox` and
+   `Cache-Control: public, max-age=31536000, immutable` (not on 404s, since a deleted file can
+   be uploaded again). Directories aren't listed. Images are never served by Django in
+   production (development's `runserver` does, behind Vite).
+6. Unreferenced files are removed by `cleanup_media` after 7 days
+   ([14](14-INFRASTRUCTURE.md#scheduled-jobs)). Storing the same image again refreshes the
+   file's age, so an image that was unused and is chosen again isn't deleted under it.
+
+Since task 2.3 this is `apps/metadata/images.py`, with tests for each step (polyglots, bombs,
+wrong types, truncated files, EXIF and GPS removal, first animation frame). Uploads are decoded
+outside the list's row lock; permission is checked before decoding (so strangers can't fill the
+disk) and again under the lock (a removed editor can't attach the image afterwards).
+
+Accepted risk: media URLs aren't access-checked. Their 256-bit content-hash names can only be
+guessed by someone who already has the image. Moving private images behind an authenticated
+`X-Accel-Redirect` is a later option if icons ever become sensitive.
+
+## Sessions, cookies and headers
+
+- Session cookie: `Secure` (production), `HttpOnly`, `SameSite=Lax`, two-week age, rotated on
+  login (Django). The CSRF cookie is readable by JavaScript (needed by the SPA), `Secure`, and
+  `CSRF_TRUSTED_ORIGINS = [PUBLIC_BASE_URL]`. Since task 9.1 both are `__Host-` cookies in
+  production (`__Host-sessionid`, `__Host-csrftoken`): browsers accept them only over HTTPS,
+  from this host, for the whole site. Session lifetime and limits:
+  [21](21-SECURITY-REVIEW.md#sessions).
+- Email verification and password-reset keys travel in the URL **fragment**
+  (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
+  nginx logs, as V1's edit-link tokens do. The SPA removes them from the address bar on
+  arrival. Reset keys work once, for one hour (`PASSWORD_RESET_TIMEOUT`, since 9.1).
+- `?next=` after sign-in accepts only same-site paths (`safeRedirectPath`). It rejects `//host`,
+  `/\host`, other schemes, and control characters that browsers strip into `//host`.
+- Production keeps HSTS, the SSL redirect and the proxy header from V1. `check --deploy
+  --fail-level WARNING` stays in CI, without the W003 silence.
+- The nginx CSP for the SPA is unchanged (`default-src 'self'; img-src 'self' data:; …`).
+  Media is same-origin, so no third-party image hosts are allowed. That also means visitors'
+  IPs never leak to icon hosts. Since task 9.1: API answers carry `default-src 'none';
+  frame-ancestors 'none'` and `Cache-Control: no-store`; the API docs page serves Swagger UI
+  from this origin with its own CSP (`config/docs.py`), never from a CDN; media adds
+  `frame-ancestors 'none'`; the app's files declare UTF-8 and send
+  `Cross-Origin-Opener-Policy: same-origin` and a `Permissions-Policy`.
+- Plain HTTP: pages redirect to HTTPS, but `/api/` and `/_allauth/` answer 403 (since 9.1), so
+  a client that sent a secret over HTTP finds out instead of silently being redirected.
+- `X-Robots-Tag: noindex` stays for everything in the MVP. Indexing public lists is an open
+  question ([20](20-DECISIONS-AND-OPEN-QUESTIONS.md)).
+
+## Rate limits
+
+DRF scoped throttles (V1 mechanism) are keyed by user when signed in and by IP otherwise.
+These are initial values. Tune them from logs.
+
+| Scope | Limit |
+|---|---|
+| Login and password reset | allauth defaults (failed login per IP and account) |
+| Signup | 10/h per IP |
+| List and group creation | 60/h per user |
+| Content writes (lists, links, groups, reorder) | 1200/h per user; legacy token writes 600/h per IP (V1) |
+| Uploads | 120/h per user |
+| Metadata refresh | 60/h per user (`metadata_refresh`, since 8.1: missed in 7.3), 1/h per link |
+| Sync apply (postponed), restore, claim | 120/h per user |
+| Directory search | 600/h per IP, signed in or not (`directory`, `ReadRateThrottle`, since 8.1) |
+| Adding members by email | 60/h per user |
+| Reports to the operator | 10/h per user or IP (`report`, since 9.0) |
+
+Groups have their own scopes since 4.2, `group_create` and `group_manage`, with the same
+configured values as `list_create` and `list_manage` (30/h and 600/h).
+
+## Logging and secrets
+
+Logs record ids (list, link, user, sync record) and error codes. They never record tokens,
+session or CSRF values, or email addresses (use the user id). V1's test that tokens never
+appear in logs is extended to sessions and claim (`tests/test_logging.py`, since 9.1: session
+and CSRF values, verification and reset keys, edit-link tokens and email addresses, through
+sign-up, verification, claims, invitations and resets). Since 9.1 every record also carries
+the request id and the user id, and authentication events are logged
+([21](21-SECURITY-REVIEW.md#logging)). Secrets stay environment-only. New secrets are the SMTP
+credentials ([14](14-INFRASTRUCTURE.md)).
+
+## Moderation
+
+Since task 9.0 (D29, which answers Q10): reports from the people who see a list or group, and
+management commands for the operator. There is no Django admin.
+
+**Reports.** **Report…** is in the ⋮ menu of a list or group for anyone who can view it except
+its owner, signed in or not (the API is in [09](09-API-DESIGN.md#moderation)). It asks what
+is wrong (phishing or malware, spam, illegal content, something else) and for optional
+details. The report is emailed to `MODERATION_EMAIL` from the api, during the request, with a
+10 s `EMAIL_TIMEOUT`. It doesn't go through the worker, whose egress firewall may block an
+internal mail relay. The email gives the reporter's user id at most, never an address or IP;
+the owner isn't told. Without `MODERATION_EMAIL` reports are only logged, without the
+reporter's words, so production sets it.
+
+**Commands.** Run them in the api container, for example
+`docker compose -f compose.prod.yaml exec api python manage.py unpublish_list --reason "phishing" -- <code>`.
+Codes can start with `-`, so always put `--` before a code (the report emails do):
+
+| Command | Effect |
+|---|---|
+| `unpublish_list --reason … -- <code>` | The list becomes private: only its owner and the people it's shared with can open it, and its short URLs answer 404 to everyone else. A legacy list must stay unlisted (CHECK L3): delete it instead |
+| `delete_list --reason … --yes -- <code>` | Deletes the list with its links, short URLs and memberships. Without `--yes` it only shows what it would delete |
+| `find_links <host>` | Every live link to a host or its subdomains, with its list: for sweeping a phishing domain. Then add the host to `BLOCKED_DESTINATION_HOSTS`, which also stops its existing short URLs (410) |
+| `unpublish_group --reason … -- <code>` | The group becomes private |
+| `delete_group --reason … --yes -- <code>` | Deletes the group and its memberships; its lists are untouched |
+| `suspend_account <email or id> --reason … [--unpublish]` | The account can't sign in, and its sessions end on every device ([12](12-AUTHORIZATION.md#operator-actions)). With `--unpublish`, its public and unlisted lists and groups become private |
+| `unsuspend_account <email or id> --reason …` | It can sign in again. What was unpublished stays private until its owner changes it |
+
+Every command logs the ids and the reason.
+
+## Residual risks (accepted)
+
+- Account enumeration when an owner adds a member by email (verified owners only, rate-limited,
+  one generic answer for unknown and unverified addresses).
+- Media isn't access-controlled (unguessable names).
+- Reports from people who aren't signed in can be used to fill the operator's mailbox; they
+  are limited to 10/h per IP.
+- Rate limits are per IP for anonymous users (V1 limitation, unchanged).
+- Phishing through public lists is reduced (verified email, denylist, reports and operator
+  commands) but not solved. There is no automated reputation check. That is a later option for a fully
+  public launch (V1 `docs/v1/security.md` reasoning still holds).

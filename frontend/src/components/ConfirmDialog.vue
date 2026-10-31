@@ -9,6 +9,10 @@ const props = defineProps<{
   text: string
   action: string
   confirmText?: string
+  /** Label of the dismiss button (default "Cancel"). */
+  cancelLabel?: string
+  /** `neutral` for choices that destroy nothing (default `danger`). */
+  tone?: 'danger' | 'neutral'
   /** Runs on confirm; the dialog shows progress and closes when it resolves. */
   onConfirm: () => Promise<unknown>
 }>()
@@ -54,10 +58,16 @@ async function confirm() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" :disabled="busy" @click="open = false">Cancel</v-btn>
-        <v-btn color="error" :disabled="!canConfirm" :loading="busy" @click="confirm">{{
-          action
+        <v-btn variant="text" :disabled="busy" @click="open = false">{{
+          cancelLabel ?? 'Cancel'
         }}</v-btn>
+        <v-btn
+          :color="tone === 'neutral' ? 'primary' : 'error'"
+          :disabled="!canConfirm"
+          :loading="busy"
+          @click="confirm"
+          >{{ action }}</v-btn
+        >
       </v-card-actions>
     </v-card>
   </v-dialog>

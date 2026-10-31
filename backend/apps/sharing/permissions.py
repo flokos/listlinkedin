@@ -1,7 +1,8 @@
-"""Owner-token access control.
+"""V1 owner-token access control, and the rate limits shared by both APIs.
 
-There are no user accounts. A request "authenticates" only by presenting a bearer token;
-whether that token owns the list is decided per list by `IsListOwnerOrReadOnly`.
+The V1 API (/api/v1/) has no accounts: a request "authenticates" only by presenting a list's
+owner token, and `IsListOwnerOrReadOnly` decides per list whether it owns it. It serves legacy
+lists until the sunset (task 9.6). The V2 API decides through `policy.py` instead.
 """
 
 from django.db import connection, transaction
@@ -51,6 +52,21 @@ class WriteRateThrottle(ScopedRateThrottle):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", [lock_key])
             return super().allow_request(request, view)
+
+
+class ReadRateThrottle(WriteRateThrottle):
+    """Scoped rate limit on every method, per client IP even when signed in: for public reads
+    that cost a search (the directory, docs/v2/13-SECURITY.md#rate-limits)."""
+
+    def allow_request(self, request, view) -> bool:
+        lock_key = f"throttle:{getattr(view, self.scope_attr, '')}:{self.get_ident(request)}"
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", [lock_key])
+            return super(WriteRateThrottle, self).allow_request(request, view)
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
 
 
 class OwnerTokenScheme(OpenApiAuthenticationExtension):

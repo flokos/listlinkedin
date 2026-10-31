@@ -36,6 +36,105 @@ export function apiHelpers(request: APIRequestContext) {
   }
 }
 
+// Accounts. Mailpit (e2e/compose.e2e.yaml) catches every email the stack sends.
+const MAILPIT = 'http://mailpit:8025'
+const ORIGIN = new URL(process.env.E2E_BASE_URL ?? 'https://go.example.test').origin
+export const PASSWORD = 'correct-horse-battery-staple-42'
+
+/** A fresh address per test, so tests never read each other's mail or collide. */
+export function uniqueEmail(label = 'e2e'): string {
+  return `${label}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@example.test`
+}
+
+/** Waits for the newest email to `to` whose subject matches, and returns its text body. */
+export async function emailTo(request: APIRequestContext, to: string, subject: RegExp): Promise<string> {
+  const deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    const search = await request.get(`${MAILPIT}/api/v1/search`, { params: { query: `to:"${to}"` } })
+    const { messages = [] } = (await search.json()) as { messages?: { ID: string; Subject: string }[] }
+    const message = messages.find((m) => subject.test(m.Subject))
+    if (message) {
+      const full = await request.get(`${MAILPIT}/api/v1/message/${message.ID}`)
+      return ((await full.json()) as { Text: string }).Text
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300))
+  }
+  throw new Error(`No email to ${to} with a subject matching ${subject}`)
+}
+
+/** The app link in an email, e.g. `https://…/verify-email#key=…`. */
+export function linkIn(text: string, path: string): string {
+  const match = text.match(new RegExp(`https://\\S+${path}#key=\\S+`))
+  expect(match, text).not.toBeNull()
+  return match![0]
+}
+
+/** Django's CSRF token from the page's cookies: `__Host-csrftoken` on the production stack
+ * the suite runs against (backend/config/settings/production.py), `csrftoken` in development. */
+export async function csrfOf(page: Page): Promise<string> {
+  const cookies = await page.context().cookies()
+  const named = (name: string) => cookies.find((c) => c.name === name)?.value
+  return named('__Host-csrftoken') ?? named('csrftoken') ?? ''
+}
+
+/**
+ * Creates an account through the API and leaves this browser signed in to it: page.request
+ * shares the page's cookies. For tests about signed-in pages rather than sign-up itself.
+ */
+export async function signUpThroughApi(page: Page, email: string, password = PASSWORD) {
+  await page.request.get('/api/v2/session/') // sets the CSRF cookie
+  const csrf = await csrfOf(page)
+  const response = await page.request.post('/_allauth/browser/v1/auth/signup', {
+    data: { email, password },
+    // Browsers send Origin on these requests themselves; Django checks it over HTTPS.
+    headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(200)
+}
+
+/** Creates an account list through the API as the page's signed-in user. */
+export async function createAccountList(page: Page, title: string): Promise<{ code: string }> {
+  const csrf = await csrfOf(page)
+  const response = await page.request.post('/api/v2/lists/', {
+    data: { title },
+    headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(201)
+  return response.json()
+}
+
+/** A session-authenticated API write as the page's signed-in user; returns the JSON body. */
+export async function apiAs(page: Page, method: 'POST' | 'PATCH', path: string, data: object, status = 201) {
+  const csrf = await csrfOf(page)
+  const response = await page.request.fetch(path, {
+    method,
+    data,
+    headers: { 'X-CSRFToken': csrf, Origin: ORIGIN },
+  })
+  expect(response.status(), await response.text()).toBe(status)
+  return response.json()
+}
+
+/**
+ * Like signUpThroughApi, then verifies the address with the key from the emailed link and
+ * sets a display name, all through the API (auth.spec tests the verification page itself).
+ * Sharing a list needs verified accounts on both sides.
+ */
+export async function signUpVerified(page: Page, email: string, displayName: string) {
+  await signUpThroughApi(page, email)
+  const link = linkIn(await emailTo(page.request, email, /confirm/i), '/verify-email')
+  const key = decodeURIComponent(new URL(link).hash.replace(/^#key=/, ''))
+  const csrf = await csrfOf(page)
+  const headers = { 'X-CSRFToken': csrf, Origin: ORIGIN }
+  const verified = await page.request.post('/_allauth/browser/v1/auth/email/verify', {
+    data: { key },
+    headers,
+  })
+  expect(verified.status(), await verified.text()).toBe(200)
+  const named = await page.request.patch('/api/v2/me/', { data: { display_name: displayName }, headers })
+  expect(named.status(), await named.text()).toBe(200)
+}
+
 /** The title link of a link card (the icon button has a different name). */
 export const cardTitle = (page: Page, title: string) =>
   page.getByRole('link', { name: `${title} (opens in a new tab)`, exact: true })
@@ -53,28 +152,25 @@ export async function openAsOwner(page: Page, list: CreatedList) {
   await expect(page.getByText('Your list', { exact: true })).toBeVisible()
 }
 
-/** Creates a list through the home page form and acknowledges the edit link. */
-export async function createListInUI(page: Page, title: string) {
-  await page.goto('/')
-  await page.getByRole('textbox', { name: 'List name' }).fill(title)
-  await page.getByRole('button', { name: 'Create list' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Your list is ready. Save your edit link' })
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole('checkbox', { name: /saved my edit link/ }).check()
-  await dialog.getByRole('button', { name: 'Go to my list' }).click()
-  await expect(dialog).toBeHidden()
-  await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
-  return page.url().split('/l/')[1]!
-}
-
 /** A second, independent browser (another device): no shared storage. */
 export async function otherDevice(browser: Browser, baseURL: string | undefined) {
   const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true })
   return { context, page: await context.newPage() }
 }
 
-/** Fails on WCAG 2.2 A/AA violations found by axe. */
+/**
+ * Fails on WCAG 2.2 A/AA violations found by axe. Waits for running transitions first: a menu
+ * or dialog still fading in has semi-transparent text, which axe reports as low contrast.
+ */
 export async function expectNoA11yViolations(page: Page, include?: string) {
+  await page.evaluate(() => {
+    const finite = document
+      .getAnimations()
+      // Paused ones and spinners never finish; a transition takes well under 2 s.
+      .filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations !== Infinity)
+      .map((a) => a.finished.catch(() => undefined))
+    return Promise.race([Promise.all(finite), new Promise((done) => setTimeout(done, 2000))])
+  })
   let builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
   if (include) builder = builder.include(include)
   const { violations } = await builder.analyze()
@@ -86,7 +182,7 @@ export async function expectNoA11yViolations(page: Page, include?: string) {
 
 // HTTP errors the app handles on purpose show up as console errors in some browsers
 // ("Failed to load resource: … 404"). Anything else is a bug.
-const EXPECTED_CONSOLE = [/status of (400|401|403|404|410|413|429|500|502|503)/, /Failed to load resource/]
+const EXPECTED_CONSOLE = [/status of (400|401|403|404|410|412|413|428|429|500|502|503)/, /Failed to load resource/]
 
 export const test = base.extend<{ consoleErrors: string[]; api: ReturnType<typeof apiHelpers> }>({
   consoleErrors: [

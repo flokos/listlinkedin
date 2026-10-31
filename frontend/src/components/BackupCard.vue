@@ -59,7 +59,7 @@ async function restore(event: Event) {
         code: entry.code,
         token: entry.token,
         title: list.title,
-        expiresAt: list.expires_at,
+        expiresAt: list.expires_at ?? '',
       })
       counts.added++
     } catch (error) {
@@ -109,9 +109,9 @@ async function restore(event: Event) {
   <v-card class="pa-5" color="surface-container">
     <h2 class="text-title-large mb-1">Back up or move your saved lists</h2>
     <p class="text-body-medium text-medium-emphasis mb-4">
-      There are no accounts, so your edit access lives in this browser. Download a backup to keep it
-      safe or to restore it on another device. You can also restore from the edit-link file you
-      saved when creating a list.
+      Lists made before accounts existed are edited with edit links saved in this browser. Download
+      a backup to keep them safe or to restore them on another device, or add the lists to your
+      account. You can also restore from an edit-link file you saved.
     </p>
 
     <div class="d-flex flex-wrap ga-3">

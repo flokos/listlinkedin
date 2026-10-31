@@ -1,4 +1,4 @@
-"""Tests backing the claims in docs/security.md that are not covered elsewhere."""
+"""Tests backing the claims in docs/v1/security.md that are not covered elsewhere."""
 
 import json
 import logging
@@ -149,6 +149,8 @@ def test_openapi_marks_only_owner_operations_as_authenticated(api_client):
     }
 
     for (method, path), op in operations.items():
+        if path.startswith("/api/v2/"):
+            continue  # session sign-in, checked in apps/accounts/tests/test_api.py
         is_owner_only = method in ("PATCH", "DELETE") or (
             method == "POST" and path != "/api/v1/lists/"
         )

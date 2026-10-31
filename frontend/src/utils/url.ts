@@ -56,6 +56,31 @@ export function displayUrl(input: string): string {
   }
 }
 
+/**
+ * A path on this site to continue to (e.g. `?next=` after signing in), or `fallback`.
+ * Rejects anything that could leave the site: `//host`, `/\host`, other schemes, and
+ * control characters, which browsers strip, turning `/\t/host` into `//host`.
+ */
+export function safeRedirectPath(value: unknown, fallback = '/'): string {
+  if (typeof value !== 'string' || !value.startsWith('/')) return fallback
+  const hasControl = [...value].some((char) => char.charCodeAt(0) < 0x20 || char === '\u007f')
+  if (value.startsWith('//') || value.includes('\\') || hasControl) return fallback
+  return value
+}
+
+/**
+ * Reads `name` from the URL fragment (`#key=…`) and removes the whole fragment from the
+ * address bar and history entry. Secrets such as reset keys travel in the fragment, which
+ * browsers never send to servers, and shouldn't linger on screen afterwards.
+ */
+export function takeHashParam(name: string): string | null {
+  const value = new URLSearchParams(window.location.hash.slice(1)).get(name)
+  if (window.location.hash) {
+    history.replaceState(history.state, '', window.location.pathname + window.location.search)
+  }
+  return value
+}
+
 export type AvatarTint = keyof typeof avatarTints
 const AVATAR_TINTS = Object.keys(avatarTints) as AvatarTint[]
 
@@ -68,4 +93,15 @@ export function avatarFor(input: string): { initial: string; tint: AvatarTint } 
     initial: (host.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase(),
     tint: AVATAR_TINTS[hash % AVATAR_TINTS.length]!,
   }
+}
+
+/**
+ * A list's code from a pasted link (`…/l/{code}/{slug}`, `…/g/{group}/l/{code}`) or the bare
+ * code, or undefined. Only the shape is checked: the server says whether the list exists.
+ */
+export function listCodeFrom(input: string): string | undefined {
+  const text = input.trim()
+  const fromLink = text.match(/\/l\/([A-Za-z0-9_-]+)/)
+  if (fromLink) return fromLink[1]
+  return /^[A-Za-z0-9_-]{4,32}$/.test(text) ? text : undefined
 }

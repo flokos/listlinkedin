@@ -1,16 +1,31 @@
 <script setup lang="ts">
-import { mdiOpenInNew, mdiPlus } from '@mdi/js'
+import {
+  mdiAccountCircleOutline,
+  mdiAccountPlusOutline,
+  mdiLogin,
+  mdiLogout,
+  mdiOpenInNew,
+  mdiPlus,
+} from '@mdi/js'
 import { nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { useOwnedLists } from '../composables/useOwnedLists'
-import { externalNav, mainNav } from '../navigation'
+import { useSession } from '../composables/useSession'
+import { useSignOut } from '../composables/useSignOut'
+import { externalNav, shownNav, signInRoute } from '../navigation'
 import AppLogo from './AppLogo.vue'
 
 const open = defineModel<boolean>({ required: true })
 const route = useRoute()
 const { lists, count } = useOwnedLists()
+const { user, ready } = useSession()
+const signOut = useSignOut()
 const close = () => (open.value = false)
+function closeAndSignOut() {
+  close()
+  void signOut()
+}
 
 // Modal drawer behaviour: Escape closes it, focus moves in on open and back to the menu
 // button on close.
@@ -46,7 +61,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <div class="pa-4 pb-2"><AppLogo :size="28" /></div>
     <v-list nav aria-label="Main">
       <v-list-item
-        v-for="item in mainNav"
+        v-for="item in shownNav"
         :key="item.label"
         :to="item.to"
         :prepend-icon="item.icon"
@@ -64,6 +79,34 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         :prepend-icon="mdiPlus"
         title="New list"
         base-color="primary"
+        @click="close"
+      />
+    </v-list>
+
+    <v-divider class="mx-4" />
+    <v-list v-if="user" nav aria-label="Account">
+      <v-list-item
+        :to="{ name: 'account' }"
+        :prepend-icon="mdiAccountCircleOutline"
+        title="Your account"
+        :subtitle="user.display_name || user.email"
+        :active="route.name === 'account'"
+        color="primary"
+        @click="close"
+      />
+      <v-list-item :prepend-icon="mdiLogout" title="Sign out" @click="closeAndSignOut" />
+    </v-list>
+    <v-list v-else-if="ready" nav aria-label="Account">
+      <v-list-item
+        :to="signInRoute(route)"
+        :prepend-icon="mdiLogin"
+        title="Sign in"
+        @click="close"
+      />
+      <v-list-item
+        :to="{ name: 'signup' }"
+        :prepend-icon="mdiAccountPlusOutline"
+        title="Create account"
         @click="close"
       />
     </v-list>

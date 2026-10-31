@@ -7,9 +7,16 @@ test('visitors see the list but no owner controls', async ({ page, api }) => {
   await expect(page.getByText('Shared list', { exact: true })).toBeVisible()
   await expect(cardTitle(page, 'First link')).toBeVisible()
   await expect(page.getByText('Add a link')).toBeHidden()
-  await expect(page.getByRole('button', { name: 'List options' })).toBeHidden()
+  // Visitors' only list option is to report the list to the operator (since 9.0).
+  await page.getByRole('button', { name: 'List options' }).click()
+  await expect(page.getByRole('menuitem')).toHaveText(['Report…'])
+  await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: 'Rename list' })).toBeHidden()
-  await expect(page.getByRole('button', { name: /More actions for/ })).toBeHidden()
+  // Visitors get the link's menu (open, copy, details), without editing.
+  await page.getByRole('button', { name: 'More actions for First link' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Details' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Edit' })).toBeHidden()
+  await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeHidden()
 })
 
 test('the edit link unlocks editing and never stays in the address bar', async ({ page, api }) => {

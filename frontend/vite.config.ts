@@ -4,8 +4,9 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 import vuetify from 'vite-plugin-vuetify'
 
-// In development the API runs in the `api` container; the dev server forwards API calls
-// and short-URL redirects to it so the browser sees a single origin, as behind nginx.
+// In development the API runs in the `api` container; the dev server forwards API calls,
+// short-URL redirects and uploaded images to it so the browser sees a single origin, as
+// behind nginx.
 const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:8000'
 
 export default defineConfig({
@@ -21,6 +22,8 @@ export default defineConfig({
     proxy: {
       '/api/': apiTarget,
       '/r/': apiTarget,
+      '/_allauth/': apiTarget,
+      '/media/': apiTarget,
     },
   },
 })

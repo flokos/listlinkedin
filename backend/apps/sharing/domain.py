@@ -1,5 +1,6 @@
 """Business rules for lists and links that do not depend on HTTP or the database."""
 
+import re
 from datetime import timedelta
 from urllib.parse import urlsplit, urlunsplit
 
@@ -7,10 +8,30 @@ import idna
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
+from django.utils.text import slugify
 
 LIST_LIFETIME = timedelta(days=30)
 MAX_LINKS_PER_LIST = 100
 MAX_URL_LENGTH = 2048
+MAX_DESCRIPTION_LENGTH = 1000
+MAX_SLUG_LENGTH = 80
+# Second path segments the app uses under /l/{code}/ (V1's edit link is /l/{code}/manage).
+RESERVED_SLUGS = frozenset({"manage", "history", "sync", "settings"})
+
+
+def slug_for(title: str) -> str:
+    """The cosmetic URL suffix for a list title. Never unique, never resolved."""
+    slug = slugify(title)[:MAX_SLUG_LENGTH].strip("-") or "list"
+    return f"{slug[: MAX_SLUG_LENGTH - 5]}-list" if slug in RESERVED_SLUGS else slug
+
+
+def display_host(url: str) -> str:
+    """A link's host for display: lowercase, without `www.`. Internationalized hosts stay in
+    punycode, as stored, so look-alike hosts can't pass for familiar ones (frontend: the
+    same rule in utils/url.ts)."""
+    host = (urlsplit(url).hostname or "").removeprefix("www.")
+    return host or url
+
 
 _url_validator = URLValidator(schemes=["http", "https"])
 _DEFAULT_PORTS = {"http": 80, "https": 443}
@@ -94,3 +115,29 @@ def is_blocked_destination(url: str) -> bool:
     except ValueError:
         return True  # unparseable hosts are never valid destinations
     return any(host == b or host.endswith(f".{b}") for b in blocked_hosts())
+
+
+# Tags (docs/v2/04-DOMAIN-MODEL.md#value-objects): lowercase words joined by hyphens.
+MAX_TAGS = 10
+MAX_TAG_LENGTH = 32
+_TAG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+
+
+def normalize_tags(raw: list[str]) -> list[str]:
+    """Tags as stored: trimmed, lowercased, spaces and underscores as hyphens, duplicates
+    dropped (first kept). Raises ValidationError for an invalid tag or too many."""
+    tags: list[str] = []
+    for value in raw:
+        tag = re.sub(r"[\s_]+", "-", value.strip().lower())
+        if not tag:
+            continue
+        if len(tag) > MAX_TAG_LENGTH or not _TAG.fullmatch(tag):
+            raise ValidationError(
+                f"“{value}” isn't a tag: use letters, digits and hyphens, "
+                f"at most {MAX_TAG_LENGTH} characters."
+            )
+        if tag not in tags:
+            tags.append(tag)
+    if len(tags) > MAX_TAGS:
+        raise ValidationError(f"At most {MAX_TAGS} tags.")
+    return tags

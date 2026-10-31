@@ -1,15 +1,28 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalizedLoaded } from 'vue-router'
 
 import { trackNavigations } from './composables/useRouteFocus'
+import { currentUser, deletionPending, loadSession, sessionKnown } from './composables/useSession'
+import { safeRedirectPath } from './utils/url'
 
 declare module 'vue-router' {
   interface RouteMeta {
     /** Page title; views with dynamic titles (a list's name) set document.title themselves. */
     title?: string
+    /** Signed-out visitors are sent to sign in first, then back here. */
+    requiresAuth?: boolean
+    /** Signed-in visitors skip this page (sign-in, sign-up) and continue to `?next=`. */
+    guestOnly?: boolean
+    /** Which page instance renders this route: navigations with the same key keep it (a
+     * group's workspace stays mounted while switching lists). Defaults to the path. */
+    pageKey?: (route: RouteLocationNormalizedLoaded) => string
   }
 }
 
 const SITE = 'listlinkedin'
+
+function groupPage(route: RouteLocationNormalizedLoaded): string {
+  return `group:${String(route.params.code)}`
+}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -24,7 +37,38 @@ const router = createRouter({
       path: '/lists',
       name: 'saved-lists',
       component: () => import('./views/SavedListsView.vue'),
-      meta: { title: 'Saved lists' },
+      meta: { title: 'My lists' },
+    },
+    {
+      path: '/groups',
+      name: 'groups',
+      component: () => import('./views/GroupsView.vue'),
+      meta: { title: 'Groups', requiresAuth: true },
+    },
+    // A group's workspace: its first list, or the one chosen in the sidebar. The page stays
+    // mounted while switching lists, so the sidebar keeps its state and focus.
+    {
+      path: '/g/:code/l/:listCode',
+      name: 'group-list',
+      component: () => import('./views/GroupView.vue'),
+      props: true,
+      meta: { title: 'Group', pageKey: groupPage },
+    },
+    // The group URL handed out by the API (`url`). nginx serves this app for it.
+    {
+      path: '/g/:code/:slug?',
+      name: 'group',
+      component: () => import('./views/GroupView.vue'),
+      props: true,
+      meta: { title: 'Group', pageKey: groupPage },
+    },
+    // The public directory. Its search, tags, sort and tab live in the query, so a search can
+    // be shared and Back returns to it.
+    {
+      path: '/explore',
+      name: 'explore',
+      component: () => import('./views/ExploreView.vue'),
+      meta: { title: 'Explore' },
     },
     {
       path: '/about',
@@ -32,9 +76,62 @@ const router = createRouter({
       component: () => import('./views/AboutView.vue'),
       meta: { title: 'About & privacy' },
     },
+    // Accounts. Emailed links carry their key in the fragment (#key=…), never in the path.
+    {
+      path: '/signin',
+      name: 'signin',
+      component: () => import('./views/SignInView.vue'),
+      meta: { title: 'Sign in', guestOnly: true },
+    },
+    {
+      path: '/signup',
+      name: 'signup',
+      component: () => import('./views/SignUpView.vue'),
+      meta: { title: 'Create your account', guestOnly: true },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('./views/ResetPasswordView.vue'),
+      meta: { title: 'Reset your password' },
+    },
+    {
+      path: '/verify-email',
+      name: 'verify-email',
+      component: () => import('./views/VerifyEmailView.vue'),
+      meta: { title: 'Verify your email' },
+    },
+    {
+      path: '/account/restore',
+      name: 'restore-account',
+      component: () => import('./views/RestoreAccountView.vue'),
+      meta: { title: 'Restore your account', requiresAuth: true },
+    },
+    {
+      path: '/account',
+      name: 'account',
+      component: () => import('./views/AccountView.vue'),
+      meta: { title: 'Your account', requiresAuth: true },
+    },
+    // A list's history. Its static segment ranks above the list route's optional slug.
+    {
+      path: '/l/:code/history',
+      name: 'list-history',
+      component: () => import('./views/HistoryView.vue'),
+      props: true,
+      meta: { title: 'History' },
+    },
+    // A list's settings (task 8.3), ranked above the list route like history.
+    {
+      path: '/l/:code/settings',
+      name: 'list-settings',
+      component: () => import('./views/ListSettingsView.vue'),
+      props: true,
+      meta: { title: 'Settings' },
+    },
     // Public list URL handed out by the API (`public_url`). nginx serves this app for it.
     {
-      path: '/l/:code',
+      path: '/l/:code/:slug?',
       name: 'list',
       component: () => import('./views/ListView.vue'),
       props: true,
@@ -68,7 +165,8 @@ const router = createRouter({
   ],
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition // back/forward: restore where the user was
-    if (to.hash && !to.hash.startsWith('#t=')) return { el: to.hash, top: 80 }
+    // Fragments that carry secrets (#t= edit links, #key= account links) aren't anchors.
+    if (to.hash && !/^#(t|key)=/.test(to.hash)) return { el: to.hash, top: 80 }
     if (to.path === from.path) return false // query-only changes (dialogs) keep the scroll
     return { top: 0 }
   },
@@ -76,8 +174,32 @@ const router = createRouter({
 
 trackNavigations(router)
 
+// Pages that depend on who is signed in wait for the session check; every other page
+// renders at once and the check finishes in the background.
+// An account being deleted can only be restored or signed out (docs/v2/adr/ADR-016): every
+// other page leads to the restore page, which in turn is only for such accounts.
+const RESTORE = { name: 'restore-account' } as const
+
+router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth && !to.meta.guestOnly) {
+    if (sessionKnown()) return deletionPending() ? RESTORE : undefined
+    void loadSession().then(() => {
+      if (deletionPending()) void router.replace(RESTORE)
+    })
+    return
+  }
+  await loadSession()
+  if (to.meta.requiresAuth && !currentUser())
+    return { name: 'signin', query: { next: to.fullPath } }
+  if (to.name === RESTORE.name) return deletionPending() ? undefined : { name: 'account' }
+  if (deletionPending()) return RESTORE
+  if (to.meta.guestOnly && currentUser()) return safeRedirectPath(to.query.next)
+})
+
 router.afterEach((to, from) => {
   if (to.path === from.path && from.matched.length) return // query/hash only: keep the title
+  // Switching lists in a group: the list sets the title once it has loaded.
+  if (to.meta.pageKey && to.meta.pageKey(to) === from.meta.pageKey?.(from)) return
   document.title = to.meta.title ? `${to.meta.title} · ${SITE}` : SITE
 })
 

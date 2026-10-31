@@ -161,8 +161,13 @@ def test_owner_can_remove_link(api_client, owned_list):
     response = api_client.delete(f"{links_url(shared_list)}{link['id']}/", **bearer(token))
 
     assert response.status_code == 204
-    assert not SharedLink.objects.exists()
-    assert not ShortRedirect.objects.exists()
+    # V2 replaces V1's hard delete with a tombstone (docs/v2/adr/ADR-013): the row and its
+    # short code stay for history and restore, but the link is gone from the API and its
+    # short URL answers 404 (test_shortener). V1's assertion was "no rows left".
+    assert api_client.get(links_url(shared_list)).json()["results"] == []
+    tombstone = SharedLink.objects.get(pk=link["id"])
+    assert tombstone.deleted_at is not None and tombstone.position is None
+    assert ShortRedirect.objects.filter(link=tombstone).exists()
 
 
 def test_links_cannot_be_modified_through_another_list(api_client, owned_list):

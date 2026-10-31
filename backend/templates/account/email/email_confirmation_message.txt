@@ -1,0 +1,6 @@
+{% extends "account/email/base_message.txt" %}
+{% block content %}{% autoescape off %}Please confirm that this is your email address on listlinkedin by opening this link:
+
+{{ activate_url }}
+
+The link works for 3 days. If you didn't sign up, ignore this email: nothing happens without it.{% endautoescape %}{% endblock content %}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { externalNav, mainNav } from '../navigation'
+import { externalNav, shownNav } from '../navigation'
 </script>
 
 <template>
@@ -8,11 +8,11 @@ import { externalNav, mainNav } from '../navigation'
       class="ll-content d-flex flex-column flex-sm-row ga-4 align-sm-center justify-space-between px-4 py-8"
     >
       <p class="text-body-small text-medium-emphasis ma-0">
-        Lists are anonymous and expire 30 days after they're created.
+        Lists are private until you share them.
       </p>
       <nav aria-label="Footer" class="d-flex flex-wrap ga-4 text-body-small">
         <router-link
-          v-for="item in mainNav"
+          v-for="item in shownNav"
           :key="item.label"
           :to="item.to"
           class="ll-footer__link"

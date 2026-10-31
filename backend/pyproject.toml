@@ -5,17 +5,30 @@ description = "Anonymous, temporary link-sharing lists with a built-in URL short
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "django>=5.2,<5.3",
-    "djangorestframework>=3.16,<3.17",
+    "django-allauth>=65.21,<66", # accounts: email login, verification, reset (headless API)
+    # Background tasks (ADR-008): Django's Tasks API (backport) and its PostgreSQL backend.
+    # Pinned exactly: django-tasks-db is beta. Its app label is `django_tasks_database`.
+    "django-tasks==0.12.0",
+    "django-tasks-db[compat]==0.13.0",
+    "djangorestframework>=3.18.3,<3.19",
     "drf-spectacular>=0.28",
+    # Swagger UI's files, served by the api itself (config.docs): no third-party scripts on
+    # this origin (docs/v2/21-SECURITY-REVIEW.md).
+    "drf-spectacular-sidecar>=2025.10",
     "gunicorn>=23",
-    "idna>=3.7",  # IDNA2008/UTS46 host encoding, as browsers do (the stdlib codec is IDNA2003)
+    "idna>=3.7", # IDNA2008/UTS46 host encoding, as browsers do (the stdlib codec is IDNA2003)
+    "pillow>=13.0,<14", # media: every uploaded or fetched image is re-encoded (ADR-012)
     "psycopg[binary]>=3.2",
+    # The SSRF-safe fetcher (apps.metadata.fetcher) opens connections to a validated address
+    # with the original host name for SNI and certificate checks (docs/v2/13-SECURITY.md).
+    "urllib3>=2.8,<3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-django>=4.9",
+    "trustme>=1.2",  # a test CA, so fetcher tests run a local HTTPS server
     "ruff>=0.7",
 ]
 

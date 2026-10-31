@@ -62,7 +62,8 @@ def test_deleted_link_stops_redirecting(api_client, link):
     sharing_services.delete_link(link.shared_list, link.pk)
 
     assert api_client.get(path).status_code == 404
-    assert not ShortRedirect.objects.exists()
+    # V2 keeps the code with the tombstone (V1 deleted it), so a restore can revive it.
+    assert ShortRedirect.objects.filter(link=link).exists()
 
 
 @pytest.mark.django_db

@@ -1,8 +1,9 @@
 // Error and edge states, with server responses mocked where the real stack can't easily
 // produce them. Chromium only (playwright.config.ts): this is app logic, not engine behaviour.
-import { expect, openAsOwner, test } from './fixtures'
+import { expect, openAsOwner, signUpThroughApi, test, uniqueEmail } from './fixtures'
 
 test('unknown lists get a not-found page', async ({ page }) => {
+  await signUpThroughApi(page, uniqueEmail('notfound')) // signed in, "Create" offers the form
   await page.goto('/l/NoSuchList000000')
   await expect(page.getByRole('heading', { level: 1, name: "This list doesn't exist" })).toBeVisible()
   await expect(page).toHaveTitle('List not found · listlinkedin')
@@ -12,7 +13,7 @@ test('unknown lists get a not-found page', async ({ page }) => {
 
 test('expired lists explain what happened', async ({ page, api }) => {
   const list = await api.createList('Expired')
-  await page.route(`**/api/v1/lists/${list.public_code}/**`, (route) =>
+  await page.route(`**/api/v2/lists/${list.public_code}/**`, (route) =>
     route.fulfill({ status: 410, json: { detail: 'This list has expired.' } }),
   )
   await page.goto(`/l/${list.public_code}`)
@@ -21,7 +22,8 @@ test('expired lists explain what happened', async ({ page, api }) => {
 })
 
 test('rate-limited list creation shows the wait and disables the button', async ({ page }) => {
-  await page.route('**/api/v1/lists/', (route) =>
+  await signUpThroughApi(page, uniqueEmail('throttled'))
+  await page.route('**/api/v2/lists/', (route) =>
     route.request().method() === 'POST'
       ? route.fulfill({ status: 429, headers: { 'Retry-After': '120' }, json: { detail: 'Request was throttled.' } })
       : route.continue(),
@@ -36,7 +38,7 @@ test('rate-limited list creation shows the wait and disables the button', async 
 test('a server error offers a retry that recovers', async ({ page, api }) => {
   const list = await api.createList('Flaky server')
   let failures = 1
-  await page.route(`**/api/v1/lists/${list.public_code}/`, (route) =>
+  await page.route(`**/api/v2/lists/${list.public_code}/`, (route) =>
     failures-- > 0 ? route.fulfill({ status: 502, body: 'Bad gateway' }) : route.continue(),
   )
   await page.goto(`/l/${list.public_code}`)
@@ -82,4 +84,30 @@ test('a page chunk missing after a deploy reloads the app once instead of breaki
   await expect(page).toHaveURL('/about')
   // The failed import is logged by the browser; it is the scenario under test.
   consoleErrors.splice(0)
+})
+
+test('an edit based on an outdated version is refused, reloaded and kept for retrying', async ({ page, api }) => {
+  const list = await api.createList('Changed elsewhere')
+  await api.addLink(list, 'https://example.com/a', 'Old title')
+  await openAsOwner(page, list)
+  let refuse = true
+  await page.route(`**/api/v2/lists/${list.public_code}/links/*/`, (route) =>
+    route.request().method() === 'PATCH' && refuse
+      ? ((refuse = false),
+        route.fulfill({
+          status: 412,
+          json: { detail: 'This list changed since you loaded it.', code: 'revision_mismatch', head_revision: 9 },
+        }))
+      : route.continue(),
+  )
+  await page.getByRole('button', { name: 'More actions for Old title' }).click()
+  await page.getByRole('menuitem', { name: 'Edit' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit link' })
+  const title = dialog.getByRole('textbox', { name: 'Title (optional)' })
+  await title.fill('New title')
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
+  await expect(dialog.getByText(/This list changed while you were editing/)).toBeVisible()
+  await expect(title).toHaveValue('New title') // the user's input is kept
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByText('Link updated')).toBeVisible()
 })

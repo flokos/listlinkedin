@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { expiryInfo } from './time'
+import { endOfDay, expiryInfo, localDate } from './time'
 
 const now = Date.parse('2026-10-28T12:00:00Z')
 const inMs = (ms: number) => new Date(now + ms).toISOString()
@@ -29,5 +29,16 @@ describe('expiryInfo', () => {
 
   it('reports expired lists', () => {
     expect(expiryInfo(inMs(-1), now)).toEqual({ label: 'Expired', tone: 'expired' })
+  })
+})
+
+describe('expiry dates', () => {
+  it('round-trips a local calendar date through the end of that day', () => {
+    const iso = endOfDay('2026-11-03')
+    const end = new Date(iso)
+    expect([end.getFullYear(), end.getMonth(), end.getDate(), end.getHours()]).toEqual([
+      2026, 10, 3, 23,
+    ])
+    expect(localDate(iso)).toBe('2026-11-03')
   })
 })
