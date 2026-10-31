@@ -186,6 +186,12 @@ exception is the reviewed reconciliation PR just before the release.
    `v2`. New work branches from `main` again. Deleting `v2` later is the maintainer's decision
    (it is not part of any plan here).
 
+**Done on 2026-10-31.** Step 1 was a no-op (`main` was 0 commits ahead of `v2`). `v1.0.0` and
+`release/v1` point at `fb5f901`, with a GitHub Release. The release PR #46 was merged as a merge
+commit (`ead0b38`), tagged `v2.0.0` and published. The post-release PR removed the CI guard (it
+had done its job) and the `v2` push trigger, and rewrote CLAUDE.md's branch rules: work now
+branches from `main`, and `release/v1` holds V1. The merged feature branches were deleted.
+
 ## CI checks
 
 | Job | Runs on | V2 additions |

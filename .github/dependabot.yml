@@ -1,6 +1,5 @@
 # Dependency update pull requests (task 9.1, docs/v2/21-SECURITY-REVIEW.md#dependencies).
-# GitHub reads this file from the default branch only, so it takes effect once V2 is on
-# `main`. Security updates arrive as soon as an advisory is published; version updates are
+# GitHub reads this file from the default branch, `main` (V2 since v2.0.0). Security updates arrive as soon as an advisory is published; version updates are
 # grouped weekly. Each pull request runs the full CI, including the vulnerability audit.
 version: 2
 updates:
