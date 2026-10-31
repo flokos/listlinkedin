@@ -137,13 +137,11 @@ const router = createRouter({
       props: true,
       meta: { title: 'List' },
     },
-    // Private edit link: /l/{code}/manage#t={owner token}.
+    // V1's private edit link (/l/{code}/manage#t=…): edit links were retired in v2.1.0, so it
+    // opens the list itself. The fragment is dropped, and was never sent to the server.
     {
       path: '/l/:code/manage',
-      name: 'claim',
-      component: () => import('./views/ClaimView.vue'),
-      props: true,
-      meta: { title: 'Opening your list' },
+      redirect: (to) => ({ name: 'list', params: { code: to.params.code } }),
     },
     // Living style guide: development builds only (tree-shaken from production).
     ...(import.meta.env.DEV
@@ -165,7 +163,8 @@ const router = createRouter({
   ],
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition // back/forward: restore where the user was
-    // Fragments that carry secrets (#t= edit links, #key= account links) aren't anchors.
+    // Fragments that carry secrets (#key= account links, and #t= in old V1 edit links)
+    // aren't anchors.
     if (to.hash && !/^#(t|key)=/.test(to.hash)) return { el: to.hash, top: 80 }
     if (to.path === from.path) return false // query-only changes (dialogs) keep the scroll
     return { top: 0 }

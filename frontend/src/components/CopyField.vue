@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A read-only value with a copy button, e.g. a link to share or the private edit link.
+// A read-only value with a copy button, e.g. a link to share.
 import { mdiContentCopy } from '@mdi/js'
 
 import { useClipboard } from '../composables/useClipboard'

@@ -7,7 +7,7 @@ import { ref } from 'vue'
 const open = defineModel<boolean>({ required: true })
 const props = defineProps<{
   link: SharedLink | null
-  /** Shows the icon field (accounts only: an edit link can't upload). */
+  /** Shows the icon field (owners and editors may upload). */
   canUpload: boolean
   submit: (input: LinkInput) => Promise<unknown>
   setIcon: (file: File | null) => Promise<unknown>

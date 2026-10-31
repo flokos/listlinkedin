@@ -60,7 +60,7 @@ describe('useListPage moves', () => {
 
     const done = moveLink('a', 2)
     expect(order(links.value)).toBe('bcad') // before the server answers
-    expect(api.reorderLinks).toHaveBeenCalledWith('L', 'a', 2, undefined, expect.any(Function))
+    expect(api.reorderLinks).toHaveBeenCalledWith('L', 'a', 2, expect.any(Function))
 
     answer.resolve([...'bcaed'].map(link)) // someone else added "e" meanwhile
     await done

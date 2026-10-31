@@ -10,7 +10,6 @@ import {
 import { nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { useOwnedLists } from '../composables/useOwnedLists'
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
 import { externalNav, shownNav, signInRoute } from '../navigation'
@@ -18,7 +17,6 @@ import AppLogo from './AppLogo.vue'
 
 const open = defineModel<boolean>({ required: true })
 const route = useRoute()
-const { lists, count } = useOwnedLists()
 const { user, ready } = useSession()
 const signOut = useSignOut()
 const close = () => (open.value = false)
@@ -70,9 +68,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         color="primary"
         @click="close"
       >
-        <template v-if="item.badge && count" #append>
-          <v-badge :content="count" inline color="primary-container" />
-        </template>
       </v-list-item>
       <v-list-item
         :to="{ name: 'home', hash: '#create' }"
@@ -110,20 +105,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         @click="close"
       />
     </v-list>
-
-    <template v-if="lists.length">
-      <v-divider class="mx-4" />
-      <v-list nav density="compact" aria-label="Lists on this device">
-        <v-list-subheader>On this device</v-list-subheader>
-        <v-list-item
-          v-for="item in lists.slice(0, 5)"
-          :key="item.code"
-          :to="{ name: 'list', params: { code: item.code } }"
-          :title="item.title || 'Untitled list'"
-          @click="close"
-        />
-      </v-list>
-    </template>
 
     <template #append>
       <v-list nav density="compact">

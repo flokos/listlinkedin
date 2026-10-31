@@ -1,6 +1,6 @@
 // Groups: workspaces of lists, /api/v2/groups/ (docs/v2/09-API-DESIGN.md#groups). Session
-// only: an edit link grants nothing on groups. A group shows each viewer only the lists they
-// may see; hidden lists are left out entirely, also from `list_count`.
+// only. A group shows each viewer only the lists they may see; hidden lists are left out
+// entirely, also from `list_count`.
 import { request } from './client'
 import type { ListDetail, ListRole, Page, ReportInput, Visibility } from './lists'
 

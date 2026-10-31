@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   mdiAccountOffOutline,
-  mdiArrowRight,
   mdiLinkVariantPlus,
   mdiShareVariantOutline,
   mdiShieldKeyOutline,
@@ -12,13 +11,10 @@ import { useRoute, useRouter } from 'vue-router'
 
 import type { ListDetail } from '../api'
 import CreateListForm from '../components/CreateListForm.vue'
-import ExpiryChip from '../components/ExpiryChip.vue'
-import { useOwnedLists } from '../composables/useOwnedLists'
 import { useSession } from '../composables/useSession'
 
 const route = useRoute()
 const router = useRouter()
-const owned = useOwnedLists()
 const { isSignedIn, ready } = useSession()
 
 function onCreated(list: ListDetail) {
@@ -88,38 +84,6 @@ const promises = [
       </div>
     </section>
 
-    <section
-      v-if="owned.lists.value.length"
-      class="ll-content mt-12"
-      aria-labelledby="recent-heading"
-    >
-      <div class="d-flex align-center justify-space-between mb-4">
-        <h2 id="recent-heading" class="text-headline-small">Saved on this device</h2>
-        <v-btn
-          :to="{ name: 'saved-lists' }"
-          variant="text"
-          color="primary"
-          :append-icon="mdiArrowRight"
-        >
-          All saved lists
-        </v-btn>
-      </div>
-      <v-row>
-        <v-col
-          v-for="item in owned.lists.value.slice(0, 3)"
-          :key="item.code"
-          cols="12"
-          sm="6"
-          md="4"
-        >
-          <v-card :to="{ name: 'list', params: { code: item.code } }" class="pa-4 h-100" hover>
-            <p class="text-title-medium mb-3 text-truncate">{{ item.title || 'Untitled list' }}</p>
-            <ExpiryChip v-if="item.expiresAt" :expires-at="item.expiresAt" />
-          </v-card>
-        </v-col>
-      </v-row>
-    </section>
-
     <section class="ll-content mt-16" aria-labelledby="how-heading">
       <h2 id="how-heading" class="text-headline-small mb-6">How it works</h2>
       <v-row>
@@ -148,15 +112,13 @@ const promises = [
         </v-expansion-panel>
         <v-expansion-panel title="How do I edit it later, or from another device?">
           <v-expansion-panel-text>
-            Sign in on any device. Your lists are in your account. Have an edit link from a list
-            made before accounts existed? Open it and choose "Add to my account".
+            Sign in on any device: your lists are in your account. To let others edit a list, add
+            them from its Share dialog.
           </v-expansion-panel-text>
         </v-expansion-panel>
         <v-expansion-panel title="Do lists expire?">
           <v-expansion-panel-text>
-            Only if you give them an end date. Lists made before accounts existed still expire 30
-            days after they were made, unless you add them to your account and keep them. You can
-            delete a list any time from its menu.
+            Only if you give them an end date. You can delete a list any time from its menu.
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>

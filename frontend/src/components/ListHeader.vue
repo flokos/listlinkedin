@@ -2,7 +2,6 @@
 // The list's image, name (renamable), description, state chips and tags, Share and the list's
 // ⋮ menu.
 import {
-  mdiAccountArrowLeftOutline,
   mdiCheck,
   mdiClose,
   mdiContentCopy,
@@ -10,13 +9,10 @@ import {
   mdiDotsVertical,
   mdiFlagOutline,
   mdiHistory,
-  mdiKeyChange,
   mdiLogout,
   mdiPencilOutline,
   mdiShareVariant,
-  mdiShieldKeyOutline,
   mdiTuneVariant,
-  mdiTrayRemove,
 } from '@mdi/js'
 import { computed, nextTick, ref } from 'vue'
 
@@ -27,10 +23,8 @@ import ExpiryChip from './ExpiryChip.vue'
 const props = defineProps<{
   list: ListDetail
   linkCount: number
-  /** May edit (owner, editor, or this browser's edit link). */
+  /** May edit (owner or editor). */
   canEdit: boolean
-  /** This browser holds the list's edit link. */
-  hasToken: boolean
   can: (permission: string) => boolean
   /** Signed out, on a list whose owner allows copies: "Make a copy" asks to sign in first. */
   signInToCopy?: boolean
@@ -40,10 +34,6 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   share: []
-  claim: []
-  'show-edit-link': []
-  rotate: []
-  forget: []
   leave: []
   delete: []
   copy: []
@@ -96,9 +86,7 @@ const hasUpperItems = computed(
     hasSettings.value ||
     props.can('view_history') ||
     props.can('fork') ||
-    Boolean(props.signInToCopy) ||
-    props.hasToken ||
-    props.can('rotate_token'),
+    Boolean(props.signInToCopy),
 )
 
 defineExpose({ startRename, stopRename: () => (renaming.value = false) })
@@ -118,7 +106,7 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
       <div class="flex-grow-1 ll-list-header__main">
         <p class="text-label-large text-primary mb-1">
           {{
-            list.my_role === 'owner' || (list.legacy && canEdit)
+            list.my_role === 'owner'
               ? 'Your list'
               : canEdit
                 ? 'You can edit this list'
@@ -240,27 +228,6 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               title="Make a copy…"
               @click="emit('copy')"
             />
-            <v-list-item
-              v-if="list.legacy && hasToken"
-              role="menuitem"
-              :prepend-icon="mdiAccountArrowLeftOutline"
-              title="Add to my account"
-              @click="emit('claim')"
-            />
-            <v-list-item
-              v-if="list.legacy && hasToken"
-              role="menuitem"
-              :prepend-icon="mdiShieldKeyOutline"
-              title="Show edit link"
-              @click="emit('show-edit-link')"
-            />
-            <v-list-item
-              v-if="can('rotate_token')"
-              role="menuitem"
-              :prepend-icon="mdiKeyChange"
-              title="Replace edit link"
-              @click="emit('rotate')"
-            />
             <v-divider v-if="hasUpperItems" class="my-1" />
             <v-list-item
               v-if="can('report')"
@@ -268,13 +235,6 @@ defineExpose({ startRename, stopRename: () => (renaming.value = false) })
               :prepend-icon="mdiFlagOutline"
               title="Report…"
               @click="emit('report')"
-            />
-            <v-list-item
-              v-if="hasToken"
-              role="menuitem"
-              :prepend-icon="mdiTrayRemove"
-              title="Forget on this device"
-              @click="emit('forget')"
             />
             <v-list-item
               v-if="can('leave')"
