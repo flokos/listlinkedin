@@ -66,8 +66,8 @@ def test_authentication_required_is_401_only_with_a_challenge():
     assert without.status_code == 403
 
 
-def test_v1_paths_get_no_code():
-    response = handle(errors.NotVisible(), path="/api/v1/lists/X/")
+def test_paths_outside_the_v2_api_get_no_code():
+    response = handle(errors.NotVisible(), path="/r/X")
     assert response.status_code == 404
     assert "code" not in response.data
 

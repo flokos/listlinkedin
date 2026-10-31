@@ -12,7 +12,6 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.metadata import images
-from apps.sharing import services as legacy_services
 from apps.sharing.models import ListMembership, SharedLink, SharedList
 from apps.sharing.policy import Visibility
 from apps.sharing.selectors import Principal
@@ -97,15 +96,6 @@ def test_who_may_upload(alice, bob, media_root):
     assert upload(client_for(bob), image_path(private), png()).status_code == 404
 
 
-def test_an_edit_link_cannot_upload(db, media_root):
-    shared_list, token = legacy_services.create_list(title="Legacy")
-    link = legacy_services.add_link(shared_list, destination_url="https://example.com/a")
-    bearer = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
-    for path in (image_path(shared_list), icon_path(shared_list, link)):
-        assert upload(APIClient(), path, png(), **bearer).status_code == 403
-    assert stored_files(media_root) == []
-
-
 def test_files_that_are_not_images_are_refused(alice, media_root):
     shared_list = new_list(alice)
     client = client_for(alice)
@@ -142,7 +132,7 @@ def test_uploads_need_the_csrf_token_with_a_session(alice):
 
 
 def test_link_icons(alice, media_root):
-    shared_list = new_list(alice, visibility=Visibility.UNLISTED)  # readable on v1 too
+    shared_list = new_list(alice, visibility=Visibility.UNLISTED)
     other = new_list(alice)
     link = link_services.add_link_on(shared_list, destination_url="https://example.com/a")
     foreign = link_services.add_link_on(other, destination_url="https://example.com/b")
@@ -156,8 +146,6 @@ def test_link_icons(alice, media_root):
         assert stored.size == (27, 128)
     listed = client.get(f"{URL}{shared_list.public_code}/links/").json()["results"]
     assert listed[0]["icon_url"] == icon_url
-    v1 = client.get(f"/api/v1/lists/{shared_list.public_code}/links/").json()["results"]
-    assert "icon_url" not in v1[0]  # the V1 representation is unchanged
 
     assert (
         upload(

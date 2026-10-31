@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.urls import reverse
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -7,8 +8,20 @@ from rest_framework import serializers
 
 from apps.metadata import images
 
-from ..domain import MAX_DESCRIPTION_LENGTH, MAX_TAGS, display_host, normalize_tags
-from ..models import MEMBER_ROLE_CHOICES, VISIBILITY_CHOICES, ListMembership, SharedList
+from ..domain import (
+    MAX_DESCRIPTION_LENGTH,
+    MAX_TAGS,
+    display_host,
+    normalize_destination_url,
+    normalize_tags,
+)
+from ..models import (
+    MEMBER_ROLE_CHOICES,
+    VISIBILITY_CHOICES,
+    ListMembership,
+    SharedLink,
+    SharedList,
+)
 from ..policy import Visibility, permissions, role_of
 from ..selectors import (
     DIRECTORY_ORDERINGS,
@@ -17,9 +30,36 @@ from ..selectors import (
     current_metadata,
     metadata_status,
 )
-from ..serializers import LinkSerializer
 from ..services.lists import VERIFY_EMAIL_TO_PUBLISH
 from ..services.moderation import MAX_DETAILS_LENGTH, Reason
+
+
+def _absolute_url(path: str) -> str:
+    return f"{settings.PUBLIC_BASE_URL}{path}"
+
+
+class LinkSerializer(serializers.ModelSerializer):
+    short_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SharedLink
+        fields = ["id", "title", "destination_url", "short_url", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {"title": {"allow_null": True, "allow_blank": True}}
+
+    def validate_title(self, value: str | None) -> str | None:
+        return value or None  # one representation of "no title"
+
+    def validate_destination_url(self, value: str) -> str:
+        try:
+            return normalize_destination_url(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
+
+    def get_short_url(self, link: SharedLink) -> str | None:
+        if link.short_code is None:
+            return None
+        return _absolute_url(reverse("short-redirect", args=[link.short_code]))
 
 
 class ListOwnerSerializer(serializers.Serializer):
@@ -50,7 +90,10 @@ class ListDetailSerializer(serializers.ModelSerializer):
     code = serializers.CharField(source="public_code")
     url = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
-    legacy = serializers.BooleanField(source="is_legacy")
+    legacy = serializers.SerializerMethodField(
+        help_text="Always false since v2.1.0, when lists without an account were retired. Kept "
+        "so v2 clients don't break; don't rely on it."
+    )
     link_count = serializers.IntegerField()
     head_revision = serializers.IntegerField(
         help_text='The latest revision\'s number; also the ETag, as "r{head_revision}".'
@@ -96,11 +139,12 @@ class ListDetailSerializer(serializers.ModelSerializer):
     def get_image_url(self, shared_list: SharedList) -> str | None:
         return images.url_for(shared_list.image)
 
+    def get_legacy(self, shared_list: SharedList) -> bool:
+        return False
+
     def get_owner(self, shared_list: SharedList) -> dict | None:
         """Shown on public lists and to members; email addresses are never shown."""
         access = self._access(shared_list)
-        if shared_list.owner is None:
-            return None
         visible = access.facts.visibility is Visibility.PUBLIC or role_of(
             access.actor, access.facts
         )

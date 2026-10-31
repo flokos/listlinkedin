@@ -7,7 +7,6 @@ from django.db import connection
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.sharing import services as legacy_services
 from apps.sharing.domain import MAX_LINKS_PER_LIST
 from apps.sharing.models import ListMembership, SharedLink, SharedList
 from apps.sharing.policy import Visibility
@@ -103,21 +102,6 @@ def test_deleted_or_foreign_links_cannot_be_moved(alice):
         response = client.post(f"{URL}{shared_list.public_code}/reorder/", body, format="json")
         assert response.status_code == 404
     assert order(shared_list) == "acde"
-
-
-def test_a_legacy_edit_link_can_reorder_its_list(db):
-    shared_list, token = legacy_services.create_list(title="Legacy")
-    for name in "ab":
-        legacy_services.add_link(shared_list, destination_url=f"https://example.com/{name}")
-    first = SharedLink.objects.get(shared_list=shared_list, position=0)
-    response = APIClient().post(
-        f"{URL}{shared_list.public_code}/reorder/",
-        {"link": str(first.pk), "to_index": 1},
-        format="json",
-        HTTP_AUTHORIZATION=f"Bearer {token}",
-    )
-    assert response.status_code == 200
-    assert SharedLink.objects.get(pk=first.pk).position == 1
 
 
 @pytest.mark.django_db(transaction=True)

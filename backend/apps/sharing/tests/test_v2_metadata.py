@@ -100,19 +100,6 @@ def test_new_links_and_url_changes_queue_a_fetch_on_commit(
     assert queued()[-1] == (str(link.pk), "https://example.org/")
 
 
-def test_v1_links_queue_a_fetch_too(owned_list, api_client, django_capture_on_commit_callbacks):
-    shared_list, token = owned_list
-    with django_capture_on_commit_callbacks(execute=True):
-        response = api_client.post(
-            f"/api/v1/lists/{shared_list.public_code}/links/",
-            {"destination_url": "https://example.com/v1"},
-            format="json",
-            HTTP_AUTHORIZATION=f"Bearer {token}",
-        )
-    assert response.status_code == 201
-    assert queued() == [(response.json()["id"], "https://example.com/v1")]
-
-
 def test_nothing_is_queued_while_fetching_is_off(
     alice, shared_list, settings, django_capture_on_commit_callbacks
 ):

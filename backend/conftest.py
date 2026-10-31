@@ -4,14 +4,11 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.sharing import services
+from apps.accounts.models import User
 from apps.sharing.models import SharedList
-
-
-@pytest.fixture(autouse=True)
-def legacy_list_creation(settings):
-    """V1 tests create legacy lists through POST /api/v1/lists/, retired in production."""
-    settings.LEGACY_LIST_CREATION = True
+from apps.sharing.policy import Visibility
+from apps.sharing.selectors import Principal
+from apps.sharing.services import lists as list_services
 
 
 @pytest.fixture(autouse=True)
@@ -33,9 +30,32 @@ def api_client() -> APIClient:
 
 
 @pytest.fixture
-def owned_list(db):
-    """A freshly created list and its plaintext owner token."""
-    return services.create_list(title="Team links")
+def owner(db) -> User:
+    return User.objects.create_user("owner@example.com", "pw-correct-horse-1", display_name="Owner")
+
+
+@pytest.fixture
+def owner_client(owner) -> APIClient:
+    client = APIClient()
+    client.force_authenticate(owner)
+    return client
+
+
+def make_list(owner, title: str = "Team links", **fields) -> SharedList:
+    """An account's list, unlisted unless `fields` say otherwise."""
+    shared_list = list_services.create_list(Principal(user=owner), title=title)[0]
+    SharedList.objects.filter(pk=shared_list.pk).update(
+        **{"visibility": Visibility.UNLISTED.value, **fields}
+    )
+    shared_list.refresh_from_db()
+    return shared_list
+
+
+@pytest.fixture
+def owned_list(owner) -> SharedList:
+    """An unlisted list owned by `owner`: what V1's tests run on since the legacy (owner
+    token) path was retired in task 9.6."""
+    return make_list(owner)
 
 
 @pytest.fixture
@@ -48,7 +68,3 @@ def expire():
         )
 
     return _expire
-
-
-def bearer(token: str) -> dict[str, str]:
-    return {"HTTP_AUTHORIZATION": f"Bearer {token}"}

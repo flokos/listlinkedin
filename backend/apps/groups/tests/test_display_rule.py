@@ -7,11 +7,11 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from apps.groups import selectors, services
+from apps.groups import selectors
 from apps.groups.models import Group, GroupList, GroupMembership
 from apps.sharing.policy import Visibility, shown_in_group
 
-from .conftest import as_, make_legacy_list, make_list, make_user, share
+from .conftest import as_, make_list, make_user, share
 
 VIEWERS = ["anonymous", "signed in", "group viewer", "group editor", "list viewer", "list editor"]
 
@@ -103,16 +103,6 @@ def test_expired_lists_and_lists_of_deleting_owners_are_never_shown(world):
     author.deleted_at = timezone.now()
     author.save()
     assert not selectors.entries_for(as_(viewer), group).exists()
-
-
-def test_legacy_lists_are_shown_like_any_unlisted_list(alice):
-    group = services.create_group(as_(alice), title="Mine")
-    legacy = make_legacy_list()
-    GroupList.objects.create(group=group, shared_list=legacy, position=0)
-    assert [e.shared_list for e in selectors.entries_for(as_(alice), group)] == [legacy]
-    group.visibility = "public"
-    group.save()
-    assert not selectors.entries_for(as_(alice), group).exists()
 
 
 def test_viewing_a_group(world):

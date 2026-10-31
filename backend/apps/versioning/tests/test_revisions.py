@@ -11,7 +11,6 @@ from django.utils import timezone
 
 from apps.accounts.models import DELETION_GRACE, User
 from apps.accounts.services import delete_account, purge_deleted_accounts
-from apps.sharing import services as legacy_services
 from apps.sharing.models import SharedLink, SharedList
 from apps.sharing.selectors import Principal, live_content
 from apps.sharing.services import links as link_services
@@ -127,13 +126,6 @@ def test_an_erased_author_still_owns_their_revisions(alice):
     assert kept.created_by.is_active is False and kept.created_by.display_name == ""
 
 
-def test_legacy_lists_are_versioned_too(db):
-    shared_list, _ = legacy_services.create_list(title="Legacy")
-    legacy_services.add_link(shared_list, destination_url="https://example.com/a")
-    latest = revision(shared_list, 2)  # created, then the link added through the edit link
-    assert latest.created_by is None and len(latest.snapshot["links"]) == 1
-
-
 @pytest.mark.django_db(transaction=True)
 def test_concurrent_writers_get_consecutive_numbers():
     owner = make_user()
@@ -178,7 +170,7 @@ AFTER = [("versioning", "0003_baseline_revisions"), ("sharing", "0009_discovery"
 
 
 @pytest.mark.django_db(transaction=True)
-def test_the_migration_gives_existing_lists_a_baseline_revision():
+def test_the_migration_gives_existing_lists_a_baseline_revision(monkeypatch):
     executor = MigrationExecutor(connection)
     executor.migrate(BEFORE)
     state = executor.loader.project_state(BEFORE).apps
@@ -241,4 +233,6 @@ def test_the_migration_gives_existing_lists_a_baseline_revision():
 
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
+    # Its V1 rows have no owner, so retiring them (sharing.0011) needs the opt-in.
+    monkeypatch.setenv("RETIRE_LEGACY_LISTS", "delete")
     executor.migrate(executor.loader.graph.leaf_nodes())

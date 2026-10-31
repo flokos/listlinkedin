@@ -189,17 +189,11 @@ def test_members_can_leave_but_owners_cannot(alice, bob):
     assert response.status_code == 403
 
 
-def test_members_need_a_session(alice, bob, owned_list):
+def test_members_need_a_session(alice, bob):
     code = create(alice, visibility="unlisted")
     response = client_for().get(members_url(code))
     assert response.status_code == 401
     assert response["WWW-Authenticate"] == "Session"
-    # A legacy list's owner token is not a session, and legacy lists have no members.
-    shared_list, token = owned_list  # a legacy list
-    response = APIClient().get(
-        members_url(shared_list.public_code), HTTP_AUTHORIZATION=f"Bearer {token}"
-    )
-    assert response.status_code == 401
 
 
 def test_strangers_cannot_tell_a_private_list_exists(alice, bob):

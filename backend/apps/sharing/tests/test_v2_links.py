@@ -12,7 +12,6 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.sharing import services as legacy_services
 from apps.sharing.domain import MAX_LINKS_PER_LIST
 from apps.sharing.models import SharedLink, SharedList
 from apps.sharing.selectors import Principal
@@ -138,19 +137,6 @@ def test_descriptions_and_the_v2_representation(client, code):
     assert moved.status_code == 400  # moving is task 2.2's reorder endpoint
 
 
-def test_the_v1_api_keeps_newest_first_and_uses_tombstones_too(db):
-    shared_list, token = legacy_services.create_list(title="Legacy")
-    old = legacy_services.add_link(shared_list, destination_url="https://example.com/old")
-    new = legacy_services.add_link(shared_list, destination_url="https://example.com/new")
-    v1 = APIClient().get(f"/api/v1/lists/{shared_list.public_code}/links/").json()["results"]
-    assert [link["id"] for link in v1] == [str(new.pk), str(old.pk)]
-    assert "position" not in v1[0]  # the V1 representation is unchanged
-
-    legacy_services.delete_link(shared_list, old.pk)
-    assert SharedLink.objects.get(pk=old.pk).deleted_at is not None
-    assert SharedLink.objects.get(pk=new.pk).position == 0
-
-
 def test_the_database_enforces_the_tombstone_and_order_rules(code):
     shared_list = SharedList.objects.get(public_code=code)
     link = link_services.add_link_on(shared_list, destination_url="https://example.com/a")
@@ -213,7 +199,7 @@ AFTER = [("sharing", "0005_link_constraints")]
 
 
 @pytest.mark.django_db(transaction=True)
-def test_the_migration_numbers_existing_links_newest_first():
+def test_the_migration_numbers_existing_links_newest_first(monkeypatch):
     executor = MigrationExecutor(connection)
     executor.migrate(BEFORE)
     state = executor.loader.project_state(BEFORE).apps
@@ -259,6 +245,8 @@ def test_the_migration_numbers_existing_links_newest_first():
 
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
+    # Its V1 rows have no owner, so retiring them (sharing.0011) needs the opt-in.
+    monkeypatch.setenv("RETIRE_LEGACY_LISTS", "delete")
     executor.migrate(executor.loader.graph.leaf_nodes())
 
 

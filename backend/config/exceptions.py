@@ -1,6 +1,6 @@
 """DRF exception handler: maps domain errors to HTTP and adds `code` to v2 error bodies.
 
-V1 responses (`/api/v1/`, `/r/`) keep their exact shape. Under `/api/v2/` every error body
+Responses outside the API (`/r/`) keep their plain shape. Under `/api/v2/` every error body
 also carries a stable machine `code` (docs/v2/09-API-DESIGN.md#error-format).
 """
 

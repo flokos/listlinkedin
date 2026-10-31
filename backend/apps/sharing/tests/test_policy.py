@@ -35,7 +35,6 @@ def facts(visibility=Visibility.PRIVATE, *, owner=OWNER, role=None, fork=False, 
 ANON = Actor()
 SIGNED_IN = Actor(user_id=OTHER)
 OWNER_ACTOR = Actor(user_id=OWNER)
-TOKEN = Actor(legacy_list_id=LIST_ID)
 
 
 @pytest.mark.parametrize(
@@ -80,22 +79,11 @@ def test_anonymous_role_is_ignored():
     assert not can(ANON, Action.EDIT, facts(role=Role.EDITOR))
 
 
-def test_legacy_token_has_v1_rights_on_its_own_list_only():
-    legacy = facts(Visibility.UNLISTED, owner=None)
-    assert can(TOKEN, Action.EDIT, legacy)
-    assert can(TOKEN, Action.DELETE, legacy)
-    assert can(TOKEN, Action.ROTATE_TOKEN, legacy)
-    assert not can(TOKEN, Action.SETTINGS, legacy)
-    assert not can(TOKEN, Action.MEMBERS, legacy)
-    assert not can(TOKEN, Action.VIEW_MEMBERS, legacy)  # legacy lists have no members
-    assert not can(TOKEN, Action.UPLOAD, legacy)  # uploads need an account
-    assert not can(TOKEN, Action.CLAIM, legacy)  # claiming also needs an account
-    assert can(Actor(user_id=OTHER, legacy_list_id=LIST_ID), Action.CLAIM, legacy)
-
-    other_list = ListFacts(id=uuid.uuid4(), owner_id=None, visibility=Visibility.UNLISTED)
-    assert not can(TOKEN, Action.EDIT, other_list)
-    # Once claimed (an owner exists), the token is worthless.
-    assert not can(TOKEN, Action.EDIT, facts(Visibility.UNLISTED))
+def test_no_action_is_about_owner_tokens():
+    """Edit links (V1 owner tokens) were retired in task 9.6: nothing grants rights on a list
+    but an account's role, and the token actions are gone."""
+    assert {"claim", "rotate_token"}.isdisjoint(action.value for action in Action)
+    assert permissions(ANON, facts(Visibility.UNLISTED)) == ["view", "report"]
 
 
 @pytest.mark.parametrize("action", [Action.FORK, Action.BRANCH])
@@ -126,7 +114,7 @@ def test_permissions_list_what_the_ui_may_offer():
     assert "leave" in permissions(SIGNED_IN, facts(role=Role.VIEWER))
 
 
-def test_anyone_who_can_view_may_report_except_the_owner_and_the_edit_link():
+def test_anyone_who_can_view_may_report_except_the_owner():
     assert can(ANON, Action.REPORT, facts(Visibility.PUBLIC))
     assert can(SIGNED_IN, Action.REPORT, facts(Visibility.UNLISTED))
     assert can(SIGNED_IN, Action.REPORT, facts(role=Role.VIEWER))  # people on a private list

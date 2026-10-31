@@ -207,11 +207,3 @@ def test_openapi_marks_v2_account_endpoints_as_session_authenticated(client):
     # The session endpoint also answers signed-out visitors (the empty requirement).
     assert schema["paths"]["/api/v2/session/"]["get"]["security"] == [{"SessionCookie": []}, {}]
     assert schema["components"]["securitySchemes"]["SessionCookie"]["in"] == "cookie"
-
-
-@pytest.mark.django_db
-def test_v1_error_bodies_keep_their_v1_shape(client):
-    response = client.get("/api/v1/lists/doesnotexist/")
-
-    assert response.status_code == 404
-    assert "code" not in response.json()

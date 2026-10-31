@@ -19,7 +19,6 @@ api_v2 = [
 ]
 
 urlpatterns = [
-    path("api/v1/", include("apps.sharing.urls")),
     path("api/v2/", include(api_v2)),
     # Sign-up, sign-in, email verification, password reset: django-allauth's headless API.
     path("_allauth/", include("allauth.headless.urls")),
@@ -27,11 +26,12 @@ urlpatterns = [
     # Swagger UI, served from this origin with its own CSP (config.docs).
     path("api/docs/", DocsView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/docs/assets/<str:name>", docs_asset, name="swagger-ui-asset"),
-    # Public list short URL: a temporary redirect to the list's API representation. The
-    # canonical URL may carry a cosmetic slug (/l/{code}/{slug}), which is ignored.
+    # A list's address, reaching Django directly (development, port 8000; behind nginx the app
+    # serves it): a temporary redirect to the list's API representation. The canonical URL may
+    # carry a cosmetic slug (/l/{code}/{slug}), which is ignored.
     re_path(
-        rf"^l/(?P<list_code>{CODE})(?:/[^/]+)?/?$",
-        RedirectView.as_view(pattern_name="list-detail", permanent=False),
+        rf"^l/(?P<code>{CODE})(?:/[^/]+)?/?$",
+        RedirectView.as_view(pattern_name="v2-list-detail", permanent=False),
         name="list-short-url",
     ),
     re_path(rf"^r/(?P<code>{CODE})/?$", ShortRedirectView.as_view(), name="short-redirect"),

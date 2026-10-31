@@ -19,7 +19,8 @@ class RevisionAuthorSerializer(serializers.Serializer):
             {"type": "string", "enum": ["edit link"]},
         ],
         "nullable": True,
-        "description": 'The account that made the change, "edit link" for a V1 edit link, '
+        "description": 'The account that made the change, "edit link" for a V1 edit link '
+        "(revisions from before v2.1.0), "
         "or null for the baseline of a list that existed before V2.",
     }
 )

@@ -1,4 +1,5 @@
-"""End-to-end workflow against PostgreSQL through the public HTTP API."""
+"""End-to-end workflow against PostgreSQL through the public HTTP API. V1's lifecycle, run as
+an account since the legacy path was retired (task 9.6)."""
 
 from io import StringIO
 
@@ -7,31 +8,28 @@ from django.core.management import call_command
 
 from apps.sharing.models import SharedLink, SharedList
 from apps.shortener.models import ShortRedirect
-from conftest import bearer
 
 
 @pytest.mark.django_db
-def test_complete_list_lifecycle(api_client, expire, settings):
-    # Create list -> public URL + owner token.
-    created = api_client.post("/api/v1/lists/", {"title": "Friday"}, format="json").json()
-    code, token = created["public_code"], created["owner_token"]
-    base = f"/api/v1/lists/{code}/"
-    owner = bearer(token)
+def test_complete_list_lifecycle(api_client, owner_client, expire, settings):
+    # Create a list, unlisted so anyone with its address can read it.
+    created = owner_client.post(
+        "/api/v2/lists/", {"title": "Friday", "visibility": "unlisted"}, format="json"
+    ).json()
+    code = created["code"]
+    base = f"/api/v2/lists/{code}/"
 
     # Add links.
-    first = api_client.post(
+    first = owner_client.post(
         f"{base}links/",
         {"title": "One", "destination_url": "https://example.com/1"},
         format="json",
-        **owner,
     ).json()
-    api_client.post(
-        f"{base}links/", {"destination_url": "https://example.com/2"}, format="json", **owner
-    )
+    owner_client.post(f"{base}links/", {"destination_url": "https://example.com/2"}, format="json")
 
     # Retrieve anonymously; identity unchanged.
     listed = api_client.get(base).json()
-    assert (listed["id"], listed["public_code"]) == (created["id"], code)
+    assert (listed["id"], listed["code"]) == (created["id"], code)
     links = api_client.get(f"{base}links/").json()
     assert links["count"] == 2
 
@@ -40,17 +38,16 @@ def test_complete_list_lifecycle(api_client, expire, settings):
     assert api_client.get(short_path)["Location"] == "https://example.com/1"
 
     # Update destination; the short URL stays the same and follows the new destination.
-    updated = api_client.patch(
+    updated = owner_client.patch(
         f"{base}links/{first['id']}/",
         {"destination_url": "https://example.com/new"},
         format="json",
-        **owner,
     ).json()
     assert updated["short_url"] == first["short_url"]
     assert api_client.get(short_path)["Location"] == "https://example.com/new"
 
-    # Delete the link; its redirect is gone.
-    assert api_client.delete(f"{base}links/{first['id']}/", **owner).status_code == 204
+    # Delete the link; its short URL stops working.
+    assert owner_client.delete(f"{base}links/{first['id']}/").status_code == 204
     assert api_client.get(short_path).status_code == 404
 
     # List identity is still unchanged after all edits.

@@ -12,7 +12,7 @@ AFTER = [("sharing", "0002_list_ownership")]
 
 
 @pytest.mark.django_db(transaction=True)
-def test_v1_lists_become_unlisted_legacy_lists_with_identity_kept():
+def test_v1_lists_become_unlisted_legacy_lists_with_identity_kept(monkeypatch):
     executor = MigrationExecutor(connection)
     executor.migrate(BEFORE)
     old = executor.loader.project_state(BEFORE).apps.get_model("sharing", "SharedList")
@@ -40,4 +40,6 @@ def test_v1_lists_become_unlisted_legacy_lists_with_identity_kept():
     # Back to the latest state for the tests that follow.
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
+    # Its V1 rows have no owner, so retiring them (sharing.0011) needs the opt-in.
+    monkeypatch.setenv("RETIRE_LEGACY_LISTS", "delete")
     executor.migrate(executor.loader.graph.leaf_nodes())

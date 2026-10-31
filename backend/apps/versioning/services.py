@@ -27,7 +27,7 @@ def record_revision(
     A list's first revision is always written (there is nothing to compare it with).
 
     `locked` must be the list row locked with select_for_update in the current transaction.
-    `user` is the acting account, or None for an edit link (legacy token).
+    `user` is the acting account, or None for a migration (or, before v2.1.0, an edit link).
     """
     if not connection.in_atomic_block:
         raise RuntimeError("record_revision must run inside the mutation's transaction.")

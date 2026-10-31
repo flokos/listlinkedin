@@ -1,4 +1,4 @@
-"""/api/v2/lists/ with accounts and visibility, plus visibility on the V1 reads and /r/."""
+"""/api/v2/lists/ with accounts and visibility, and visibility on /r/."""
 
 import uuid
 from datetime import timedelta
@@ -10,8 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.sharing import services
-from apps.sharing.models import ListMembership, SharedList
+from apps.sharing.models import ListMembership, SharedLink, SharedList
 
 URL = "/api/v2/lists/"
 
@@ -176,53 +175,7 @@ def test_my_lists_shows_owned_and_shared_lists_only(alice, bob):
     assert client_for().get(URL).status_code == 401
 
 
-# Legacy (V1) lists on /api/v2/
-
-
-@pytest.fixture
-def legacy(db):
-    return services.create_list(title="Old list")  # (list, owner token)
-
-
-def test_legacy_lists_are_readable_and_editable_with_their_token(legacy):
-    shared_list, token = legacy
-    url = f"{URL}{shared_list.public_code}/"
-
-    data = client_for().get(url).json()
-    assert data["legacy"] is True
-    assert data["visibility"] == "unlisted"
-    assert data["permissions"] == ["view", "report"]  # report: since 9.0
-
-    holder = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
-    assert set(holder.get(url).json()["permissions"]) >= {"edit", "delete", "rotate_token"}
-    assert holder.patch(url, {"title": "Renamed"}, format="json").status_code == 200
-    # Settings need an account that owns the list.
-    assert holder.patch(url, {"visibility": "private"}, format="json").status_code == 403
-
-    stranger = APIClient(HTTP_AUTHORIZATION="Bearer not-the-token")
-    assert stranger.patch(url, {"title": "x"}, format="json").status_code == 403
-    assert client_for().patch(url, {"title": "x"}, format="json").status_code == 401  # sign in
-
-
-def test_a_token_only_works_on_its_own_list(legacy):
-    _, token = legacy
-    other, _ = services.create_list(title="Another")
-    holder = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
-    response = holder.patch(f"{URL}{other.public_code}/", {"title": "x"}, format="json")
-    assert response.status_code == 403
-
-
-def test_rotating_a_legacy_token_on_v2(legacy):
-    shared_list, token = legacy
-    url = f"{URL}{shared_list.public_code}/rotate-token/"
-    response = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}").post(url)
-    assert response.status_code == 200
-    new_token = response.json()["owner_token"]
-    assert APIClient(HTTP_AUTHORIZATION=f"Bearer {token}").post(url).status_code == 403
-    assert APIClient(HTTP_AUTHORIZATION=f"Bearer {new_token}").post(url).status_code == 200
-
-
-# Database invariants (L2, L3)
+# Database invariants (L2: since 9.6 the owner is required)
 
 
 @pytest.mark.django_db
@@ -231,44 +184,25 @@ def test_every_list_has_a_manager():
         SharedList.objects.create(public_code="NoManager0000000", title="x")
 
 
-@pytest.mark.django_db
-def test_legacy_lists_stay_unlisted_and_expiring():
-    with pytest.raises(IntegrityError):
-        SharedList.objects.create(
-            public_code="LegacyPrivate000",
-            title="x",
-            owner_token_hash="0" * 64,
-            visibility="private",
-            expires_at=timezone.now() + timedelta(days=1),
-        )
+# Visibility on reads and short URLs
 
 
-# Visibility on V1 reads and short URLs
-
-
-def test_v1_api_never_shows_private_lists(alice):
+def test_anonymous_readers_never_see_private_lists(alice):
+    """Was V1's API check; /api/v1/ is gone (9.6), and v2 hides private lists the same way."""
     code = create(alice)["code"]
-    assert client_for().get(f"/api/v1/lists/{code}/").status_code == 404
-    assert client_for().get(f"/api/v1/lists/{code}/links/").status_code == 404
+    assert client_for().get(f"{URL}{code}/").status_code == 404
+    assert client_for().get(f"{URL}{code}/links/").status_code == 404
 
     unlisted = create(alice, visibility="unlisted")["code"]
-    data = client_for().get(f"/api/v1/lists/{unlisted}/").json()
+    data = client_for().get(f"{URL}{unlisted}/").json()
     assert data["expires_at"] is None
-    assert "owner_token" not in data
-
-
-def test_v1_tokens_cannot_touch_account_lists(alice):
-    code = create(alice, visibility="unlisted")["code"]
-    response = APIClient(HTTP_AUTHORIZATION="Bearer anything").patch(
-        f"/api/v1/lists/{code}/", {"title": "x"}, format="json"
-    )
-    assert response.status_code == 403
+    assert data["legacy"] is False
 
 
 def test_short_urls_respect_the_lists_visibility(alice, bob):
     code = create(alice)["code"]
     shared_list = SharedList.objects.get(public_code=code)
-    link = services.legacy.SharedLink.objects.create(
+    link = SharedLink.objects.create(
         shared_list=shared_list, destination_url="https://example.com/", position=0
     )
     from apps.shortener.services import create_redirect
@@ -283,55 +217,6 @@ def test_short_urls_respect_the_lists_visibility(alice, bob):
     response = member.get(f"/r/{short}")
     assert response.status_code == 302
     assert response["Location"] == "https://example.com/"
-
-
-# Claiming legacy lists (task 1.4)
-
-
-def claim(user, shared_list, token):
-    client = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
-    if user:
-        client.force_login(user)  # a real session: the token is read alongside it
-    return client.post(f"{URL}{shared_list.public_code}/claim/")
-
-
-def test_claiming_makes_you_owner_and_retires_the_token(alice, legacy):
-    shared_list, token = legacy
-    expires = shared_list.expires_at
-
-    response = claim(alice, shared_list, token)
-
-    assert response.status_code == 200, response.content
-    data = response.json()
-    assert data["my_role"] == "owner"
-    assert data["legacy"] is False
-    assert data["visibility"] == "unlisted"  # unchanged
-    shared_list.refresh_from_db()
-    assert shared_list.owner == alice
-    assert shared_list.owner_token_hash is None
-    assert shared_list.expires_at == expires  # never made permanent silently
-    # The old token is dead, on v2 and v1.
-    stale = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
-    url = f"{URL}{shared_list.public_code}/"
-    assert stale.patch(url, {"title": "x"}, format="json").status_code == 403
-    v1 = f"/api/v1/lists/{shared_list.public_code}/"
-    assert stale.patch(v1, {"title": "x"}, format="json").status_code == 403
-
-
-def test_claiming_needs_both_an_account_and_the_token(alice, bob, legacy):
-    shared_list, token = legacy
-    assert claim(None, shared_list, token).status_code == 401
-    assert claim(alice, shared_list, "wrong-token").status_code == 403
-    assert claim(alice, shared_list, token).status_code == 200
-    assert claim(alice, shared_list, token).status_code == 200  # idempotent for the owner
-    assert claim(bob, shared_list, token).status_code == 403  # the token is retired
-
-
-def test_v1_creation_is_retired(db, api_client, settings):
-    settings.LEGACY_LIST_CREATION = False
-    response = api_client.post("/api/v1/lists/", {"title": "x"}, format="json")
-    assert response.status_code == 410
-    assert "requires an account" in response.json()["detail"]
 
 
 # Links on /api/v2/ (pulled forward from task 2.1)
@@ -368,14 +253,3 @@ def test_viewers_and_strangers_cannot_change_links(alice, bob):
 def test_private_list_links_are_hidden(alice):
     code = create(alice)["code"]
     assert client_for().get(f"{URL}{code}/links/").status_code == 404
-
-
-def test_legacy_token_manages_links_on_v2(legacy):
-    shared_list, token = legacy
-    holder = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
-    response = holder.post(
-        f"{URL}{shared_list.public_code}/links/",
-        {"destination_url": "https://example.com/"},
-        format="json",
-    )
-    assert response.status_code == 201

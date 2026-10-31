@@ -5,7 +5,6 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.sharing import services as legacy_services
 from apps.sharing.models import ListMembership, SharedLink, SharedList
 from apps.versioning.models import ListRevision
 
@@ -84,11 +83,6 @@ def test_history_lists_revisions_newest_first_with_authors(alice):
 
 
 def test_authors_of_edit_links_baselines_and_deleted_accounts(alice, bob):
-    legacy, token = legacy_services.create_list(title="Legacy")
-    client = client_for(HTTP_AUTHORIZATION=f"Bearer {token}")
-    entries = client.get(f"{URL}{legacy.public_code}/revisions/").json()["results"]
-    assert entries[0]["author"] == "edit link"
-
     lst = Lst(client_for(alice))
     shared_list = SharedList.objects.get(public_code=lst.code)
     ListMembership.objects.create(shared_list=shared_list, user=bob, role="editor")
@@ -107,6 +101,17 @@ def test_authors_of_edit_links_baselines_and_deleted_accounts(alice, bob):
     assert lst.history().json()["results"][0]["author"] == {"display_name": "Deleted account"}
     old = client_for(alice).get(f"{URL}Baseline00000001/revisions/").json()["results"]
     assert old[0]["author"] is None
+    # An edit made with a V1 edit link (possible before v2.1.0): no account, not a baseline.
+    ListRevision.objects.create(
+        shared_list=SharedList.objects.get(public_code="Baseline00000001"),
+        number=2,
+        schema_version=1,
+        kind="edited",
+        snapshot={"schema_version": 1, "list": {"title": "Old", "description": ""}, "links": []},
+    )
+    SharedList.objects.filter(public_code="Baseline00000001").update(head_revision=2)
+    old = client_for(alice).get(f"{URL}Baseline00000001/revisions/").json()["results"]
+    assert old[0]["author"] == "edit link"
 
 
 def test_who_may_see_history(alice, bob):
@@ -229,11 +234,3 @@ def test_who_may_restore(alice, bob):
         f"{URL}{lst.code}/restore/", {"revision": 1}, format="json", HTTP_IF_MATCH='"r2"'
     )
     assert response.status_code == 403
-    legacy, token = legacy_services.create_list(title="Legacy")
-    legacy_services.add_link(legacy, destination_url="https://a.example/")
-    by_token = client_for(HTTP_AUTHORIZATION=f"Bearer {token}").post(
-        f"{URL}{legacy.public_code}/restore/", {"revision": 1}, format="json", HTTP_IF_MATCH='"r2"'
-    )
-    assert by_token.status_code == 200 and by_token.json()["changed"] is True
-    newest = ListRevision.objects.filter(shared_list=legacy).order_by("-number").first()
-    assert newest.created_by is None and newest.kind == "restored"

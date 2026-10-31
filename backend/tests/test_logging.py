@@ -13,7 +13,6 @@ from django.core import mail
 from django.test import Client
 
 from apps.accounts.models import User
-from apps.sharing.services import legacy as legacy_services
 from config.logging import (
     REQUEST_ID,
     USER_ID,
@@ -108,8 +107,9 @@ def key_from(body: str, path: str) -> str:
 
 @pytest.mark.django_db
 def test_secrets_and_addresses_never_reach_the_logs(caplog, settings):
-    """Session ids, CSRF tokens, verification and reset keys, edit-link tokens and email
-    addresses: none is ever logged, on success or failure (extends V1's token test)."""
+    """Session ids, CSRF tokens, verification and reset keys, bearer tokens (V1's edit links,
+    retired in 9.6, may still be sent) and email addresses: none is ever logged, on success or
+    failure (extends V1's token test)."""
     settings.MODERATION_EMAIL = "moderation@example.test"
     caplog.set_level(logging.DEBUG)
     client = Client()
@@ -123,11 +123,12 @@ def test_secrets_and_addresses_never_reach_the_logs(caplog, settings):
     csrf = client.get("/api/v2/session/").cookies.get("csrftoken")
     csrf_value = csrf.value if csrf else client.cookies["csrftoken"].value
 
-    # Claiming a legacy list with its edit link, and a wrong one.
-    legacy, owner_token = legacy_services.create_list(title="Old list")
+    # A list of Ada's, and an old edit-link token sent with requests (it grants nothing).
+    created = client.post("/api/v2/lists/", {"title": "Old list"}, **json_post).json()
+    owner_token = "an-old-edit-link-token-0123456789abcdef"
     bearer = {"HTTP_AUTHORIZATION": f"Bearer {owner_token}"}
-    client.post(f"/api/v2/lists/{legacy.public_code}/claim/", **bearer)
-    client.post(f"/api/v2/lists/{legacy.public_code}/claim/", HTTP_AUTHORIZATION="Bearer nope")
+    client.patch(f"/api/v2/lists/{created['code']}/", {"title": "x"}, **json_post, **bearer)
+    Client().delete(f"/api/v2/lists/{created['code']}/", **bearer)
 
     # Adding people by email (an unknown address too), then a password reset.
     User.objects.filter(email="ada@example.com").update(display_name="Ada")
@@ -135,7 +136,7 @@ def test_secrets_and_addresses_never_reach_the_logs(caplog, settings):
     EmailAddress.objects.create(user=bob, email=bob.email, verified=True, primary=True)
     for email in ("bob@example.com", "nobody@example.com"):
         client.post(
-            f"/api/v2/lists/{legacy.public_code}/members/",
+            f"/api/v2/lists/{created['code']}/members/",
             {"email": email, "role": "viewer"},
             **json_post,
         )

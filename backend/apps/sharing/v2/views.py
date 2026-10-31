@@ -31,9 +31,7 @@ from apps.versioning.serializers import (
 )
 
 from .. import selectors
-from ..permissions import ReadRateThrottle, WriteRateThrottle
 from ..policy import Action, Role, can
-from ..serializers import OwnerTokenSerializer
 from ..services import forks as fork_services
 from ..services import links as link_services
 from ..services import lists as services
@@ -42,7 +40,8 @@ from ..services import members as member_services
 from ..services import metadata as metadata_services
 from ..services import moderation as moderation_services
 from ..services import restore as restore_services
-from .authentication import LegacyTokenAuthentication, principal_of
+from ..throttling import ReadRateThrottle, WriteRateThrottle
+from .authentication import principal_of
 from .serializers import (
     DirectoryQuerySerializer,
     ForkSerializer,
@@ -75,7 +74,7 @@ IDEMPOTENCY_KEY = OpenApiParameter(
 )
 NOT_AN_IMAGE = OpenApiResponse(description="Not an accepted image, or over 2 MB.")
 ERRORS = {
-    401: OpenApiResponse(description="Sign-in (or the list's owner token) required."),
+    401: OpenApiResponse(description="Sign-in required."),
     403: OpenApiResponse(description="Not allowed for this user."),
     404: OpenApiResponse(description="No such list, or not visible to you."),
     410: OpenApiResponse(description="The list has expired."),
@@ -96,17 +95,13 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     retrieve=extend_schema(parameters=[CODE]),
     partial_update=extend_schema(parameters=[CODE]),
     destroy=extend_schema(parameters=[CODE]),
-    rotate_token=extend_schema(parameters=[CODE]),
     fork=extend_schema(parameters=[CODE]),
     restore=extend_schema(parameters=[CODE]),
-    claim=extend_schema(parameters=[CODE]),
     reorder=extend_schema(parameters=[CODE]),
     report=extend_schema(parameters=[CODE]),
 )
 class ListViewSet(viewsets.ViewSet):
-    # The owner-token authenticator comes first so 401 answers name the Bearer scheme it
-    # accepts; requests without a token fall through to the session (with CSRF checks).
-    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    authentication_classes = [SessionAuthentication]
     permission_classes = []  # decided by the policy, per list
     throttle_classes = [WriteRateThrottle]  # unsafe methods only, per user or client IP
     pagination_class = ListPagination  # used by `list`; also tells OpenAPI the response shape
@@ -206,26 +201,6 @@ class ListViewSet(viewsets.ViewSet):
         shared_list, _ = selectors.get_list_for(principal, code)
         services.delete_list(principal, shared_list.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @extend_schema(request=None, responses={200: OwnerTokenSerializer, **ERRORS})
-    @action(detail=True, methods=["post"], url_path="rotate-token")
-    def rotate_token(self, request, code=None):
-        """Replace a legacy list's owner token (V1 behaviour); the old one stops working."""
-        principal = principal_of(request)
-        shared_list, _ = selectors.get_list_for(principal, code)
-        owner_token = services.rotate_owner_token(principal, shared_list.pk)
-        return Response(OwnerTokenSerializer({"owner_token": owner_token}).data)
-
-    @extend_schema(request=None, responses={200: ListDetailSerializer, **ERRORS})
-    @action(detail=True, methods=["post"])
-    def claim(self, request, code=None):
-        """Add a legacy list to your account: sign in and send its owner token as a Bearer
-        header. The token stops working; expiry and visibility stay as they were."""
-        principal = principal_of(request)
-        shared_list, _ = selectors.get_list_for(principal, code)
-        services.claim_list(principal, shared_list.pk)
-        # The token is retired now; describe the list as the new owner sees it.
-        return self._detail(selectors.Principal(user=principal.user), code)
 
     @extend_schema(
         request=ForkSerializer,
@@ -350,11 +325,11 @@ LINK_ID = OpenApiParameter("link_id", uuid.UUID, OpenApiParameter.PATH)
 class LinkViewSet(viewsets.ViewSet):
     """/api/v2/lists/{code}/links/: live links in their stored order.
 
-    Editors and owners (session), or a legacy list's owner token (Bearer), may change links.
+    Editors and owners may change links.
     Deleting keeps a tombstone: the link disappears and its short URL answers 404.
     """
 
-    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    authentication_classes = [SessionAuthentication]
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
     pagination_class = ListPagination
@@ -469,9 +444,9 @@ class LinkViewSet(viewsets.ViewSet):
 
 class ImageUploadViewSet(viewsets.ViewSet):
     """Uploads: one multipart `file`, re-encoded (docs/v2/adr/ADR-012). Editors and owners
-    only (an account is needed: an edit link can't upload). Own rate limit, `upload`."""
+    only. Own rate limit, `upload`."""
 
-    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    authentication_classes = [SessionAuthentication]
     permission_classes = []
     parser_classes = [MultiPartParser]
     throttle_classes = [WriteRateThrottle]
@@ -559,10 +534,10 @@ NUMBER = OpenApiParameter("number", int, OpenApiParameter.PATH, description="Rev
     ),
 )
 class RevisionViewSet(viewsets.ViewSet):
-    """/api/v2/lists/{code}/revisions/: a list's history, newest first. Editors, owners and a
-    legacy list's edit link only: history can hold links an owner deliberately removed."""
+    """/api/v2/lists/{code}/revisions/: a list's history, newest first. Editors and owners
+    only: history can hold links an owner deliberately removed."""
 
-    authentication_classes = [LegacyTokenAuthentication, SessionAuthentication]
+    authentication_classes = [SessionAuthentication]
     permission_classes = []
     pagination_class = ListPagination
 
@@ -605,7 +580,7 @@ class MemberViewSet(viewsets.ViewSet):
     an existing, verified account), changes roles and removes people; members may leave.
     """
 
-    authentication_classes = [SessionAuthentication]  # legacy lists have no members
+    authentication_classes = [SessionAuthentication]
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
     pagination_class = ListPagination

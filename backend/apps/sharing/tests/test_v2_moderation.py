@@ -105,14 +105,6 @@ def test_private_and_expired_lists_answer_as_they_do_elsewhere(alice, bob, mailo
     assert len(mailoutbox) == 1
 
 
-def test_an_edit_link_cannot_report_its_own_list(owned_list, mailoutbox):
-    legacy, token = owned_list
-    holder = APIClient(HTTP_AUTHORIZATION=f"Bearer {token}")
-    assert report(holder, legacy.public_code).status_code == 403
-    assert report(client_for(), legacy.public_code).status_code == 202
-    assert "Owner: an edit link (no account)" in mailoutbox[0].body
-
-
 def test_invalid_reports_are_refused(alice):
     code = make_list(alice).public_code
     assert report(client_for(), code, {"reason": "boring"}).status_code == 400
@@ -178,10 +170,7 @@ def test_codes_that_start_with_a_dash_work_after_double_dash(alice):
     assert "is private now" in run("unpublish_list", "--reason", "spam", "--", "-dashFirstCode00")
 
 
-def test_unpublish_list_refuses_legacy_and_unknown_lists(owned_list):
-    legacy, _ = owned_list
-    with pytest.raises(CommandError, match="Delete it instead"):
-        run("unpublish_list", "--reason", "spam", "--", legacy.public_code)
+def test_unpublish_list_refuses_unknown_lists(db):
     with pytest.raises(CommandError, match="no list"):
         run("unpublish_list", "--reason", "spam", "--", "no-such-code-000")
 
