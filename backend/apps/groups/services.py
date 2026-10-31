@@ -322,8 +322,8 @@ def report_group(principal: Principal, code: str, *, reason: Reason, details: st
         reason=reason,
         details=details,
         actions=[
-            f"python manage.py unpublish_group {group.code} --reason '…'",
-            f"python manage.py delete_group {group.code} --reason '…' --yes",
+            f"python manage.py unpublish_group --reason '…' -- {group.code}",
+            f"python manage.py delete_group --reason '…' --yes -- {group.code}",
             f"python manage.py suspend_account {group.owner_id} --reason '…' --unpublish",
         ],
         object_id=group.pk,

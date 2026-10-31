@@ -213,15 +213,16 @@ the owner isn't told. Without `MODERATION_EMAIL` reports are only logged, withou
 reporter's words, so production sets it.
 
 **Commands.** Run them in the api container, for example
-`docker compose -f compose.prod.yaml exec api python manage.py unpublish_list <code> --reason "phishing"`:
+`docker compose -f compose.prod.yaml exec api python manage.py unpublish_list --reason "phishing" -- <code>`.
+Codes can start with `-`, so always put `--` before a code (the report emails do):
 
 | Command | Effect |
 |---|---|
-| `unpublish_list <code> --reason …` | The list becomes private: only its owner and the people it's shared with can open it, and its short URLs answer 404 to everyone else. A legacy list must stay unlisted (CHECK L3): delete it instead |
-| `delete_list <code> --reason … --yes` | Deletes the list with its links, short URLs and memberships. Without `--yes` it only shows what it would delete |
+| `unpublish_list --reason … -- <code>` | The list becomes private: only its owner and the people it's shared with can open it, and its short URLs answer 404 to everyone else. A legacy list must stay unlisted (CHECK L3): delete it instead |
+| `delete_list --reason … --yes -- <code>` | Deletes the list with its links, short URLs and memberships. Without `--yes` it only shows what it would delete |
 | `find_links <host>` | Every live link to a host or its subdomains, with its list: for sweeping a phishing domain. Then add the host to `BLOCKED_DESTINATION_HOSTS`, which also stops its existing short URLs (410) |
-| `unpublish_group <code> --reason …` | The group becomes private |
-| `delete_group <code> --reason … --yes` | Deletes the group and its memberships; its lists are untouched |
+| `unpublish_group --reason … -- <code>` | The group becomes private |
+| `delete_group --reason … --yes -- <code>` | Deletes the group and its memberships; its lists are untouched |
 | `suspend_account <email or id> --reason … [--unpublish]` | The account can't sign in, and its sessions end on every device ([12](12-AUTHORIZATION.md#operator-actions)). With `--unpublish`, its public and unlisted lists and groups become private |
 | `unsuspend_account <email or id> --reason …` | It can sign in again. What was unpublished stays private until its owner changes it |
 

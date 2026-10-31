@@ -61,7 +61,7 @@ def test_anyone_who_can_see_a_group_may_report_it(alice, bob, mailoutbox):
         f"/g/{group.code}/team-portal",
         f"Owner: user {alice.pk}",
         "Details: Ads everywhere",
-        f"python manage.py unpublish_group {group.code}",
+        f"python manage.py unpublish_group --reason '…' -- {group.code}",
     ):
         assert expected in first.body, expected
     assert f"Reported by: user {bob.pk}" in second.body
@@ -87,12 +87,12 @@ def run(*args) -> str:
 
 def test_unpublish_group_makes_it_private(alice):
     group = make_group(alice)
-    assert "is private now" in run("unpublish_group", group.code, "--reason", "spam")
+    assert "is private now" in run("unpublish_group", "--reason", "spam", "--", group.code)
     group.refresh_from_db()
     assert group.visibility == "private"
     assert client_for().get(f"{URL}{group.code}/").status_code == 404
     with pytest.raises(CommandError, match="no group"):
-        run("unpublish_group", "no-such-group-00", "--reason", "spam")
+        run("unpublish_group", "--reason", "spam", "--", "no-such-group-00")
 
 
 def test_delete_group_keeps_its_lists(alice):
@@ -100,7 +100,9 @@ def test_delete_group_keeps_its_lists(alice):
     shared_list = make_list(alice, "public")
     services.add_list(as_(alice), group.pk, shared_list.public_code)
     with pytest.raises(CommandError, match="Add --yes"):
-        run("delete_group", group.code, "--reason", "spam")
-    assert "Its lists are untouched" in run("delete_group", group.code, "--reason", "spam", "--yes")
+        run("delete_group", "--reason", "spam", "--", group.code)
+    assert "Its lists are untouched" in run(
+        "delete_group", "--reason", "spam", "--yes", "--", group.code
+    )
     assert not Group.objects.filter(pk=group.pk).exists()
     shared_list.refresh_from_db()  # still there

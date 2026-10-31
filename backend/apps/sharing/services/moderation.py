@@ -62,8 +62,8 @@ def report_list(principal: Principal, code: str, *, reason: Reason, details: str
         reason=reason,
         details=details,
         actions=[
-            f"python manage.py unpublish_list {shared_list.public_code} --reason '…'",
-            f"python manage.py delete_list {shared_list.public_code} --reason '…' --yes",
+            f"python manage.py unpublish_list --reason '…' -- {shared_list.public_code}",
+            f"python manage.py delete_list --reason '…' --yes -- {shared_list.public_code}",
         ]
         + (
             [f"python manage.py suspend_account {shared_list.owner_id} --reason '…' --unpublish"]

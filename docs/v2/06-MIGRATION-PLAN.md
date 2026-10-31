@@ -46,6 +46,7 @@ in development. Production rollback is covered [below](#rollback).
 | 5–6 | `ListBranch`, `BranchExclusion`, `SyncRecord`: **postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)), not created in V2 | schema | yes | |
 | 7 | django-tasks-db tables (app label `django_tasks_database`, task 7.1) | schema (third-party) | yes | Must be unapplied (`migrate django_tasks_database zero`) **before** the package is removed, if the queue is ever replaced ([ADR-008](adr/ADR-008-background-metadata-extraction.md#what-the-database-queue-adds-to-remove-when-switching)) |
 | 8 | `sharing.0009_discovery` and `groups.0002_discovery` (task 8.1): `pg_trgm` extension, `tags` (empty), generated `search` column, GIN and partial indexes, the tag-count CHECK | schema | yes (verified: unapply and reapply) | `CREATE EXTENSION` needs the DB owner role. The compose `POSTGRES_USER` is the owner. Adding a stored generated column rewrites the table, under a second at V1 sizes |
+| 9 | `sharing.0010_directory_title_index` and `groups.0003_directory_title_index` (task 9.2): the title trigram index moves from `title` to `UPPER(title)` | schema (index only) | yes (verified) | Builds the index on the existing rows; quick at V1 sizes |
 | 9 | `accounts.0003_user_suspended_at` (task 9.0): nullable `suspended_at` on users, set by the operator's `suspend_account` | schema | yes | Existing accounts aren't suspended: NULL |
 
 All V1 tables are small: lists live at most 30 days and hold at most 100 links. Plain

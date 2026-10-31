@@ -46,8 +46,8 @@ numbers. Rows 31–35 were added by this planning.
 | 18 | Parent expiration with active children | M | L | Children are independent copies; status `parent_expired` then `parent_deleted`; cleanup sets `parent_deleted_at` | cleanup + sync status tests |
 | 22 | Broken mobile drag-and-drop | M | M | Spike on the phone projects; the ⋮ Move menu always works | e2e scenario 4 on mobile-safari and mobile-chrome. Since 2.5: touch drag verified on mobile-chrome; iOS touch drag can't be automated, so it is in the 9.3 manual pass ([10](10-FRONTEND-ARCHITECTURE.md#drag-and-drop)) |
 | 23 | Inaccessible conflict-resolution UI | M | M | Radio groups with legends, text plus colour, focus management, manual screen-reader QA | axe, keyboard spec, QA checklist (9.3) |
-| 26 | N+1 queries | M | L | Annotated querysets, prefetching, query-count assertions | `django_assert_max_num_queries` per endpoint |
-| 27 | Excessively large snapshots | L | L | 100-link cap; JSONB TOAST compression; size measured in 9.2 | snapshot size test at the cap |
+| 26 | N+1 queries | M | L | Annotated querysets, prefetching, query-count assertions | `tests/test_query_counts.py` (since 9.2): every read endpoint measured small and at the target sizes, equal counts within budget |
+| 27 | Excessively large snapshots | L | L | 100-link cap; JSONB TOAST compression; measured in 9.2: 5.4 KiB stored for a typical 100-link list, 322 KiB at worst (every field at its maximum, incompressible) | snapshot size test at the cap (`tests/test_query_counts.py`) |
 | 28 | Stale frontend state | M | M | `ETag`/`If-Match`, revalidate on view, reload on 409/412, no optimistic success for merges | e2e state tests |
 | 29 | Inconsistent API error handling | M | L | One domain-error mapping table; machine `code`s; DRF shapes kept | error-shape tests per endpoint |
 | 30 | Incomplete regression coverage | M | M | The V1 regression checklist; V1 tests never deleted for failing | CI. Checklist reviewed in 9.1 ([21](21-SECURITY-REVIEW.md#v1-regression-checklist): every named test still runs) |
