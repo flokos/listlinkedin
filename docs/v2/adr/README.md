@@ -34,3 +34,4 @@ Nygard/MADR layout.
 | [015](ADR-015-postpone-synchronization.md) | Postpone list synchronization (synced copies and merges) | Accepted |
 | [016](ADR-016-account-deletion-grace-period.md) | Account deletion with a 30-day grace period | Accepted |
 | [017](ADR-017-production-on-oci-always-free.md) | Production on Oracle Cloud Always Free, managed with Terraform | Accepted |
+| [018](ADR-018-pull-based-deployment.md) | Continuous deployment of GitHub Releases, pulled by the server | Accepted |

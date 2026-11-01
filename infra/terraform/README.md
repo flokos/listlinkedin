@@ -74,6 +74,26 @@ instance and needs the volume moved too).
   app's SMTP relay.
 - Certificate renewal: `/usr/local/sbin/lli-renew-cert`, daily from `/etc/cron.d/listlinkedin-cert`.
 
+## Continuous deployment
+
+Publishing a GitHub Release deploys it ([ADR-018](../../docs/v2/adr/ADR-018-pull-based-deployment.md)).
+Install [host/auto-deploy.sh](host/auto-deploy.sh) as `/usr/local/sbin/lli-auto-deploy` and
+enable [listlinkedin-deploy.timer](host/listlinkedin-deploy.timer) with its service:
+
+```bash
+sudo install -m 0755 auto-deploy.sh /usr/local/sbin/lli-auto-deploy
+sudo install -m 0644 listlinkedin-deploy.service listlinkedin-deploy.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now listlinkedin-deploy.timer
+```
+
+- Every 5 minutes it compares GitHub's latest release with `/var/lib/listlinkedin/deployed-tag`.
+- It deploys only `vX.Y.Z` tags on `main` that contain the running version, and skips releases
+  whose notes contain `[manual-deploy]`. Skips and failures are mailed once.
+- `sudo lli-auto-deploy v2.3.0` deploys a tag by hand, including a retry or a deliberate
+  downgrade (restore the matching backup yourself for a downgrade).
+- Logs: `journalctl -u listlinkedin-deploy` and `/var/lib/listlinkedin/deploy-<tag>.log`.
+- The deployer itself isn't updated by a release: reinstall the script when it changes.
+
 ## Email
 
 With `email_domain` and `email_sender` set, apply creates the domain, a DKIM key and the
