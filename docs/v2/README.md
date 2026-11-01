@@ -57,7 +57,7 @@ contains Links** stays the core of the model.
 | 20 | [Decisions and open questions](20-DECISIONS-AND-OPEN-QUESTIONS.md) | Decision log, open questions |
 | 21 | [Security review](21-SECURITY-REVIEW.md) | ASVS 5.0 L1/L2 review before release (task 9.1): every requirement, fixes, accepted deviations, logging, sessions, crypto and data inventories |
 | 22 | [Release rehearsal](22-RELEASE-REHEARSAL.md) | The V1 → V2 release rehearsed with the runbook's commands (task 9.5): timings, checks, findings |
-| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-016 |
+| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-017 |
 
 Diagrams are Mermaid blocks inside the documents (GitHub renders them), so there is no separate
 diagrams folder.

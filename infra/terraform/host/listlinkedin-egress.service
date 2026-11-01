@@ -1,0 +1,11 @@
+[Unit]
+Description=Block container egress to private and metadata addresses
+After=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lli-container-egress
+
+[Install]
+WantedBy=docker.service

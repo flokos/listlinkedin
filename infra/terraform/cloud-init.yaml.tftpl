@@ -1,0 +1,36 @@
+#cloud-config
+# Installs the files in host/ and runs host/bootstrap.sh once, on first boot. All logic lives
+# in those scripts (base64 here, so no YAML quoting applies), and they can be rerun by hand.
+write_files:
+  - path: /etc/listlinkedin/data-volume-bytes
+    permissions: "0644"
+    content: "${data_volume_bytes}\n"
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    encoding: b64
+    content: ${base64encode(daemon_json)}
+  - path: /etc/systemd/system/docker.service.d/10-data-volume.conf
+    permissions: "0644"
+    encoding: b64
+    content: ${base64encode(docker_dropin)}
+  - path: /usr/local/sbin/lli-prepare-data-volume
+    permissions: "0755"
+    encoding: b64
+    content: ${base64encode(prepare_data_volume)}
+  - path: /usr/local/sbin/lli-container-egress
+    permissions: "0755"
+    encoding: b64
+    content: ${base64encode(container_egress)}
+  - path: /etc/systemd/system/listlinkedin-egress.service
+    permissions: "0644"
+    encoding: b64
+    content: ${base64encode(egress_unit)}
+  - path: /usr/local/sbin/lli-bootstrap
+    permissions: "0755"
+    encoding: b64
+    content: ${base64encode(bootstrap)}
+
+runcmd:
+  - [/usr/local/sbin/lli-bootstrap]
+
+final_message: "listlinkedin cloud-init finished after $UPTIME seconds"
