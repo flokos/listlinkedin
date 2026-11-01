@@ -41,6 +41,7 @@ apt-get "${apt_opts[@]}" install docker-ce docker-ce-cli containerd.io docker-bu
 usermod -aG docker ubuntu
 systemctl daemon-reload
 systemctl enable --now docker
+systemctl enable --now listlinkedin-egress.service
 docker info --format 'Docker {{.ServerVersion}}, data root {{.DockerRootDir}}'
 touch /var/lib/cloud/instance/listlinkedin-ready 2>/dev/null || true
 echo "listlinkedin host ready"

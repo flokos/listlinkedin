@@ -62,6 +62,18 @@ instance and needs the volume moved too).
 4. Backups land on the data volume (`/var/backups/listlinkedin`). Copy them off the server too:
    the same volume holds the database.
 
+## Host jobs and hardening
+
+- **Container egress:** [host/container-egress.sh](host/container-egress.sh), run by
+  `listlinkedin-egress.service` whenever Docker starts, drops new connections from containers
+  to private, link-local (metadata) and CGNAT addresses outside the host. Traffic between
+  containers is not matched ([14 Worker egress](../../docs/v2/14-INFRASTRUCTURE.md#worker-egress)).
+- **After the first deploy**, install [host/alert.sh](host/alert.sh) as `/usr/local/sbin/lli-alert`
+  and [host/listlinkedin.cron](host/listlinkedin.cron) as `/etc/cron.d/listlinkedin`: the daily
+  backup (02:30 UTC) and autoheal every 2 minutes, both alerting `MODERATION_EMAIL` through the
+  app's SMTP relay.
+- Certificate renewal: `/usr/local/sbin/lli-renew-cert`, daily from `/etc/cron.d/listlinkedin-cert`.
+
 ## Email
 
 With `email_domain` and `email_sender` set, apply creates the domain, a DKIM key and the

@@ -59,6 +59,8 @@ resource "oci_core_instance" "app" {
       daemon_json         = file("${path.module}/host/daemon.json")
       docker_dropin       = file("${path.module}/host/docker-data-volume.conf")
       prepare_data_volume = file("${path.module}/host/prepare-data-volume.sh")
+      container_egress    = file("${path.module}/host/container-egress.sh")
+      egress_unit         = file("${path.module}/host/listlinkedin-egress.service")
       bootstrap           = file("${path.module}/host/bootstrap.sh")
     }))
   }

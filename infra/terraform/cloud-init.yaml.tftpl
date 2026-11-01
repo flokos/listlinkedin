@@ -17,6 +17,14 @@ write_files:
     permissions: "0755"
     encoding: b64
     content: ${base64encode(prepare_data_volume)}
+  - path: /usr/local/sbin/lli-container-egress
+    permissions: "0755"
+    encoding: b64
+    content: ${base64encode(container_egress)}
+  - path: /etc/systemd/system/listlinkedin-egress.service
+    permissions: "0644"
+    encoding: b64
+    content: ${base64encode(egress_unit)}
   - path: /usr/local/sbin/lli-bootstrap
     permissions: "0755"
     encoding: b64
