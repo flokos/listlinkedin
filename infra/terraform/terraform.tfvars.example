@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+compartment_ocid = "ocid1.compartment.oc1..xxxxxxxx"
+ssh_public_key   = "ssh-ed25519 AAAA... you@host"
+admin_cidrs      = ["203.0.113.10/32"]
+
+# Optional: enable OCI Email Delivery for this domain.
+# email_domain = "example.com"
+# email_sender = "no-reply@example.com"
