@@ -31,6 +31,10 @@ Volumes: `pgdata` (the database) and `media` (images). Back up both ([Backups](#
   backups if they stay on the same disk before being copied off.
 - The containers' logs rotate at 5 × 20 MB each.
 
+The production host on Oracle Cloud (Always Free, `eu-frankfurt-1`) is created with Terraform:
+[infra/terraform/](../infra/terraform/README.md) ([ADR-017](v2/adr/ADR-017-production-on-oci-always-free.md)).
+It meets the list above and leaves `/srv/listlinkedin` ready for the steps below.
+
 ## Configuration
 
 Copy [.env.example](../.env.example) to `.env` next to `compose.prod.yaml` and set the values.
