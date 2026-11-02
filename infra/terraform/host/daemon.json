@@ -1,0 +1,6 @@
+{
+  "data-root": "/srv/data/docker",
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "20m", "max-file": "5" },
+  "live-restore": true
+}

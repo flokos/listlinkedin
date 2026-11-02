@@ -31,6 +31,10 @@ Volumes: `pgdata` (the database) and `media` (images). Back up both ([Backups](#
   backups if they stay on the same disk before being copied off.
 - The containers' logs rotate at 5 × 20 MB each.
 
+The production host on Oracle Cloud (Always Free, `eu-frankfurt-1`) is created with Terraform:
+[infra/terraform/](../infra/terraform/README.md) ([ADR-017](v2/adr/ADR-017-production-on-oci-always-free.md)).
+It meets the list above and leaves `/srv/listlinkedin` ready for the steps below.
+
 ## Configuration
 
 Copy [.env.example](../.env.example) to `.env` next to `compose.prod.yaml` and set the values.
@@ -140,6 +144,14 @@ curl https://go.example.com/healthz
 page when the release notes say an upgrade migrates a lot of data. Otherwise the old `api`
 serves until the new one replaces it, a few seconds later. A failed migration stops there and the stack doesn't come up. Read
 `docker compose -f compose.prod.yaml logs migrate`, then fix the problem or roll back.
+
+**Automatically, on the production host** ([ADR-018](v2/adr/ADR-018-pull-based-deployment.md)):
+publishing a GitHub Release (a `vX.Y.Z` tag on `main`) runs the steps above within about 5
+minutes, through `lli-auto-deploy` and its timer
+([infra/terraform/host/](../infra/terraform/README.md#continuous-deployment)). It rolls back as
+below when something fails and mails the result to `MODERATION_EMAIL`. Put `[manual-deploy]` in
+the release notes of a release that needs more than these steps; it is then skipped and
+reported.
 
 **Rolling back:**
 
