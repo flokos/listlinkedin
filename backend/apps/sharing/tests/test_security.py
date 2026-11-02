@@ -145,11 +145,13 @@ def test_list_short_url_never_redirects_off_site(api_client, code):
         assert response.status_code == 404
 
 
-def test_openapi_declares_no_token_scheme_or_v1_paths(api_client):
+def test_openapi_declares_no_owner_token_scheme_or_v1_paths(api_client):
     schema = json.loads(api_client.get("/api/schema/", {"format": "json"}).content)
 
     assert not [path for path in schema["paths"] if path.startswith("/api/v1/")]
-    assert set(schema["components"]["securitySchemes"]) == {"SessionCookie"}
+    # Accounts only (invariant 7). SessionToken, added by ADR-019, is an account's session
+    # in a header for frontends on other domains, not a token that grants rights on a list.
+    assert set(schema["components"]["securitySchemes"]) == {"SessionCookie", "SessionToken"}
     components = schema["components"]["schemas"]
     assert not [n for n, s in components.items() if "owner_token" in s.get("properties", {})]
 

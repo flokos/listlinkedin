@@ -57,7 +57,7 @@ contains Links** stays the core of the model.
 | 20 | [Decisions and open questions](20-DECISIONS-AND-OPEN-QUESTIONS.md) | Decision log, open questions |
 | 21 | [Security review](21-SECURITY-REVIEW.md) | ASVS 5.0 L1/L2 review before release (task 9.1): every requirement, fixes, accepted deviations, logging, sessions, crypto and data inventories |
 | 22 | [Release rehearsal](22-RELEASE-REHEARSAL.md) | The V1 → V2 release rehearsed with the runbook's commands (task 9.5): timings, checks, findings |
-| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-018 |
+| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-019 |
 
 Diagrams are Mermaid blocks inside the documents (GitHub renders them), so there is no separate
 diagrams folder.
@@ -138,6 +138,9 @@ These are the decisions everything else builds on. The details are in the linked
     ([ADR-014](adr/ADR-014-django-version.md))
 17. **Git:** the `v2` integration branch, a CI guard against V2 PRs into `main`, and rulesets
     on `main` and `v2`. ([ADR-009](adr/ADR-009-git-v2-integration-branch.md))
+18. **Frontends on other domains** sign in with allauth's `app` client (`X-Session-Token`) and
+    get CORS without credentials, only for `CORS_ALLOWED_ORIGINS`. This site's SPA keeps
+    first-party cookie sessions. ([ADR-019](adr/ADR-019-cross-origin-frontends.md))
 
 ## Keeping these documents true
 

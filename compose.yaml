@@ -14,6 +14,7 @@ x-app: &app
     POSTGRES_HOST: db
     POSTGRES_PORT: "5432"
     PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}  # the frontend dev server
+    CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}  # frontends on other domains (ADR-019)
     BLOCKED_DESTINATION_HOSTS: ${BLOCKED_DESTINATION_HOSTS:-}
     # Outgoing mail (verification, password reset) goes to Mailpit: http://localhost:8025
     DJANGO_EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend

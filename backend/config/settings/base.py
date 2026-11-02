@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.headless",
+    "corsheaders",
     "django_tasks",
     "django_tasks_db",  # app label `django_tasks_database`: its tables and migrations
     "apps.accounts",
@@ -51,6 +52,8 @@ MIDDLEWARE = [
     "config.middleware.request_id",  # before anything that logs
     "config.middleware.no_store",
     "config.middleware.content_security_policy",
+    # Before anything that can answer early, so preflights and errors get CORS headers too.
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "config.middleware.request_size_limit",
     "config.middleware.noindex",
@@ -123,8 +126,40 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_TRUSTED_ORIGINS = [f"{_public.scheme}://{_public.netloc}"]
 
-# django-allauth in headless mode: JSON endpoints under /_allauth/browser/v1/ for the SPA,
-# no server-rendered pages. Emails link to the SPA's routes.
+
+def _cors_origin(origin: str) -> str:
+    parts = urlsplit(origin)
+    local = parts.hostname in ("localhost", "127.0.0.1")
+    if (
+        not parts.hostname
+        or parts.scheme not in (("http", "https") if local else ("https",))
+        or parts.path
+        or parts.query
+        or parts.fragment
+        or "*" in origin
+    ):
+        raise ImproperlyConfigured(
+            f"CORS_ALLOWED_ORIGINS: {origin!r} is not an origin such as https://app.example.com "
+            "(https, no path, no wildcard; http only for localhost)"
+        )
+    return origin.rstrip("/")
+
+
+# Frontends on other domains (ADR-019). They sign in through allauth's `app` client and send
+# the session token in X-Session-Token; browsers never send them this site's cookies
+# (no credentials), so cookie sessions and their CSRF protection stay first-party. Only the
+# API and the app client's endpoints answer cross-origin requests; the browser client,
+# /r/ and the docs don't. Empty (the default): no CORS at all.
+CORS_ALLOWED_ORIGINS = [_cors_origin(origin) for origin in env_list("CORS_ALLOWED_ORIGINS")]
+CORS_URLS_REGEX = r"^/(api/v2|_allauth/app/v1)/"
+CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_HEADERS = ("accept", "content-type", "x-session-token")
+CORS_EXPOSE_HEADERS = ("X-Request-ID",)
+CORS_PREFLIGHT_MAX_AGE = 60 * 60
+
+# django-allauth in headless mode: JSON endpoints under /_allauth/browser/v1/ for the SPA and
+# /_allauth/app/v1/ for frontends on other domains (ADR-019), no server-rendered pages.
+# Emails link to this site's SPA routes, whichever client the account was made with.
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
@@ -136,7 +171,8 @@ ACCOUNT_ADAPTER = "apps.accounts.adapter.AccountAdapter"
 ACCOUNT_PREVENT_ENUMERATION = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[listlinkedin] "
 HEADLESS_ONLY = True
-HEADLESS_CLIENTS = ("browser",)  # session cookies + CSRF; no token-based app client
+# browser: session cookies + CSRF (this SPA). app: a session token in X-Session-Token.
+HEADLESS_CLIENTS = ("browser", "app")
 # Keys go in the URL fragment, which browsers never send to servers, so they stay out of
 # nginx logs (as V1's edit links do). The SPA reads the key and removes it from the address bar.
 HEADLESS_FRONTEND_URLS = {

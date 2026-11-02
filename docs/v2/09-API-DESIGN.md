@@ -12,7 +12,8 @@ per version).
 |---|---|
 | Format | JSON in and out (V1 parsers and renderers). `multipart/form-data` only on the upload endpoints |
 | Identifiers | Lists by `public_code` (`{code}`), groups by `code`, links by UUID, revisions by `number`, members by user id. UUID `id`s are returned but are never needed in URLs except for links |
-| Authentication | Django session cookie (`sessionid`, `HttpOnly`, `Secure` in production, `SameSite=Lax`) with **CSRF** on unsafe methods (`X-CSRFToken` header from the `csrftoken` cookie [R8]). Until v2.1.0, legacy lists also accepted `Authorization: Bearer <owner token>`; bearer tokens grant nothing since task 9.6 |
+| Authentication | Django session cookie (`sessionid`, `HttpOnly`, `Secure` in production, `SameSite=Lax`) with **CSRF** on unsafe methods (`X-CSRFToken` header from the `csrftoken` cookie [R8]). Frontends on other domains send `X-Session-Token: <session_token>` instead, from allauth's app client, with no CSRF token ([ADR-019](adr/ADR-019-cross-origin-frontends.md)). Until v2.1.0, legacy lists also accepted `Authorization: Bearer <owner token>`; bearer tokens grant nothing since task 9.6 |
+| CORS | None by default. Origins in `CORS_ALLOWED_ORIGINS` may call `/api/v2/` and `/_allauth/app/v1/`, without credentials (no cookies). Allowed request headers `accept`, `content-type`, `x-session-token`; `X-Request-ID` exposed; preflights cached an hour. `/r/`, `/_allauth/browser/` and the docs stay same-origin |
 | Authorization | [12-AUTHORIZATION.md](12-AUTHORIZATION.md). Not viewable → 404. Viewable but forbidden → 403. Account required → 401 with `WWW-Authenticate: Session` |
 | Pagination | `PageNumberPagination` shape `{count, next, previous, results}` (V1-compatible). Default 20, max 100. A list's links default to 100 per page, which is the whole list |
 | Ordering and filtering | `?ordering=` on collections where documented. `?q=` and `?tags=a,b` on the directory |
@@ -69,7 +70,13 @@ Authentication flows use **django-allauth headless, browser client**: `/_allauth
 **403 means nothing was sent**, because one went out recently or the address is verified) and
 `POST account/password/change`. **A 401 from sign-out, password reset or verify-while-signed-out
 means the step succeeded and left the browser signed out.** Errors are
-`{status, errors: [{message, code, param}]}`. The project adds:
+`{status, errors: [{message, code, param}]}`.
+
+Frontends on other domains use the **app client** instead, `/_allauth/app/v1/…`, with the
+same endpoints ([ADR-019](adr/ADR-019-cross-origin-frontends.md)). Signing in or up answers
+with `meta.session_token`; every later request, to allauth and to `/api/v2/`, sends it as
+`X-Session-Token`. `DELETE auth/session` with it signs out. Emails still link to this site's
+pages (`PUBLIC_BASE_URL`). The project adds:
 
 | Method | Path | Notes |
 |---|---|---|

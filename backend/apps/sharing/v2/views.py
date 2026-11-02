@@ -19,7 +19,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
-from apps.accounts.authentication import SessionAuthentication
+from apps.accounts.authentication import API_AUTHENTICATION
 from apps.common import errors
 from apps.metadata.images import MAX_UPLOAD_BYTES
 from apps.versioning import selectors as version_selectors
@@ -101,7 +101,7 @@ CODE = OpenApiParameter("code", str, OpenApiParameter.PATH, description="The lis
     report=extend_schema(parameters=[CODE]),
 )
 class ListViewSet(viewsets.ViewSet):
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []  # decided by the policy, per list
     throttle_classes = [WriteRateThrottle]  # unsafe methods only, per user or client IP
     pagination_class = ListPagination  # used by `list`; also tells OpenAPI the response shape
@@ -329,7 +329,7 @@ class LinkViewSet(viewsets.ViewSet):
     Deleting keeps a tombstone: the link disappears and its short URL answers 404.
     """
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
     pagination_class = ListPagination
@@ -446,7 +446,7 @@ class ImageUploadViewSet(viewsets.ViewSet):
     """Uploads: one multipart `file`, re-encoded (docs/v2/adr/ADR-012). Editors and owners
     only. Own rate limit, `upload`."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     parser_classes = [MultiPartParser]
     throttle_classes = [WriteRateThrottle]
@@ -537,7 +537,7 @@ class RevisionViewSet(viewsets.ViewSet):
     """/api/v2/lists/{code}/revisions/: a list's history, newest first. Editors and owners
     only: history can hold links an owner deliberately removed."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     pagination_class = ListPagination
 
@@ -580,7 +580,7 @@ class MemberViewSet(viewsets.ViewSet):
     an existing, verified account), changes roles and removes people; members may leave.
     """
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
     pagination_class = ListPagination
@@ -646,7 +646,7 @@ class DirectoryListViewSet(viewsets.ViewSet):
     """/api/v2/directory/lists/: public lists, searchable by text and tags. Anyone may read
     it; signed-in readers see their own role on lists they belong to. Rate-limited per IP."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [ReadRateThrottle]
     throttle_scope = "directory"

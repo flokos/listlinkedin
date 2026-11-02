@@ -60,6 +60,7 @@ Copy [.env.example](../.env.example) to `.env` next to `compose.prod.yaml` and s
 | `DEFAULT_FROM_EMAIL` | `listlinkedin <no-reply@{host}>` | The sender of every email |
 | `EMAIL_TIMEOUT` | `10` | Seconds. Mail is sent during the request, so a relay slower than this fails it |
 | `DJANGO_NUM_PROXIES` | `1` | Proxies in front of the API (1 is the bundled nginx). Add one for each load balancer in front of nginx, or rate limits see the balancer's address |
+| `CORS_ALLOWED_ORIGINS` | empty | Frontends on other domains that may call the API, comma-separated origins such as `https://app.example.org` (https, no path, no wildcard; http only for `localhost`). They sign in through `/_allauth/app/v1/` and send `X-Session-Token`, never cookies ([ADR-019](v2/adr/ADR-019-cross-origin-frontends.md)). The api refuses to start on a malformed origin. Restart the api after changing it |
 | `BLOCKED_DESTINATION_HOSTS` | empty | Comma-separated hosts links may not point to, subdomains included. It applies to existing links too: their short URLs answer 410. This site's own host is always blocked |
 | `WEB_CONCURRENCY` | `3` | Gunicorn worker processes |
 | `WORKER_REPLICAS` | `2` | Worker containers, each running one task at a time |

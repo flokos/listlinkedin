@@ -146,6 +146,14 @@ guessed by someone who already has the image. Moving private images behind an au
   production (`__Host-sessionid`, `__Host-csrftoken`): browsers accept them only over HTTPS,
   from this host, for the whole site. Session lifetime and limits:
   [21](21-SECURITY-REVIEW.md#sessions).
+- **Other origins** ([ADR-019](adr/ADR-019-cross-origin-frontends.md)): CORS only for the
+  origins in `CORS_ALLOWED_ORIGINS` (validated at startup: https, no path, no wildcard), only on
+  `/api/v2/` and `/_allauth/app/v1/`, and never with credentials, so browsers don't send this
+  site's cookies cross-origin and cookie sessions keep their CSRF protection. Those frontends
+  authenticate with allauth's app-client session token in `X-Session-Token`: the key of a
+  Django session, ended by sign-out, deletion, suspension and erasure like a cookie session,
+  and needing no CSRF token because browsers never add the header themselves. An XSS on an
+  allowed origin can steal its users' tokens; that site's security is its owner's.
 - Email verification and password-reset keys travel in the URL **fragment**
   (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
   nginx logs, as V1's edit-link tokens did. The SPA removes them from the address bar on
