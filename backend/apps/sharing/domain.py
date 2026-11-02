@@ -20,7 +20,7 @@ RESERVED_SLUGS = frozenset({"manage", "history", "sync", "settings"})
 
 
 def slug_for(title: str) -> str:
-    """The cosmetic URL suffix for a list title. Never unique, never resolved."""
+    """The API's `slug` for a title: no longer in addresses (D35). Never unique, never resolved."""
     slug = slugify(title)[:MAX_SLUG_LENGTH].strip("-") or "list"
     return f"{slug[: MAX_SLUG_LENGTH - 5]}-list" if slug in RESERVED_SLUGS else slug
 

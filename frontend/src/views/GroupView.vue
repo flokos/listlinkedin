@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A group's workspace (docs/v2/11-UI-UX-MIGRATION.md#groups-workspace): the sidebar of its
 // lists and the chosen list, at /g/{code}/l/{listCode} so the URL keeps the choice and Back
-// works. /g/{code}/{slug} shows the first list. The page stays mounted while switching lists
+// works. /g/{code} shows the first list. The page stays mounted while switching lists
 // (the route's pageKey); only the list part is replaced.
 //
 // The server sends only the lists this viewer may see (docs/v2/12-AUTHORIZATION.md), so
@@ -59,7 +59,7 @@ import { useQueryDialog } from '../composables/useQueryDialog'
 import { useSession } from '../composables/useSession'
 import ListView from './ListView.vue'
 
-const props = defineProps<{ code: string; slug?: string; listCode?: string }>()
+const props = defineProps<{ code: string; listCode?: string }>()
 const route = useRoute()
 const router = useRouter()
 const notify = useNotify()
@@ -112,7 +112,7 @@ function onListLoaded(list: ListDetail) {
 }
 async function onListGone() {
   lists.value = lists.value.filter((l) => l.code !== currentCode.value)
-  await router.replace({ name: 'group', params: { code: props.code, slug: group.value?.slug } })
+  await router.replace({ name: 'group', params: { code: props.code } })
   void refreshLists()
 }
 async function refreshLists() {
@@ -148,7 +148,7 @@ async function takeOut(item: GroupList) {
     notify.success(`Removed “${item.title}” from the group`)
     announcement.value = { text: `${item.title} removed from the group.` }
     if (item.code === props.listCode) {
-      await router.replace({ name: 'group', params: { code: props.code, slug: group.value?.slug } })
+      await router.replace({ name: 'group', params: { code: props.code } })
     }
     if (lists.value.length < 2) reordering.value = false
   } catch (error) {
@@ -407,7 +407,7 @@ async function confirmLeave() {
         text="It may have been taken out of the group, or it isn't shared with you."
       >
         <template #actions>
-          <v-btn color="primary" :to="{ name: 'group', params: { code, slug: group.slug } }" replace
+          <v-btn color="primary" :to="{ name: 'group', params: { code } }" replace
             >Open the group's first list</v-btn
           >
         </template>

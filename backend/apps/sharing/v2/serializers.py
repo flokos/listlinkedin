@@ -134,7 +134,7 @@ class ListDetailSerializer(serializers.ModelSerializer):
         return self.context["access"][shared_list.pk]
 
     def get_url(self, shared_list: SharedList) -> str:
-        return f"{settings.PUBLIC_BASE_URL}/l/{shared_list.public_code}/{shared_list.slug}"
+        return f"{settings.PUBLIC_BASE_URL}/l/{shared_list.public_code}"
 
     def get_image_url(self, shared_list: SharedList) -> str | None:
         return images.url_for(shared_list.image)

@@ -15,7 +15,7 @@ test('a signed-in user creates a private list and edits it at once', async ({ pa
   await page.getByRole('button', { name: 'Create list' }).click()
 
   await expect(page.getByRole('heading', { level: 1, name: 'Friday team bonding' })).toBeVisible()
-  await expect(page).toHaveURL(/\/l\/[\w-]+\/friday-team-bonding$/)
+  await expect(page).toHaveURL(/\/l\/[\w-]+$/)
   await expect(page.getByText('Your list', { exact: true })).toBeVisible()
   await expect(page.getByText('Only people you add')).toBeVisible()
   await expect(page.getByText('Add your first link')).toBeVisible()

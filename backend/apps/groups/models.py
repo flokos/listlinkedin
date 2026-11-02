@@ -44,7 +44,8 @@ class Group(models.Model):
     description = models.TextField(blank=True, default="")
     # A media path (apps.metadata.images), relative to MEDIA_ROOT. NULL: no image.
     image = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (spec: nullable)
-    # Cosmetic URL suffix derived from the title (/g/{code}/{slug}); never an identifier.
+    # Derived from the title; never an identifier. Addresses are /g/{code} without it since D35
+    # (an older /g/{code}/{slug} still opens the group); kept in the API for its clients.
     slug = models.CharField(max_length=80, blank=True, default="")
     visibility = models.CharField(
         max_length=8, choices=VISIBILITY_CHOICES, default=Visibility.PRIVATE.value

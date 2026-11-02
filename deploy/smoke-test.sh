@@ -80,7 +80,7 @@ shared_list = lists.create_list(owner, title="smoke", visibility=Visibility.UNLI
 links.add_link(owner, shared_list.pk, destination_url="https://example.com/smoke")
 print(shared_list.public_code)' | tail -n 1)
 listed=$(curl_ "$https/api/v2/lists/$code/")
-check "list URLs use PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/l/$code/smoke" "$(json '["url"]' <<<"$listed")"
+check "list URLs use PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/l/$code" "$(json '["url"]' <<<"$listed")"
 short_path=$(curl_ "$https/api/v2/lists/$code/links/" | json '["results"][0]["short_url"]' \
     | sed "s#^$PUBLIC_BASE_URL##")
 check "short URL redirects through the proxy" "302 https://example.com/smoke" \

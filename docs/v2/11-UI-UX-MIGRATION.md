@@ -25,12 +25,12 @@ vocabulary stays out of the UI.
 |---|---|---|---|
 | `/` | Home: hero, create form, recent on device, how it works, FAQ | **Modified** | Signed out: landing page with Sign up / Sign in and a short explainer. Signed in: redirect to `/lists`. Create moves into My lists |
 | `/lists` | Saved lists (device tokens, backup) | **Redesigned** as **My lists** | The account's lists, owned or shared with you, with role, visibility, expiry and link count. "On this device" (legacy, with "Add to my account" and backup/restore) was removed in task 9.6 |
-| `/l/:code/:slug?` | List page (rows) | **Extended** | Tile grid (default) or list view toggle, add link, ⋮ tile menus, provenance banner, sync chip |
+| `/l/:code` (an old `/l/:code/:name` redirects here) | List page (rows) | **Extended** | Tile grid (default) or list view toggle, add link, ⋮ tile menus, provenance banner, sync chip |
 | `/l/:code/manage#t=` | Edit-link claim | **Redirect** since task 9.6 | Opens the list, dropping the fragment (the old token). Until v2.1.0 it saved the token and offered "Add to my account" |
 | `/l/:code/history` | — | **New** | Version timeline, diff, restore |
 | `/l/:code/sync` | — | **Postponed** ([ADR-015](adr/ADR-015-postpone-synchronization.md)) | Review updates (merge preview) |
 | `/l/:code/settings` | — (owner menu) | **New** (task 8.3) | Name and description, image, tags, expiry and delete; sharing links to the Share dialog. See [List settings](#list-settings) |
-| `/groups`, `/g/:code/:slug?`, `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
+| `/groups`, `/g/:code` (an old `/g/:code/:name` redirects here), `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
 | `/explore` | — | **New** (task 8.2) | Public directory: search, tags, sort. See [Explore](#explore) |
 | `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** (task 1.2) | Kept minimal (prompt 8.8). Emailed links are `/verify-email#key=…` and `/reset-password#key=…`. The key travels in the fragment and is removed from the address bar on arrival |
 | `/about` | About and privacy | **Modified** | New retention and privacy text; accounts explained |
@@ -153,7 +153,7 @@ Desktop ≥1280                  Tablet 960–1279              Phone <960
 
 Since task 4.3: **Groups** (`/groups`, signed in; in the menu only when signed in) lists your
 groups with your role, who can see each and how many lists it shows you, and **New group**
-(name and description; new groups are private). `/g/{code}/{slug}` shows the group's first
+(name and description; new groups are private). `/g/{code}` shows the group's first
 list and `/g/{code}/l/{listCode}` a chosen one; the page stays mounted while switching, so only
 the list part changes, and the title reads "List · Group". The list part is the list page
 itself (tiles, adding and editing links, its own Share and ⋮); deleting or leaving the list

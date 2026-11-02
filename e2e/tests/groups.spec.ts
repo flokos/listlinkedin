@@ -46,7 +46,13 @@ test('create a group, add lists and move between them', async ({ page, isMobile 
   await page.getByRole('button', { name: 'New group' }).first().click()
   await page.getByRole('dialog').getByLabel('Name').fill('Dev Portal')
   await page.getByRole('button', { name: 'Create group' }).click()
-  await expect(page).toHaveURL(/\/g\/[^/]+\/dev-portal$/)
+  await expect(page).toHaveURL(/\/g\/[^/]+$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Dev Portal' })).toBeVisible()
+
+  // An address shared before names were dropped (D35) opens the group, without the name.
+  const groupPath = new URL(page.url()).pathname
+  await page.goto(`${groupPath}/dev-portal`)
+  await expect(page).toHaveURL(new RegExp(`${groupPath}$`))
   await expect(page.getByRole('heading', { level: 1, name: 'Dev Portal' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Add your first list' }).click()

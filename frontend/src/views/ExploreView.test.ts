@@ -37,8 +37,8 @@ async function mountAt(path: string) {
     history: createMemoryHistory(),
     routes: [
       { path: '/explore', name: 'explore', component: ExploreView },
-      { path: '/l/:code/:slug?', name: 'list', component: { render: () => null } },
-      { path: '/g/:code/:slug?', name: 'group', component: { render: () => null } },
+      { path: '/l/:code', name: 'list', component: { render: () => null } },
+      { path: '/g/:code', name: 'group', component: { render: () => null } },
       { path: '/lists', name: 'saved-lists', component: { render: () => null } },
       { path: '/signup', name: 'signup', component: { render: () => null } },
     ],

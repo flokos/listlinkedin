@@ -6,6 +6,7 @@ import smtplib
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -68,7 +69,7 @@ def test_anyone_who_can_see_a_list_may_report_it(alice, bob, mailoutbox):
     for expected in (
         "Details: It asks for bank passwords.",
         f"Code: {code}",
-        f"/l/{code}/team-tools",
+        f"Address: {settings.PUBLIC_BASE_URL}/l/{code}\n",  # no name in the address (D35)
         "Visibility: public",
         f"Owner: user {alice.pk}",
         "Reported by: someone who wasn't signed in",

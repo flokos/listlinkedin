@@ -32,7 +32,7 @@ onMounted(load)
 async function create(input: GroupInput) {
   const group = await createGroup(input)
   notify.success(`Created “${group.title}”`)
-  await router.push({ name: 'group', params: { code: group.code, slug: group.slug } })
+  await router.push({ name: 'group', params: { code: group.code } })
 }
 
 const roleLabel = { owner: 'Owner', editor: 'Editor', viewer: 'Viewer' } as const
@@ -85,7 +85,7 @@ const visibilityLabel = {
           </v-avatar>
           <div class="ll-groups__body">
             <router-link
-              :to="{ name: 'group', params: { code: group.code, slug: group.slug } }"
+              :to="{ name: 'group', params: { code: group.code } }"
               class="ll-groups__title text-title-medium"
             >
               {{ group.title }}

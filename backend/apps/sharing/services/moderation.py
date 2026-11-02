@@ -54,7 +54,7 @@ def report_list(principal: Principal, code: str, *, reason: Reason, details: str
     notify_operator(
         kind="list",
         title=shared_list.title,
-        url=f"{settings.PUBLIC_BASE_URL}/l/{shared_list.public_code}/{shared_list.slug}",
+        url=f"{settings.PUBLIC_BASE_URL}/l/{shared_list.public_code}",
         code=shared_list.public_code,
         visibility=shared_list.visibility,
         owner=owner,

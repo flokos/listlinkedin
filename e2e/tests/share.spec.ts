@@ -29,3 +29,18 @@ test('sharing shows the view link and a QR code, and Back closes the dialog', as
   await expect(page).toHaveURL(`/l/${list.public_code}`)
   await expect(page).toHaveTitle('Share me · listlinkedin')
 })
+
+test('share links carry no name, and older addresses with a name still open the list', async ({
+  page,
+  api,
+}) => {
+  const list = await api.createList('Secret plans')
+  expect(new URL(list.public_url).pathname).toBe(`/l/${list.public_code}`)
+
+  await page.goto(`/l/${list.public_code}/secret-plans?dialog=share`)
+
+  await expect(page).toHaveURL(`/l/${list.public_code}?dialog=share`)
+  const dialog = page.getByRole('dialog', { name: 'Share this list' })
+  await expect(dialog.getByRole('textbox', { name: 'Share link' })).toHaveValue(list.public_url)
+  await expect(page).toHaveTitle('Secret plans · listlinkedin')
+})
