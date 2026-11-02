@@ -202,8 +202,15 @@ def test_signed_in_writes_need_the_csrf_token(user):
 def test_openapi_marks_v2_account_endpoints_as_session_authenticated(client):
     schema = client.get("/api/schema/", {"format": "json"}).json()
 
+    # The SPA's cookie session, or the app client's session token (ADR-019).
+    either = [{"SessionCookie": []}, {"SessionToken": []}]
     me = schema["paths"]["/api/v2/me/"]
-    assert me["get"]["security"] == me["patch"]["security"] == [{"SessionCookie": []}]
+    assert me["get"]["security"] == me["patch"]["security"] == either
     # The session endpoint also answers signed-out visitors (the empty requirement).
-    assert schema["paths"]["/api/v2/session/"]["get"]["security"] == [{"SessionCookie": []}, {}]
-    assert schema["components"]["securitySchemes"]["SessionCookie"]["in"] == "cookie"
+    assert schema["paths"]["/api/v2/session/"]["get"]["security"] == [*either, {}]
+    schemes = schema["components"]["securitySchemes"]
+    assert schemes["SessionCookie"]["in"] == "cookie"
+    assert (schemes["SessionToken"]["in"], schemes["SessionToken"]["name"]) == (
+        "header",
+        "X-Session-Token",
+    )

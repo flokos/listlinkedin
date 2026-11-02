@@ -17,7 +17,7 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.accounts.authentication import SessionAuthentication
+from apps.accounts.authentication import API_AUTHENTICATION
 from apps.common import errors
 from apps.sharing.policy import Role
 from apps.sharing.selectors import Principal, access_in_listing, fork_sources
@@ -88,7 +88,7 @@ def group_lists(principal: Principal, group) -> Response:
     report=extend_schema(parameters=[CODE]),
 )
 class GroupViewSet(viewsets.ViewSet):
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []  # decided by the policy, per group
     throttle_classes = [WriteRateThrottle]
     pagination_class = ListPagination
@@ -215,7 +215,7 @@ class GroupListViewSet(viewsets.ViewSet):
     """/api/v2/groups/{code}/lists/: only the lists the group shows you, in order. Lists you
     may not see are left out entirely: no titles, placeholders or counts."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
     throttle_scope = "group_manage"
@@ -273,7 +273,7 @@ class GroupListViewSet(viewsets.ViewSet):
 class GroupImageViewSet(ImageUploadViewSet):
     """/api/v2/groups/{code}/image/: the group's image, shrunk to fit 512×512."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
 
     def update(self, request, code=None):
         principal = principal_of(request)
@@ -300,7 +300,7 @@ class GroupMemberViewSet(viewsets.ViewSet):
     account, changes roles and removes people, and members may leave. A group role grants
     nothing on the lists in the group."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [WriteRateThrottle]
     pagination_class = ListPagination
@@ -358,7 +358,7 @@ class DirectoryGroupViewSet(viewsets.ViewSet):
     """/api/v2/directory/groups/: public groups, searchable like the list directory. Each
     shows how many lists it shows *you*. Anyone may read it; rate-limited per IP."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [ReadRateThrottle]
     throttle_scope = "directory"
@@ -387,7 +387,7 @@ class DirectoryGroupViewSet(viewsets.ViewSet):
 class DirectoryTagViewSet(viewsets.ViewSet):
     """/api/v2/directory/tags/: the most used tags on public lists and groups."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = []
     throttle_classes = [ReadRateThrottle]
     throttle_scope = "directory"

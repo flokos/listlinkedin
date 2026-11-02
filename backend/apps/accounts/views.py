@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from apps.sharing.throttling import WriteRateThrottle
 
 from . import services
-from .authentication import SessionAuthentication
+from .authentication import API_AUTHENTICATION
 from .serializers import DeleteAccountSerializer, MeSerializer, SessionSerializer
 
 NOT_SIGNED_IN = OpenApiResponse(description="Not signed in.")
@@ -16,7 +16,7 @@ NOT_SIGNED_IN = OpenApiResponse(description="Not signed in.")
 class SessionViewSet(viewsets.ViewSet):
     """Who is signed in. Also sets the CSRF cookie the SPA sends back as X-CSRFToken."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = [AllowAny]
     allow_deleted_account = True  # shows a deleting account, so the app can offer to restore
 
@@ -30,7 +30,7 @@ class SessionViewSet(viewsets.ViewSet):
 class MeViewSet(viewsets.ViewSet):
     """The signed-in user's own account."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = [IsAuthenticated]
     throttle_classes = [WriteRateThrottle]
     throttle_scope = "account"
@@ -67,14 +67,15 @@ class MeViewSet(viewsets.ViewSet):
         serializer = DeleteAccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         services.delete_account(request.user, confirm=serializer.validated_data["confirm"])
-        request.session.flush()
+        # The cookie session, or the app client's token session (request.auth, ADR-019).
+        (request.session if request.auth is None else request.auth).flush()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RestoreViewSet(viewsets.ViewSet):
     """Undo deleting your account, within the grace period (docs/v2/adr/ADR-016)."""
 
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = API_AUTHENTICATION
     permission_classes = [IsAuthenticated]
     throttle_classes = [WriteRateThrottle]
     throttle_scope = "account"

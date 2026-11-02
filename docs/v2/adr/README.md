@@ -23,7 +23,7 @@ Nygard/MADR layout.
 | [004](ADR-004-three-way-merge.md) | Three-way merge with a branch-level baseline | Accepted; implementation postponed by 015 |
 | [005](ADR-005-child-ordering-policy.md) | Integer positions, move operations, child order preserved | Accepted |
 | [006](ADR-006-url-shortening-strategy.md) | URL shortening: keep V1 codes, no polymorphic ShortURL, no external targets | Accepted |
-| [007](ADR-007-authentication-and-ownership-migration.md) | Custom user, session auth with allauth headless, claim-based ownership migration | Accepted |
+| [007](ADR-007-authentication-and-ownership-migration.md) | Custom user, session auth with allauth headless, claim-based ownership migration | Accepted (same-origin only: superseded by 019) |
 | [008](ADR-008-background-metadata-extraction.md) | Background metadata extraction on a PostgreSQL-backed worker | Accepted |
 | [009](ADR-009-git-v2-integration-branch.md) | Git: `v2` integration branch, CI guard, rulesets | Accepted |
 | [010](ADR-010-viewsets-and-api-v2.md) | DRF ViewSets under `/api/v2/`; `/api/v1/` kept for the transition | Accepted |
@@ -33,3 +33,4 @@ Nygard/MADR layout.
 | [014](ADR-014-django-version.md) | Stay on Django 5.2 LTS for V2; move to 6.2 LTS afterwards | Accepted |
 | [015](ADR-015-postpone-synchronization.md) | Postpone list synchronization (synced copies and merges) | Accepted |
 | [016](ADR-016-account-deletion-grace-period.md) | Account deletion with a 30-day grace period | Accepted |
+| [019](ADR-019-cross-origin-frontends.md) | Frontends on other domains: CORS without credentials, allauth app-client tokens | Accepted |
