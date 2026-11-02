@@ -150,9 +150,9 @@ serves until the new one replaces it, a few seconds later. A failed migration st
 publishing a GitHub Release (a `vX.Y.Z` tag on `main`) runs the steps above within about 5
 minutes, through `lli-auto-deploy` and its timer
 ([infra/terraform/host/](../infra/terraform/README.md#continuous-deployment)). It rolls back as
-below when something fails and mails the result to `MODERATION_EMAIL`. Put `[manual-deploy]` in
-the release notes of a release that needs more than these steps; it is then skipped and
-reported.
+below when something fails and mails the result to `MODERATION_EMAIL`. Put a line that is just
+`[manual-deploy]` in the release notes of a release that needs more than these steps; it is
+then skipped and reported. The marker anywhere else in a line doesn't count.
 
 **Rolling back:**
 

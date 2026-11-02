@@ -68,7 +68,8 @@ if [ -z "$forced" ]; then
   fi
   g merge-base --is-ancestor "$prev" "$target" ||
     skip "$tag does not contain the running version ($(g describe --tags --always "$prev")): refusing to go back automatically."
-  if grep -qiF '[manual-deploy]' <<< "$notes"; then
+  # A line of its own, so notes that mention the marker (as v2.2.0's did) don't trigger it.
+  if grep -qiE '^[[:space:]]*\[manual-deploy\][[:space:]]*$' <<< "${notes//$'\r'/}"; then
     skip "The release notes of $tag ask for a manual deploy (docs/deployment.md#upgrades). Deploy it by hand, or run: sudo lli-auto-deploy $tag"
   fi
 fi
