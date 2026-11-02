@@ -88,7 +88,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now listlinkedin-deploy.
 
 - Every 5 minutes it compares GitHub's latest release with `/var/lib/listlinkedin/deployed-tag`.
 - It deploys only `vX.Y.Z` tags on `main` that contain the running version, and skips releases
-  whose notes contain `[manual-deploy]`. Skips and failures are mailed once.
+  whose notes have a line that is just `[manual-deploy]`. Skips and failures are mailed once.
 - `sudo lli-auto-deploy v2.3.0` deploys a tag by hand, including a retry or a deliberate
   downgrade (restore the matching backup yourself for a downgrade).
 - Logs: `journalctl -u listlinkedin-deploy` and `/var/lib/listlinkedin/deploy-<tag>.log`.

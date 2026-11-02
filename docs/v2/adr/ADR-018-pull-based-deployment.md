@@ -24,7 +24,7 @@ preview stacks.
   commit and, once the backup was taken, restores it, as "Rolling back" describes. Every
   outcome is mailed to `MODERATION_EMAIL`.
 - **It deploys nothing automatically** that is not a `vX.Y.Z` tag on `main`, that is older
-  than the running version, or whose release notes contain `[manual-deploy]`. A skipped or
+  than the running version, or whose release notes have a line that is just `[manual-deploy]`. A skipped or
   failed tag is reported once; `sudo lli-auto-deploy <tag>` deploys it by hand.
 
 Not chosen: a self-hosted runner (GitHub advises against them on public repositories, and it
