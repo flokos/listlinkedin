@@ -31,7 +31,8 @@ def test_create_list_returns_its_identity(owner_client, settings):
     assert uuid.UUID(body["id"]).version == 4
     assert str(shared_list.pk) == body["id"]
     assert len(body["code"]) == 16
-    assert body["url"] == f"{settings.PUBLIC_BASE_URL}/l/{body['code']}/friday"
+    # V1 answered /l/{code}/friday; addresses carry no name since D35 (task 10.2).
+    assert body["url"] == f"{settings.PUBLIC_BASE_URL}/l/{body['code']}"
     assert "owner_token" not in body
 
 

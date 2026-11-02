@@ -60,7 +60,7 @@ def test_creating_and_reading_a_group(alice):
         "id": group["id"],
         "code": group["code"],
         "slug": "team-tools",
-        "url": f"{settings.PUBLIC_BASE_URL}/g/{group['code']}/team-tools",
+        "url": f"{settings.PUBLIC_BASE_URL}/g/{group['code']}",  # no name (D35)
         "title": "Team tools",
         "description": "Things we use",
         "image_url": None,

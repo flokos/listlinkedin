@@ -114,8 +114,8 @@ These are the decisions everything else builds on. The details are in the linked
    ([ADR-010](adr/ADR-010-viewsets-and-api-v2.md))
 6. **Visibility** is PRIVATE, UNLISTED or PUBLIC. New lists default to PRIVATE. Migrated V1
    lists become UNLISTED, which is what they are today.
-7. **Slugs are cosmetic** (`/l/{code}/{slug}`). They are never identifiers, so they never
-   collide or break.
+7. **Addresses carry no name** (`/l/{code}`, D35). Slugs are never identifiers, so they never
+   collide or break; older addresses with a name keep working.
 8. **Short URLs keep V1's 96-bit codes.** Groups get `/g/{code}`. Every resolution re-checks
    visibility. EXTERNAL_URL targets are deferred. ([ADR-006](adr/ADR-006-url-shortening-strategy.md))
 9. **Links are soft-deleted** (tombstones that keep identity and short code). Lists and Groups

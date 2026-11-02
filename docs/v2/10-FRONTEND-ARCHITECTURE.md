@@ -94,8 +94,9 @@ Caching and staleness (risk 28):
 
 New routes are in [11](11-UI-UX-MIGRATION.md#screen-inventory). Route `meta.requiresAuth`
 redirects to `/signin?next=<path>`. `next` must be a same-origin path starting with `/`
-(open-redirect guard, [13](13-SECURITY.md)). `/l/:code/:slug?` replaces `/l/:code`, and the
-reserved segments (`manage`, `history`, `sync`, `settings`) get their own routes.
+(open-redirect guard, [13](13-SECURITY.md)). `/l/:code/:name` and `/g/:code/:name` redirect to the
+addresses without a name (D35), and the reserved segments (`manage`, `history`, `sync`,
+`settings`) get their own routes.
 
 ## Components
 

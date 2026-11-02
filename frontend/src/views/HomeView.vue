@@ -18,7 +18,7 @@ const router = useRouter()
 const { isSignedIn, ready } = useSession()
 
 function onCreated(list: ListDetail) {
-  router.push({ name: 'list', params: { code: list.code, slug: list.slug } })
+  router.push({ name: 'list', params: { code: list.code } })
 }
 
 const steps = [

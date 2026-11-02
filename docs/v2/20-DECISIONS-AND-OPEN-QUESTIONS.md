@@ -23,7 +23,7 @@ Settled decisions, with where each is justified. Changing one needs a supersedin
 | D14 | Soft-delete links only; hard-delete lists and groups | planning | [ADR-013](adr/ADR-013-soft-delete-links-only.md) |
 | D15 | Django 5.2 LTS through V2 launch; 6.2 LTS afterwards | planning | [ADR-014](adr/ADR-014-django-version.md) |
 | D16 | New lists default to `private`; V1 lists become `unlisted` | planning | [12](12-AUTHORIZATION.md#visibility) |
-| D17 | Slugs are cosmetic (`/l/{code}/{slug}`), never identifiers | planning | [09](09-API-DESIGN.md#urls-and-slugs) |
+| D17 | Slugs are cosmetic, never identifiers. Their place in addresses (`/l/{code}/{slug}`) was replaced by D35 | planning | [09](09-API-DESIGN.md#urls-and-slugs) |
 | D18 | Group roles never grant list access; hidden lists omitted entirely | prompt + planning | [12](12-AUTHORIZATION.md) |
 | D19 | Revision history visible to editors and owners only | planning | [12](12-AUTHORIZATION.md#list-permission-matrix) |
 | D20 | `public` visibility requires a verified email | planning | [13](13-SECURITY.md) |
@@ -41,6 +41,7 @@ Settled decisions, with where each is justified. Changing one needs a supersedin
 | D32 | **V2 is released on GitHub; V1 was never deployed.** There is no production V1 database, so no legacy lists or edit links exist outside development. Task 9.5 pins V1 (`v1.0.0`, `release/v1`, a GitHub Release), merges `v2` into `main`, tags `v2.0.0` and publishes its GitHub Release. A first deployment is a fresh V2 install ([deployment](../deployment.md#first-deploy)). The V1 → V2 [runbook](06-MIGRATION-PLAN.md#runbook) and [22](22-RELEASE-REHEARSAL.md) stay as the record that the migrations work, and as the path for anyone running V1 from `release/v1`. The legacy sunset (9.6) follows `v2.0.0` as `v2.1.0`, without the 30-day wait: no legacy list can still be alive | **user (2026-10-31)** | [06](06-MIGRATION-PLAN.md#runbook), [17](17-IMPLEMENTATION-ROADMAP.md) |
 | D33 | **Runtime upgrades go one supported step at a time, as planned PRs.** Python moves to the next version that Django supports (3.13 → 3.14; 3.15 waits for Django), Node from one LTS line to the next (24 → 26; odd releases are never LTS and are out of support within months), and `@types/node` follows the Node that runs the code (26 for the app, 24 for the e2e image's Node). Dependabot's major-version jumps (#47–#51) are judged against this, and `dependabot.yml` ignores versions outside it | **user (2026-10-31)** | [ADR-014](adr/ADR-014-django-version.md) |
 | D34 | **Frontends on other domains** (first: `https://fe.acv.gr`, a teammate's) use the API with CORS without credentials for the origins in `CORS_ALLOWED_ORIGINS`, and sign in with allauth's `app` client, an opaque session token in `X-Session-Token` (not JWT) | **user (2026-11-02)** | [ADR-019](adr/ADR-019-cross-origin-frontends.md) |
+| D35 | **Addresses carry no name:** lists are `/l/{code}` and groups `/g/{code}`, replacing D17's `/l/{code}/{slug}`. Names go stale on rename, reveal what private lists are about, and are useless for non-Latin titles (every Greek title became `list`); shorter links also give simpler QR codes. Older addresses with a name keep working. The API keeps `slug` | **user (2026-11-02)** | [09](09-API-DESIGN.md#urls-and-slugs) |
 
 ## Open questions
 

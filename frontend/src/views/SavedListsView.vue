@@ -77,7 +77,7 @@ const visibilityLabel = {
         <li v-for="item in accountLists" :key="item.id">
           <v-card class="pa-4">
             <router-link
-              :to="{ name: 'list', params: { code: item.code, slug: item.slug } }"
+              :to="{ name: 'list', params: { code: item.code } }"
               class="ll-lists__title text-title-medium"
             >
               {{ item.title || 'Untitled list' }}

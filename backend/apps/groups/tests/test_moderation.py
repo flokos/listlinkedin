@@ -4,6 +4,7 @@ operator's commands."""
 import io
 
 import pytest
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from rest_framework.test import APIClient
 
@@ -58,7 +59,7 @@ def test_anyone_who_can_see_a_group_may_report_it(alice, bob, mailoutbox):
     assert first.subject == "[listlinkedin] Report: Spam, group “Team portal”"
     for expected in (
         f"Code: {group.code}",
-        f"/g/{group.code}/team-portal",
+        f"Address: {settings.PUBLIC_BASE_URL}/g/{group.code}\n",  # no name in the address (D35)
         f"Owner: user {alice.pk}",
         "Details: Ads everywhere",
         f"python manage.py unpublish_group --reason '…' -- {group.code}",

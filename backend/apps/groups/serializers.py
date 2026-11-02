@@ -59,7 +59,7 @@ class GroupDetailSerializer(serializers.ModelSerializer):
         return self.context["access"][group.pk]
 
     def get_url(self, group: Group) -> str:
-        return f"{settings.PUBLIC_BASE_URL}/g/{group.code}/{group.slug}"
+        return f"{settings.PUBLIC_BASE_URL}/g/{group.code}"
 
     def get_image_url(self, group: Group) -> str | None:
         return images.url_for(group.image)

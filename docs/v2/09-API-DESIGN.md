@@ -53,12 +53,18 @@ map to 503 `temporarily_unavailable` with `Retry-After`, never to raw 500 text.
 
 ## URLs and slugs
 
-- The canonical list URL is `/l/{code}/{slug}`, where the slug is cosmetic and ignored when
-  resolving. `/l/{code}` alone keeps working forever (V1 links). The SPA rewrites the address to
-  the current slug. The slug is regenerated from the title unless the owner edits it.
+- The canonical list URL is `/l/{code}`, and the group URL `/g/{code}`: no name in addresses
+  since D35. Names in links go stale on rename, reveal what a private list is about, and say
+  nothing for non-Latin titles (every Greek title became `list`). `url` in the API, the share
+  dialog, the QR code, the report emails, the address bar and in-app links all use this form.
+- Addresses shared before that, `/l/{code}/{name}` and `/g/{code}/{name}`, keep working forever:
+  the name is ignored, and the SPA drops it from the address bar (keeping query and fragment).
+- The API keeps `slug` (derived from the title, never an identifier) so clients don't break;
+  nothing on this site uses it any more.
 - Reserved second segments: `manage` (the V1 edit link `/l/{code}/manage#t=`), `history`,
-  `sync`, `settings`. Slugify appends `-list` if a title would produce one of these.
-- Group URL: `/g/{code}/{slug}`. Group context for a list: `/g/{code}/l/{listCode}`.
+  `sync`, `settings`. Slugify appends `-list` if a title would produce one of these, so an old
+  address can never land on one of them.
+- Group context for a list: `/g/{code}/l/{listCode}`.
 - Short link redirect: `/r/{code}` (V1, unchanged except for the visibility rule).
 
 ## Session and account
@@ -108,7 +114,7 @@ List detail:
 ```json
 {
   "id": "550e8400-…", "code": "X7pKm2Qv8Nw4Rs6A", "slug": "dev-tools",
-  "url": "https://go.example.com/l/X7pKm2Qv8Nw4Rs6A/dev-tools",
+  "url": "https://go.example.com/l/X7pKm2Qv8Nw4Rs6A",
   "title": "Dev tools", "description": "", "image_url": null,
   "visibility": "unlisted", "allow_fork": true, "allow_branch": false, "tags": ["dev"],
   "owner": {"display_name": "Theo"}, "legacy": false,
@@ -233,7 +239,7 @@ Since task 3.3:
 Since 4.2. Groups use the session only.
 
 - A group is `{id, code, slug, url, title, description, image_url, visibility, owner,
-  created_at, updated_at, list_count, my_role, permissions}`. `url` is `/g/{code}/{slug}`.
+  created_at, updated_at, list_count, my_role, permissions}`. `url` is `/g/{code}`.
   `list_count` counts the lists the group shows **you**. `owner` (a display name) appears on
   public groups and to members. `permissions` come from `can_group`: `view`, `edit`,
   `add_list`, `view_members`, `settings`, `members`, `delete`, `leave`.

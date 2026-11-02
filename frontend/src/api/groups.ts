@@ -8,7 +8,7 @@ export interface GroupDetail {
   id: string
   code: string
   slug: string
-  /** The group's page, `/g/{code}/{slug}`. */
+  /** The group's page, `/g/{code}`. */
   url: string
   title: string
   description: string

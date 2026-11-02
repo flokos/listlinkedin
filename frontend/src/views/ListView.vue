@@ -161,7 +161,7 @@ function startCopy() {
 function openCopy(copy: ListDetail) {
   notify.success('Copy made. Only you can see it until you share it.')
   // Replaces the dialog's history entry, so Back returns to the original list.
-  router.replace({ name: 'list', params: { code: copy.code, slug: copy.slug } })
+  router.replace({ name: 'list', params: { code: copy.code } })
 }
 
 async function rename(title: string) {

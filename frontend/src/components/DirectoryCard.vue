@@ -19,8 +19,8 @@ const now = useNow()
 const isGroup = computed(() => 'list_count' in props.item)
 const to = computed(() =>
   isGroup.value
-    ? { name: 'group', params: { code: props.item.code, slug: props.item.slug } }
-    : { name: 'list', params: { code: props.item.code, slug: props.item.slug } },
+    ? { name: 'group', params: { code: props.item.code } }
+    : { name: 'list', params: { code: props.item.code } },
 )
 const size = computed(() => {
   const n = 'list_count' in props.item ? props.item.list_count : props.item.link_count

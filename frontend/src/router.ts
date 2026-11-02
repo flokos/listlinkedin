@@ -56,11 +56,21 @@ const router = createRouter({
     },
     // The group URL handed out by the API (`url`). nginx serves this app for it.
     {
-      path: '/g/:code/:slug?',
+      path: '/g/:code',
       name: 'group',
       component: () => import('./views/GroupView.vue'),
       props: true,
       meta: { title: 'Group', pageKey: groupPage },
+    },
+    // Addresses carried the name until D35 (/g/{code}/{name}). Shared ones keep working.
+    {
+      path: '/g/:code/:name',
+      redirect: (to) => ({
+        name: 'group',
+        params: { code: to.params.code },
+        query: to.query,
+        hash: to.hash,
+      }),
     },
     // The public directory. Its search, tags, sort and tab live in the query, so a search can
     // be shared and Back returns to it.
@@ -113,7 +123,7 @@ const router = createRouter({
       component: () => import('./views/AccountView.vue'),
       meta: { title: 'Your account', requiresAuth: true },
     },
-    // A list's history. Its static segment ranks above the list route's optional slug.
+    // A list's history. Its static segment ranks above the old address with a name, below.
     {
       path: '/l/:code/history',
       name: 'list-history',
@@ -129,13 +139,23 @@ const router = createRouter({
       props: true,
       meta: { title: 'Settings' },
     },
-    // Public list URL handed out by the API (`public_url`). nginx serves this app for it.
+    // Public list URL handed out by the API (`url`). nginx serves this app for it.
     {
-      path: '/l/:code/:slug?',
+      path: '/l/:code',
       name: 'list',
       component: () => import('./views/ListView.vue'),
       props: true,
       meta: { title: 'List' },
+    },
+    // Addresses carried the name until D35 (/l/{code}/{name}). Shared ones keep working.
+    {
+      path: '/l/:code/:name',
+      redirect: (to) => ({
+        name: 'list',
+        params: { code: to.params.code },
+        query: to.query,
+        hash: to.hash,
+      }),
     },
     // V1's private edit link (/l/{code}/manage#t=…): edit links were retired in v2.1.0, so it
     // opens the list itself. The fragment (the old token) is dropped: it must not stay in the

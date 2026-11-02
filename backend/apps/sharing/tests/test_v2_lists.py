@@ -58,7 +58,7 @@ def test_new_lists_are_private_permanent_and_owned(alice):
     assert data["my_role"] == "owner"
     assert data["legacy"] is False
     assert data["slug"] == "dev-tools"
-    assert data["url"].endswith(f"/l/{data['code']}/dev-tools")
+    assert data["url"].endswith(f"/l/{data['code']}")  # no name in addresses (D35)
     assert {"edit", "settings", "delete", "members"} <= set(data["permissions"])
     assert SharedList.objects.get(public_code=data["code"]).owner == alice
 

@@ -92,7 +92,8 @@ class SharedList(models.Model):
     description = models.TextField(blank=True, default="")
     # A media path (apps.metadata.images), relative to MEDIA_ROOT. NULL: no image.
     image = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001 (spec: nullable)
-    # Cosmetic URL suffix derived from the title (/l/{code}/{slug}); never an identifier.
+    # Derived from the title; never an identifier. Addresses are /l/{code} without it since D35
+    # (an older /l/{code}/{slug} still opens the list); kept in the API for its clients.
     slug = models.CharField(max_length=80, blank=True, default="")
     visibility = models.CharField(
         max_length=8, choices=VISIBILITY_CHOICES, default=Visibility.PRIVATE.value

@@ -314,7 +314,7 @@ def report_group(principal: Principal, code: str, *, reason: Reason, details: st
     notify_operator(
         kind="group",
         title=group.title,
-        url=f"{settings.PUBLIC_BASE_URL}/g/{group.code}/{group.slug}",
+        url=f"{settings.PUBLIC_BASE_URL}/g/{group.code}",
         code=group.code,
         visibility=group.visibility,
         owner=f"user {group.owner_id}",
