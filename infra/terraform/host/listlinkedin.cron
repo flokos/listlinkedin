@@ -1,0 +1,6 @@
+# listlinkedin production host jobs (docs/deployment.md#backups, #monitoring). Times are UTC.
+# Installed as /etc/cron.d/listlinkedin after the first deploy.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+30 2 * * * root cd /srv/listlinkedin && bash deploy/backup.sh /var/backups/listlinkedin >> /var/log/listlinkedin-backup.log 2>&1 || echo "backup failed, see /var/log/listlinkedin-backup.log" | lli-alert "backup failed"
+*/2 * * * * root cd /srv/listlinkedin && ALERT_COMMAND='lli-alert autoheal' bash deploy/autoheal.sh 2>> /var/log/listlinkedin-autoheal.log

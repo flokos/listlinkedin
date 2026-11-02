@@ -1,0 +1,10 @@
+[Unit]
+Description=Deploy the latest listlinkedin GitHub Release (ADR-018)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lli-auto-deploy
+TimeoutStartSec=45min
