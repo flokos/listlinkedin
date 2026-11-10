@@ -42,6 +42,7 @@ from prior knowledge but **not** verified in this run are listed separately at t
 | R32 | IETF RFC 7636, *Proof Key for Code Exchange by OAuth Public Clients* (S256: `BASE64URL(SHA256(ASCII(code_verifier)))`; a verifier is 43–128 unreserved characters) | 2015 | **Prior knowledge**, not fetched (phase 11 planning, 2026-11-10). Appendix B's example verifier and challenge are a backend test | [ADR-020](adr/ADR-020-connected-browsers.md) |
 | R33 | Mozilla Support, "Add-on signing in Firefox". https://support.mozilla.org/en-US/kb/add-on-signing-in-firefox | live (2026-11-10) | **Search results** (several revisions of the page, some old): Release and Beta refuse unsigned extensions; ESR, Developer Edition and Nightly can turn the check off (`xpinstall.signatures.required`); an add-on can be signed without being listed | Installing the extension by hand ([17 phase 11](17-IMPLEMENTATION-ROADMAP.md#phase-11-browser-extension)) |
 | R34 | Playwright docs, "Chrome extensions". https://playwright.dev/docs/chrome-extensions | live (2026-11-10) | **Search results**: extensions load only in Chromium with a persistent context; the `chromium` channel runs them headless; the service worker's URL gives the extension ID | task 11.2 e2e |
+| R36 | Mozilla Extension Workshop, "Firefox built-in consent for data collection and transmission". https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/ | live (2026-11-10; the page says it was updated 2026-10-18) | **Fetched** (read through a fetch tool, which reported the page's text). `browser_specific_settings.gecko.data_collection_permissions` with `required` and `optional` lists; the data types and their examples; supported from Firefox 140 (Android 142); required for new extensions from 2025-11-03; a declined required type cancels the installation. Whether data a user sends on purpose must be declared: not stated, so it is declared | the Firefox manifest ([extension/scripts/manifest.ts](../../extension/scripts/manifest.ts)) |
 | R35 | MDN, `host_permissions`. https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/host_permissions | live (2026-11-10) | **Search results**: from Firefox 127 the install prompt shows a Manifest V3 extension's host permissions; extensions should check with `permissions.contains` after install | task 11.2 |
 
 Local verification (not web sources):
@@ -87,6 +88,14 @@ Local verification (not web sources):
   cookies; `TOKEN_STRATEGY.create_session_token(request)` returns the token of
   `request.session`; `login()` works on a bare `HttpRequest` carrying a new `SessionStore`;
   `set_expiry(datetime)` stores an absolute end ([ADR-020](adr/ADR-020-connected-browsers.md)).
+- The extension in Chromium (Playwright 1.64.1's, task 11.2, 2026-11-10; `e2e/tests/extension/`):
+  with `CORS_ALLOWED_ORIGINS` empty, the extension's pages and its service worker call the
+  site named in `host_permissions` and get answers, so no CORS applies to them; in the
+  content script `event.source === window` holds for what the page posts to itself, and the
+  page accepts the content script's answers the same way. Firefox: not run by any test.
+- Mozilla's add-on linter (addons-linter 10.15.0) on the Firefox build, task 11.2: no errors.
+  It asks for `data_collection_permissions`, and for `gecko_android.strict_min_version` 142
+  next to `gecko` 140. One warning stays: `UNSAFE_VAR_ASSIGNMENT`, in Vue's runtime.
 
 ## Not verified in this run (prior knowledge, verify during implementation)
 
@@ -95,8 +104,8 @@ Local verification (not web sources):
 | urllib3 2.x: `server_hostname` / `assert_hostname` on connection pools opened by IP | [13 SSRF](13-SECURITY.md#ssrf-safe-fetcher) | task 7.2 |
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
-| An extension's background script calls a host in its `host_permissions` without CORS, in Chrome and in Firefox | [ADR-020](adr/ADR-020-connected-browsers.md) | task 11.2 (Chromium e2e; Firefox by hand) |
-| In a content script, `event.source === window` holds for a message the page posts to its own window, in both browsers | `extensionBridge.ts` | task 11.2 |
+| In **Firefox**: an extension's background script and pages call a host in its `host_permissions` without CORS, and in a content script `event.source === window` holds for a message the page posts to its own window (both hold in Chromium, see above) | [ADR-020](adr/ADR-020-connected-browsers.md), `extensionBridge.ts` | the manual pass in task 11.6 |
+| Vite's dev server forwards the extension's requests (`Origin: chrome-extension://…`) to the API like any other | [extension/README.md](../../extension/README.md): a build for `http://localhost:5173` | first manual use of a development build |
 | Chrome's extension service worker needs an offscreen document to write the clipboard; Firefox's background page can with `clipboardWrite` | [17 task 11.3](17-IMPLEMENTATION-ROADMAP.md#phase-11-browser-extension) | task 11.3 |
 | `tabs` and `history` can be optional permissions, requested at run time, in both browsers | D36 | task 11.5 |
 

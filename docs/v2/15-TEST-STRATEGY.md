@@ -21,6 +21,8 @@ Test data uses plain builder functions in `conftest.py` (V1 style). There is no 
 | API | ViewSets, status codes, schemas, auth, CSRF, throttles, preconditions | `apps/*/tests/test_api_*.py` with `APIClient` | CI `checks` |
 | Frontend unit and component | composables, components, client | `frontend/src/**/*.test.ts` | CI `checks` |
 | End-to-end | journeys on the production stack over HTTPS | `e2e/tests/*.spec.ts` | CI `e2e` |
+| Extension unit and component (since 11.2) | the extension's modules, scripts and pages, against a fake browser API and a mocked site | `extension/src/**/*.test.ts`, `extension/scripts/*.test.ts` | CI `checks` |
+| Extension end-to-end (since 11.2) | the Chrome build loaded into Chromium, on the production stack | `e2e/tests/extension/*.spec.ts` (project `extension`) | CI `e2e` |
 | Concurrency | real threads or processes on PostgreSQL | `transactional_db` tests (V1 `test_concurrent_*` pattern) | CI `checks` |
 | Smoke | deployed stack properties | `deploy/smoke-test.sh` (+ V2 checks; since 9.6 it asserts `/api/v1/` → 404 and seeds an account's unlisted list with `manage.py shell`) | CI `proxy` |
 
@@ -222,6 +224,14 @@ the phone projects run the journeys marked ★.
     the page's states and the Disconnect dialog in `a11y.spec.ts`. The API side is
     `accounts/tests/test_connected_browsers.py`. The extension itself gets its own project in
     task 11.2.
+13. The extension itself (`e2e/tests/extension/`, since task 11.2): Chromium with the Chrome
+    build loaded, in a persistent context of its own (the `extension` project). Connect from
+    the welcome page, approving on the site with the real content script; save a page to a
+    new list and to an existing one; the list used last comes first; a page already there;
+    pages that can't be saved; a request the extension didn't start; disconnecting on the
+    site and in the options. The popup is opened as a page about an address. Playwright
+    can't open it from the toolbar, drive menus or shortcuts, or load an extension into
+    Firefox: those are in the manual [QA checklist](../qa-checklist.md#browser-extension).
 
 ## V1 regression checklist
 

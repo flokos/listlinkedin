@@ -79,3 +79,31 @@ Run each with **VoiceOver** (macOS Safari and iOS Safari) and **NVDA** (Windows 
 - [ ] OS "reduce motion" on: no route, list or shimmer animations.
 - [ ] Dark mode follows the OS, and the theme menu overrides it. Sites' icons stay visible on
       their light plate.
+
+## Browser extension
+
+Since task 11.2. The automated tests load the extension into Chromium and open its popup as a
+page; nothing automated opens the popup from the toolbar or loads the extension into Firefox.
+Run this list in **Chrome** and in **Firefox** with a build for the stack under test
+([extension/README.md](../extension/README.md)), before a release that changes `extension/`
+or the Connect page.
+
+- [ ] Install: the welcome page opens by itself. Installed from a file, Firefox's prompt
+      names the site and says the extension sends browsing activity and website content (a
+      temporary add-on shows no prompt).
+- [ ] Connect from the welcome page while signed out on the site: sign in, land on "Connect
+      this browser?", approve, and the welcome page says the browser is connected. The email
+      about the new connection arrives.
+- [ ] Open a page, click the toolbar button: the popup shows that page's title and address.
+- [ ] Save it to a new list, then save another page: the list used last is chosen already.
+- [ ] Save the same page again: "This URL is already in the list."
+- [ ] Open the popup on a new tab, on the browser's settings page and on the site itself: each
+      says why the page can't be saved.
+- [ ] Popup with the keyboard only: Tab reaches every control, arrows move through the lists,
+      Enter saves, and focus is always visible. Light and dark both read well.
+- [ ] Options: the account's email, then Disconnect. The site's account page no longer lists
+      the browser.
+- [ ] Disconnect on the site's account page instead: the popup says the browser was
+      disconnected and offers to connect again.
+- [ ] Restart the browser: still connected (in Firefox, only for an add-on installed for
+      good, not a temporary one).
