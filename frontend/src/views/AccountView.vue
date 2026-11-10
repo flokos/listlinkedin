@@ -4,15 +4,19 @@ import {
   mdiCheckDecagramOutline,
   mdiEmailAlertOutline,
   mdiLogout,
+  mdiPuzzleOutline,
 } from '@mdi/js'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
   ApiError,
   changePassword,
+  type ConnectedBrowser,
   deleteAccount,
+  disconnectBrowser,
   errorMessage,
+  listBrowsers,
   ownedListCount,
   resendVerification,
 } from '../api'
@@ -22,6 +26,7 @@ import { useNotify } from '../composables/useNotify'
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
 import { formErrors, noErrors } from '../utils/forms'
+import { formatDate } from '../utils/time'
 
 const router = useRouter()
 const session = useSession()
@@ -133,6 +138,42 @@ async function confirmDelete() {
   await router.replace({ name: 'home' })
 }
 
+// Browsers where the extension is signed in to this account (docs/v2/adr/ADR-020).
+const browsers = ref<ConnectedBrowser[]>()
+const browsersError = ref('')
+async function loadBrowsers() {
+  browsersError.value = ''
+  try {
+    browsers.value = await listBrowsers()
+  } catch (error) {
+    if (!(await handleSignedOut(error))) browsersError.value = errorMessage(error)
+  }
+}
+onMounted(loadBrowsers)
+
+const disconnecting = ref<ConnectedBrowser>()
+const disconnectOpen = computed({
+  get: () => disconnecting.value !== undefined,
+  set: (open) => {
+    if (!open) disconnecting.value = undefined
+  },
+})
+async function confirmDisconnect() {
+  const browser = disconnecting.value
+  if (!browser) return
+  try {
+    await disconnectBrowser(browser.id)
+  } catch (error) {
+    // Gone already (disconnected elsewhere, or expired) is what was asked for.
+    if (!(error instanceof ApiError && error.status === 404)) {
+      if (!(await handleSignedOut(error))) notify.error(errorMessage(error))
+      throw error
+    }
+  }
+  browsers.value = browsers.value?.filter((other) => other.id !== browser.id)
+  notify.success(`${browser.name} is disconnected`)
+}
+
 const leave = useSignOut()
 const signingOut = ref(false)
 async function signOut() {
@@ -231,6 +272,51 @@ async function signOut() {
       </v-form>
     </section>
 
+    <section class="ll-account-section" aria-labelledby="browsers-heading">
+      <h2 id="browsers-heading" class="text-title-large mb-1">Connected browsers</h2>
+      <p class="text-body-medium text-medium-emphasis mb-4">
+        Browsers where the listlinkedin extension is signed in to your account. Changing your
+        password disconnects all of them.
+      </p>
+      <v-alert v-if="browsersError" type="error" :text="browsersError">
+        <template #append>
+          <v-btn variant="text" @click="loadBrowsers">Try again</v-btn>
+        </template>
+      </v-alert>
+      <v-progress-linear v-else-if="!browsers" indeterminate aria-label="Loading browsers" />
+      <p v-else-if="!browsers.length" class="text-body-large">No browsers are connected.</p>
+      <ul v-else class="ll-account-browsers">
+        <li
+          v-for="browser in browsers"
+          :key="browser.id"
+          class="d-flex flex-wrap align-center ga-3"
+        >
+          <v-icon :icon="mdiPuzzleOutline" class="text-medium-emphasis" />
+          <div class="flex-grow-1">
+            <div class="text-body-large">{{ browser.name }}</div>
+            <div class="text-body-medium text-medium-emphasis">
+              Connected {{ formatDate(browser.connected_at) }} · last used
+              {{ formatDate(browser.last_used_at) }}
+            </div>
+          </div>
+          <v-btn
+            variant="tonal"
+            :aria-label="`Disconnect ${browser.name}`"
+            @click="disconnecting = browser"
+          >
+            Disconnect
+          </v-btn>
+        </li>
+      </ul>
+      <ConfirmDialog
+        v-model="disconnectOpen"
+        title="Disconnect this browser?"
+        :text="`The extension in ${disconnecting?.name ?? 'this browser'} will be signed out. It can be connected again at any time.`"
+        action="Disconnect"
+        :on-confirm="confirmDisconnect"
+      />
+    </section>
+
     <section class="ll-account-section" aria-labelledby="delete-heading">
       <h2 id="delete-heading" class="text-title-large mb-1">Delete account</h2>
       <p class="text-body-medium text-medium-emphasis mb-4">
@@ -265,5 +351,11 @@ async function signOut() {
 }
 .ll-account-password {
   max-width: 440px;
+}
+.ll-account-browsers {
+  display: grid;
+  gap: 16px;
+  padding: 0;
+  list-style: none;
 }
 </style>

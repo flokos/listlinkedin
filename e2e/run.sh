@@ -26,6 +26,7 @@ export THROTTLE_LIST_CREATE=10000/hour THROTTLE_LIST_MANAGE=100000/hour
 export THROTTLE_GROUP_CREATE=10000/hour THROTTLE_GROUP_MANAGE=100000/hour
 export THROTTLE_DIRECTORY=100000/hour  # Explore: searches as you type, from every browser
 export THROTTLE_REPORT=10000/hour  # reports, from every browser
+export THROTTLE_BROWSER_CONNECT=10000/hour  # connecting a browser, from every browser
 
 # The production stack plus Mailpit for account emails (e2e/compose.e2e.yaml).
 compose() { docker compose -f compose.prod.yaml -f e2e/compose.e2e.yaml "$@"; }

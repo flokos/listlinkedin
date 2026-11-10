@@ -123,6 +123,14 @@ const router = createRouter({
       component: () => import('./views/AccountView.vue'),
       meta: { title: 'Your account', requiresAuth: true },
     },
+    // The browser extension opens this to be let in to the account (ADR-020):
+    // /connect-browser?challenge=…&name=…. Signed-out visitors sign in first and come back.
+    {
+      path: '/connect-browser',
+      name: 'connect-browser',
+      component: () => import('./views/ConnectBrowserView.vue'),
+      meta: { title: 'Connect a browser', requiresAuth: true },
+    },
     // A list's history. Its static segment ranks above the old address with a name, below.
     {
       path: '/l/:code/history',

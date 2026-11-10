@@ -1,5 +1,7 @@
 // Shared fixtures and helpers. Specs import { test, expect } from here, not from
 // @playwright/test, so every test fails on unexpected console errors.
+import { createHash, randomBytes } from 'node:crypto'
+
 import AxeBuilder from '@axe-core/playwright'
 import { type APIRequestContext, type Browser, expect, type Page, test as base } from '@playwright/test'
 
@@ -161,6 +163,84 @@ export async function signUpVerified(page: Page, email: string, displayName: str
   expect(verified.status(), await verified.text()).toBe(200)
   const named = await page.request.patch('/api/v2/me/', { data: { display_name: displayName }, headers })
   expect(named.status(), await named.text()).toBe(200)
+}
+
+// Connecting a browser (docs/v2/adr/ADR-020). The suite has no extension installed in most
+// engines, so tests play its part: the content script inside the page, and the exchange.
+
+/** A PKCE verifier and its S256 challenge, as the extension makes them. */
+export function pkce() {
+  const verifier = randomBytes(32).toString('base64url')
+  return { verifier, challenge: createHash('sha256').update(verifier).digest('base64url') }
+}
+
+/**
+ * Plays the extension's content script in `page`, from its next navigation on: answers the
+ * Connect page's `hello`, saying it started the request if `started` (and only for this
+ * `challenge`), and keeps the code the page hands over, for `handedCode`. Call it again for
+ * another request on the same page. The protocol is the app's
+ * frontend/src/utils/extensionBridge.ts.
+ */
+export async function playExtension(page: Page, challenge: string, started = true) {
+  await page.addInitScript(
+    ({ challenge, started }) => {
+      // Every earlier call's script runs too on each navigation: one listener, many requests.
+      const state = window as unknown as { llStarted?: Set<string>; llCode?: string }
+      const first = state.llStarted === undefined
+      state.llStarted ??= new Set()
+      if (started) state.llStarted.add(challenge)
+      if (!first) return
+      window.addEventListener('message', (event) => {
+        const data = event.data as { source?: string; type?: string; challenge?: string; code?: string }
+        if (event.source !== window || data?.source !== 'listlinkedin-page') return
+        if (data.type === 'hello') {
+          const answer = {
+            source: 'listlinkedin-extension',
+            type: 'ready',
+            challenge: data.challenge,
+            started: state.llStarted!.has(data.challenge ?? ''),
+          }
+          window.postMessage(answer, window.location.origin)
+        }
+        if (data.type === 'code') state.llCode = data.code
+      })
+    },
+    { challenge, started },
+  )
+}
+
+/** The one-time code the Connect page handed to the "extension" after the user approved. */
+export async function handedCode(page: Page): Promise<string> {
+  const handle = await page.waitForFunction(() => (window as unknown as { llCode?: string }).llCode)
+  return (await handle.jsonValue()) as string
+}
+
+/** The "extension" tells the Connect page how the exchange went. */
+export const extensionSays = (page: Page, challenge: string, type: 'connected' | 'failed', message?: string) =>
+  page.evaluate(
+    (answer) => window.postMessage({ source: 'listlinkedin-extension', ...answer }, window.location.origin),
+    { type, challenge, message },
+  )
+
+/**
+ * Connects a browser to the page's signed-in account, start to end: opens the Connect page as
+ * the extension would, approves, exchanges the code and reports back. Returns the session
+ * token the extension would keep, and the connection's id.
+ */
+export async function connectBrowser(page: Page, request: APIRequestContext, name = 'Firefox on Linux') {
+  const { verifier, challenge } = pkce()
+  await playExtension(page, challenge)
+  await page.goto(`/connect-browser?challenge=${challenge}&name=${encodeURIComponent(name)}`)
+  await page.getByRole('button', { name: 'Connect', exact: true }).click()
+  // The exchange carries no cookies: `request` is not the page's browser.
+  const response = await request.post('/api/v2/browsers/connect/', {
+    data: { code: await handedCode(page), verifier },
+  })
+  expect(response.status(), await response.text()).toBe(201)
+  await extensionSays(page, challenge, 'connected')
+  await expect(page.getByRole('heading', { level: 1, name: 'This browser is connected' })).toBeVisible()
+  const { id, session_token: token } = (await response.json()) as { id: string; session_token: string }
+  return { id, token, challenge }
 }
 
 /** The title link of a link card (the icon button has a different name). */

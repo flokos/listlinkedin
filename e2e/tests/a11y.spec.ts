@@ -2,12 +2,15 @@
 // replace) the manual screen-reader checks in docs/qa-checklist.md.
 import {
   apiAs,
+  connectBrowser,
   createAccountList,
   csrfOf,
   emailTo,
   expect,
   expectNoA11yViolations,
   openAsOwner,
+  pkce,
+  playExtension,
   signUpThroughApi,
   signUpVerified,
   linkIn,
@@ -58,6 +61,34 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Account menu' }).click()
       await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible()
       await expectNoA11yViolations(page)
+    })
+
+    test('connecting a browser: the request, the result and the account page', async ({ page, request }) => {
+      await signUpThroughApi(page, uniqueEmail('a11y-connect'))
+      const { challenge } = pkce()
+      const url = `/connect-browser?challenge=${challenge}&name=Firefox%20on%20Linux`
+      const heading = (name: string) => page.getByRole('heading', { level: 1, name })
+
+      await page.goto(url) // no extension answers
+      await expect(heading('Open this page from the extension')).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      await playExtension(page, challenge)
+      await page.goto(url)
+      await expect(heading('Connect this browser?')).toBeVisible()
+      await expectNoA11yViolations(page)
+
+      await connectBrowser(page, request) // approves, and ends on "This browser is connected"
+      await expectNoA11yViolations(page)
+
+      await page.goto('/account')
+      await expect(page.getByText('Firefox on Linux')).toBeVisible()
+      await expectNoA11yViolations(page)
+      await page.getByRole('button', { name: 'Disconnect Firefox on Linux' }).click()
+      await expect(page.getByRole('dialog', { name: 'Disconnect this browser?' })).toBeVisible()
+      // The dialog alone: axe measures the form labels behind it against the scrim's colour,
+      // which dims them just as much.
+      await expectNoA11yViolations(page, '[role="dialog"]')
     })
 
     test("an account list's share dialog with its People section, and its settings page", async ({ page }) => {
