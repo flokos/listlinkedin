@@ -119,6 +119,20 @@ services:
       - api
     restart: unless-stopped
 
+  extension:
+    # The browser extension (extension/README.md), rebuilt into extension/dist/ on every
+    # change. Not part of the stack: start it with `docker compose --profile extension up
+    # extension`, then load extension/dist/chrome or extension/dist/firefox in a browser.
+    profiles: ["extension"]
+    build:
+      context: ./extension
+      target: dev
+    image: listlinkedin-extension:dev
+    environment:
+      LL_BASE_URL: ${EXTENSION_BASE_URL:-http://localhost:5173}  # the site it talks to
+    volumes:
+      - ./extension:/app
+
 volumes:
   pgdata:
   media:
