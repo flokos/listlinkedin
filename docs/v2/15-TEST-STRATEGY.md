@@ -156,6 +156,7 @@ Real threads against PostgreSQL (`transactional_db`, V1's barrier pattern):
 | Parent deleted during sync | apply either completes against revision P or returns 409. Never a partial state |
 | Concurrent permission change | revoke an editor during their write → the write is rejected (403) or committed before the revoke. Never after |
 | Link cap race | V1 test kept |
+| Two exchanges of one browser-approval code (since 11.1) | one session token, one refusal, one session row |
 
 ## End-to-end scenarios
 
@@ -212,6 +213,15 @@ the phone projects run the journeys marked ★.
     Mailpit; the owner has nothing to report. Axe on the report dialog in `a11y.spec.ts`. V1's
     `ownership.spec.ts` and `copy.spec.ts` now expect a visitor's ⋮ menu to hold only
     **Report…** (they expected no menu at all before).
+12. ★ Connecting a browser (`e2e/tests/connect-browser.spec.ts`, since task 11.1,
+    [ADR-020](adr/ADR-020-connected-browsers.md)): the test plays the extension (its content
+    script in the page, and the exchange). Approve, see that the code never reaches the
+    address bar or the screen, use the token without cookies, get the email, disconnect on the
+    account page and see the token refused; sign in first when signed out; nothing to approve
+    without the extension or for a request it didn't start; a failure and a second try. Axe on
+    the page's states and the Disconnect dialog in `a11y.spec.ts`. The API side is
+    `accounts/tests/test_connected_browsers.py`. The extension itself gets its own project in
+    task 11.2.
 
 ## V1 regression checklist
 

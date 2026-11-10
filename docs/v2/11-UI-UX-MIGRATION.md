@@ -33,6 +33,7 @@ vocabulary stays out of the UI.
 | `/groups`, `/g/:code` (an old `/g/:code/:name` redirects here), `/g/:code/l/:listCode` | — | **New** | My groups; group workspace with a sidebar |
 | `/explore` | — | **New** (task 8.2) | Public directory: search, tags, sort. See [Explore](#explore) |
 | `/signin`, `/signup`, `/verify-email`, `/reset-password`, `/account` | — | **New** (task 1.2) | Kept minimal (prompt 8.8). Emailed links are `/verify-email#key=…` and `/reset-password#key=…`. The key travels in the fragment and is removed from the address bar on arrival |
+| `/connect-browser` | — | **New** (task 11.1) | Opened by the browser extension: "Connect this browser?" with the browser's name and the account, **Connect** and Cancel; then "This browser is connected". Without the extension, or for a request it didn't start, an explanation and nothing to approve ([ADR-020](adr/ADR-020-connected-browsers.md)) |
 | `/about` | About and privacy | **Modified** | New retention and privacy text; accounts explained |
 | `/design` | Style guide (dev) | **Extended** | Tiles, diff cards, decision controls |
 | 404 | Not found | Kept | |
@@ -264,6 +265,9 @@ password with Django's validators shown inline), Verify email (opens the emailed
 offers to resend it), Reset password (request, then choose a new one). Account: display name,
 email with its verification status and a resend button, password change, sign out (task 1.2).
 **Delete account** (type-to-confirm, lists owned → deleted, with a count) since task 1.7. Since 3.0 ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)): the dialog says lists disappear at once and everything is erased after 30 days; signing in during that time leads to `/account/restore` ("Your account is being deleted", **Restore my account** or Sign out), and every other page redirects there.
+Since 11.1 the account page has **Connected browsers**: each browser the extension is signed
+in from, with when it was connected and last used, and **Disconnect** (confirmed in a dialog).
+
 Changing the email address is a later enhancement. Sign-in and sign-up honour a validated
 `?next=` path. No social login, no MFA in the MVP. allauth supports both later
 ([02](02-PRODUCT-REQUIREMENTS.md#accounts-and-access-51-56-88)).

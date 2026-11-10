@@ -98,6 +98,13 @@ redirects to `/signin?next=<path>`. `next` must be a same-origin path starting w
 addresses without a name (D35), and the reserved segments (`manage`, `history`, `sync`,
 `settings`) get their own routes.
 
+`/connect-browser` (task 11.1, `requiresAuth`) is opened by the browser extension
+([ADR-020](adr/ADR-020-connected-browsers.md)). `utils/extensionBridge.ts` is its half of a
+small message protocol with the extension's content script: plain objects posted on the
+window to this origin, accepted only from this window and origin. The page first asks whether
+the extension started the request (`findExtension`), and after the user approves hands it the
+one-time code (`sendCode`). The extension's half lives in `extension/` and changes with it.
+
 ## Components
 
 | V1 component | V2 |

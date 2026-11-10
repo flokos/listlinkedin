@@ -156,6 +156,21 @@ enforced in the service.
 `accounts.0003`, task 9.0). `is_active = false` means erased. allauth adds its own tables
 (email addresses, confirmations), and `django.contrib.sessions` adds `django_session`.
 
+### `accounts_connectedbrowser` (new, `accounts.0004`, task 11.1)
+
+A browser the extension connected to an account ([ADR-020](adr/ADR-020-connected-browsers.md)).
+
+| Column | Notes |
+|---|---|
+| `id` uuid PK, `user_id` FK CASCADE, `name` varchar(80), `created_at` | `name` is the extension's label for the browser |
+| `code_hash` varchar(64) NULL UNIQUE, `challenge` varchar(43), `code_expires_at` NULL | A pending approval: the SHA-256 of the one-time code, the PKCE challenge, two minutes |
+| `session_key` varchar(40) NULL UNIQUE, `connected_at` NULL, `last_used_at` NULL | A connection: the key of its `django_session` row (no foreign key: sessions are deleted and expire on their own) |
+
+CHECK `accounts_connectedbrowser_pending_or_connected`: exactly one of `code_hash` and
+`session_key` is set. The exchange locks the row (`SELECT … FOR UPDATE`), so a code connects
+once. At most ten rows per account, counted under the user's row lock. Rows whose approval
+expired or whose session no longer works are deleted with the account's next approval.
+
 ### `groups_group`, `groups_grouplist`, `groups_groupmembership` (new)
 
 - `groups_group`: `id`, `code` char(16) UNIQUE, `owner_id` FK PROTECT, `title`, `description`,

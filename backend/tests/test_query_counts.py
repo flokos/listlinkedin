@@ -16,6 +16,7 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
+from apps.accounts import browsers
 from apps.accounts.models import User
 from apps.groups import services as group_services
 from apps.groups.models import GroupList
@@ -191,3 +192,23 @@ def test_session_and_account_take_one_query_each(alice):
     assert count(client, f"{URL}session/") - SESSION <= 1
     assert count(client, f"{URL}me/") - SESSION <= 1
     assert count(APIClient(), f"{URL}session/") <= 1  # signed out: no user to load
+
+
+def test_connected_browsers_cost_the_same_with_one_and_with_eight(alice):
+    """The rows, then their sessions in one query (ADR-020)."""
+
+    def connect(name: str) -> None:
+        verifier = secrets.token_urlsafe(32)
+        challenge = browsers.challenge_for(verifier)
+        code = browsers.approve_browser(alice, name=name, challenge=challenge)
+        browsers.connect_browser(code=code, verifier=verifier)
+
+    client = signed_in(alice)
+    connect("Firefox on Linux")
+    one = count(client, f"{URL}me/browsers/")
+    for n in range(7):
+        connect(f"Browser {n}")
+    eight = count(client, f"{URL}me/browsers/")
+
+    assert one == eight and one - SESSION <= 2
+    assert len(client.get(f"{URL}me/browsers/").json()) == 8

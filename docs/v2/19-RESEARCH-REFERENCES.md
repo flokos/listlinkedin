@@ -39,6 +39,10 @@ from prior knowledge but **not** verified in this run are listed separately at t
 | R29 | GitHub CLI 2.102.0 (2026-09-30), `gh pr create --help` | local | **Local tool output.** Without `--base`, gh uses the `branch.<name>.gh-merge-base` git config, else the default branch | [16](16-GIT-WORKFLOW.md#daily-v2-work), [CLAUDE.md](../../CLAUDE.md) |
 | R30 | Python SSRF-protection libraries: drawbridge, ssrfguard, httpx-secure (last push 2025-08-16), Champion (Advocate fork), ressrf (created 2026-05-09) | various | **Search results only.** Maintenance not verified, so a dependency is not adopted | [13](13-SECURITY.md#ssrf-safe-fetcher) |
 | R31 | GitHub Actions run of CI on `fb5f901` (push to `main`) | 2026-10-28 09:19 UTC | **`gh run list`**: conclusion `success` | [01](01-V1-AUDIT.md#summary) |
+| R32 | IETF RFC 7636, *Proof Key for Code Exchange by OAuth Public Clients* (S256: `BASE64URL(SHA256(ASCII(code_verifier)))`; a verifier is 43–128 unreserved characters) | 2015 | **Prior knowledge**, not fetched (phase 11 planning, 2026-11-10). Appendix B's example verifier and challenge are a backend test | [ADR-020](adr/ADR-020-connected-browsers.md) |
+| R33 | Mozilla Support, "Add-on signing in Firefox". https://support.mozilla.org/en-US/kb/add-on-signing-in-firefox | live (2026-11-10) | **Search results** (several revisions of the page, some old): Release and Beta refuse unsigned extensions; ESR, Developer Edition and Nightly can turn the check off (`xpinstall.signatures.required`); an add-on can be signed without being listed | Installing the extension by hand ([17 phase 11](17-IMPLEMENTATION-ROADMAP.md#phase-11-browser-extension)) |
+| R34 | Playwright docs, "Chrome extensions". https://playwright.dev/docs/chrome-extensions | live (2026-11-10) | **Search results**: extensions load only in Chromium with a persistent context; the `chromium` channel runs them headless; the service worker's URL gives the extension ID | task 11.2 e2e |
+| R35 | MDN, `host_permissions`. https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/host_permissions | live (2026-11-10) | **Search results**: from Firefox 127 the install prompt shows a Manifest V3 extension's host permissions; extensions should check with `permissions.contains` after install | task 11.2 |
 
 Local verification (not web sources):
 
@@ -77,6 +81,12 @@ Local verification (not web sources):
   `AppNavDrawer` does. The drawer renders a fragment (with its scrim), so its `$el` isn't an
   element. `VList` is `role="list"` and its link items are `role="link"`, which axe reports
   (`aria-required-children`); the sidebar's list is `role="none"` inside its `<nav>`.
+- django-allauth 65.21.0 and Django 5.2.18, read in the V2 image during task 11.1 (2026-11-10):
+  `XSessionTokenAuthentication` loads the token's session and asks `django.contrib.auth.get_user`,
+  so the backends' `user_can_authenticate` and the session hash apply to header tokens as to
+  cookies; `TOKEN_STRATEGY.create_session_token(request)` returns the token of
+  `request.session`; `login()` works on a bare `HttpRequest` carrying a new `SessionStore`;
+  `set_expiry(datetime)` stores an absolute end ([ADR-020](adr/ADR-020-connected-browsers.md)).
 
 ## Not verified in this run (prior knowledge, verify during implementation)
 
@@ -85,6 +95,10 @@ Local verification (not web sources):
 | urllib3 2.x: `server_hostname` / `assert_hostname` on connection pools opened by IP | [13 SSRF](13-SECURITY.md#ssrf-safe-fetcher) | task 7.2 |
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
+| An extension's background script calls a host in its `host_permissions` without CORS, in Chrome and in Firefox | [ADR-020](adr/ADR-020-connected-browsers.md) | task 11.2 (Chromium e2e; Firefox by hand) |
+| In a content script, `event.source === window` holds for a message the page posts to its own window, in both browsers | `extensionBridge.ts` | task 11.2 |
+| Chrome's extension service worker needs an offscreen document to write the clipboard; Firefox's background page can with `clipboardWrite` | [17 task 11.3](17-IMPLEMENTATION-ROADMAP.md#phase-11-browser-extension) | task 11.3 |
+| `tabs` and `history` can be optional permissions, requested at run time, in both browsers | D36 | task 11.5 |
 
 ## Research areas covered (prompt Part 16)
 

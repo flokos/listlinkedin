@@ -35,4 +35,5 @@ Nygard/MADR layout.
 | [016](ADR-016-account-deletion-grace-period.md) | Account deletion with a 30-day grace period | Accepted |
 | [017](ADR-017-production-on-oci-always-free.md) | Production on Oracle Cloud Always Free, managed with Terraform | Accepted |
 | [018](ADR-018-pull-based-deployment.md) | Continuous deployment of GitHub Releases, pulled by the server | Accepted |
-| [019](ADR-019-cross-origin-frontends.md) | Frontends on other domains: CORS without credentials, allauth app-client tokens | Accepted |
+| [019](ADR-019-cross-origin-frontends.md) | Frontends on other domains: CORS without credentials, allauth app-client tokens | Accepted (session lifetime extended for connected browsers by 020) |
+| [020](ADR-020-connected-browsers.md) | Connected browsers: the extension signs in with an approved, long-lived session | Accepted |

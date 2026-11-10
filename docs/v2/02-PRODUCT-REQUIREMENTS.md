@@ -156,6 +156,24 @@ source (**postponed**, [ADR-015](adr/ADR-015-postpone-synchronization.md)), and 
 | Search-engine indexing of public pages | Later | Q1 |
 | Elasticsearch / OpenSearch | **Deferred** | Not needed at this scale (prompt 10) |
 
+## Browser extension [D36]
+
+Added after launch (user, 2026-11-10; phase 11). The extension is a second client of the
+same API; lists and links stay the product.
+
+| Requirement | Class | Notes |
+|---|---|---|
+| Chrome and Firefox, from one codebase | Phase 11 | Manifest V3; Edge and other Chromium browsers use the Chrome build |
+| Stay signed in without typing the password into the extension; see and end connections on the account page | Phase 11 (11.1) | "Connect this browser" ([ADR-020](adr/ADR-020-connected-browsers.md)) |
+| Save the page you are on to a list you choose, or to a new list | Phase 11 (11.2) | Popup; the tab's title is the link's title |
+| Save a page or a link from the right-click menu or with a keyboard shortcut | Phase 11 (11.3) | Shortcuts can be rebound in the browser |
+| Copy a list's or a group's link, and a saved page's short link, without opening the site | Phase 11 (11.3) | Visibility changes only when the user chooses it (invariant 2) |
+| Browse lists, groups and links and open them, like bookmarks | Phase 11 (11.3) | |
+| Save all open tabs, or pages picked from history | Phase 11 (11.4, 11.5) | Optional permissions, asked on first use; only the picked pages are sent |
+| Install by hand from a build | Phase 11 (11.6) | Release Firefox keeps an unsigned add-on only until it closes |
+| Store listings (Chrome Web Store, Firefox Add-ons) | Later | The owner's developer accounts |
+| Safari, mobile browsers, a badge for pages already saved, address-bar search, an offline queue | Later | |
+
 ## Cross-cutting [8.6, 8.9, 8.10, 13–15]
 
 | Requirement | Class |

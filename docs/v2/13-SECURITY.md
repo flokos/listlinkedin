@@ -36,6 +36,7 @@ Trust boundaries: browser ↔ nginx (TLS), nginx ↔ api (internal network), wor
 | **SSRF** | The [SSRF-safe fetcher](#ssrf-safe-fetcher) in the worker only. The api process never fetches user URLs | fetcher unit tests with simulated DNS rebinding |
 | **XSS** | Vue escapes by default. `v-html` is banned (`vue/no-v-html` is a lint error since 9.1; it was a warning). Fetched strings are stored as plain text. SVG is never accepted. The CSP stays `script-src 'self'` (default-src). Link `href`s are always our `/r/` short URL or a server-validated http(s) URL | lint, component tests, CSP smoke test |
 | **CSRF** | New with cookies: `CsrfViewMiddleware` and DRF `SessionAuthentication` enforce CSRF on authenticated unsafe requests [R8]. `SameSite=Lax` session cookie. Remove V1's `security.W003` silence. Legacy bearer requests carry no ambient credentials, so they need no CSRF | API tests without and with a wrong token; `check --deploy` in CI |
+| **A browser connected by someone else** (the extension, since 11.1) | Approval only from this site's signed-in page, and only when the extension in that browser started the request; one-time code bound to that extension by PKCE and never in a URL; an email for every connection; connections listed and ended on the account page; a new password ends them all ([ADR-020](adr/ADR-020-connected-browsers.md)) | `test_connected_browsers.py`, `connect-browser.spec.ts` |
 | **Malicious URL schemes** | Server-side http/https only (V1 `normalize_destination_url`), also for metadata-derived image URLs. `HttpResponseRedirect` refuses other schemes (V1) | V1 tests + new ones |
 | **Open redirects** | `/r/` redirects only to stored, validated URLs (V1). `next`/redirect parameters must be same-origin paths. allauth redirect settings point to SPA routes only [R16] | tests for `next=//evil`, `next=https://…` |
 | **Metadata fetching** | Fetcher policy plus size, time and type limits, results stored as text, failures as codes | fetcher tests |
@@ -154,6 +155,15 @@ guessed by someone who already has the image. Moving private images behind an au
   Django session, ended by sign-out, deletion, suspension and erasure like a cookie session,
   and needing no CSRF token because browsers never add the header themselves. An XSS on an
   allowed origin can steal its users' tokens; that site's security is its owner's.
+- **Connected browsers** ([ADR-020](adr/ADR-020-connected-browsers.md), since 11.1): the
+  browser extension holds such a session token too, from a session that ends after 90 days
+  without use or one year. It is given out only after the signed-in user approved on this
+  site (cookie session and CSRF token; a session token can't approve), for a one-time code
+  that is valid two minutes, stored as a hash, handed to the extension by `postMessage` on
+  this origin (never in a URL), and useless without the PKCE verifier the extension kept. The
+  page offers nothing to approve unless the extension in that browser says it started the
+  request, so a link someone sent connects nothing. Each connection emails the account; the
+  account page lists connections and ends them; ten at most.
 - Email verification and password-reset keys travel in the URL **fragment**
   (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
   nginx logs, as V1's edit-link tokens did. The SPA removes them from the address bar on
@@ -191,6 +201,7 @@ These are initial values. Tune them from logs.
 | Directory search | 600/h per IP, signed in or not (`directory`, `ReadRateThrottle`, since 8.1) |
 | Adding members by email | 60/h per user |
 | Reports to the operator | 10/h per user or IP (`report`, since 9.0) |
+| Connecting a browser (exchanging the code) | 30/h per IP (`browser_connect`, since 11.1); approving counts as an account change (300/h per user) |
 
 Groups have their own scopes since 4.2, `group_create` and `group_manage`, with the same
 configured values as `list_create` and `list_manage` (30/h and 600/h).

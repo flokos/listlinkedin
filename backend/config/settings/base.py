@@ -286,6 +286,8 @@ REST_FRAMEWORK = {
         "directory": os.environ.get("THROTTLE_DIRECTORY", "600/hour"),
         # Per user or client IP: each report emails the operator.
         "report": os.environ.get("THROTTLE_REPORT", "10/hour"),
+        # Per client IP: the browser extension exchanging a code for its session (ADR-020).
+        "browser_connect": os.environ.get("THROTTLE_BROWSER_CONNECT", "30/hour"),
     },
     # 0 = use the socket address. DRF's default (None) trusts a client-supplied
     # X-Forwarded-For, which would let anyone bypass rate limits.
