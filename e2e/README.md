@@ -42,6 +42,24 @@ It exits non-zero if any test fails.
 - All browsers share one client IP, so `run.sh` raises the API's rate limits for this
   throwaway stack (`THROTTLE_LIST_CREATE`, `THROTTLE_LIST_MANAGE`).
 
+## The browser extension
+
+`tests/extension/` tests the extension in `../extension` for real. `run.sh` builds it for the
+stack's address and mounts the Chrome build at `/extension`; the `extension` project loads it
+into Chromium (`tests/extension/fixtures.ts`: a persistent context through the `chromium`
+channel, the only way Chromium runs extensions headless). No other project runs these tests.
+
+```bash
+bash e2e/run.sh --project=extension
+```
+
+- The popup is opened as a page about an address (`popup.html?url=…&title=…`): Playwright
+  can't open it from the toolbar.
+- The other projects still test the site's Connect page, with the test playing the extension
+  (`playExtension` in `tests/fixtures.ts`), so Firefox and WebKit cover the page's half.
+- Firefox can't load an extension under Playwright. The Firefox build is linted in CI and
+  checked by hand ([docs/qa-checklist.md](../docs/qa-checklist.md#browser-extension)).
+
 ## Versions
 
 `Dockerfile` uses `mcr.microsoft.com/playwright:vX.Y.Z-noble`, which has the browsers

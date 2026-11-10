@@ -4,12 +4,16 @@ import { defineConfig, devices } from '@playwright/test'
 // real nginx → production Vue build → Gunicorn, over HTTPS with a throwaway certificate.
 const desktop = { viewport: { width: 1280, height: 900 } }
 
+// The browser extension's tests (tests/extension/) load it into their own Chromium: they are
+// the `extension` project, and no other project runs them.
+const extension = /tests\/extension\//
+
 // Specs about app logic (mocked responses, the 100-link limit) gain nothing from other
 // engines. axe inspects the DOM and computed styles, so its results don't depend on the
 // engine either, and it is several times slower in Gecko and WebKit: accessibility runs on
 // Chromium, desktop and mobile layouts.
 const chromiumOnly = /(states|limits)\.spec\.ts/
-const notOnGeckoOrWebKit = [chromiumOnly, /a11y\.spec\.ts/]
+const notOnGeckoOrWebKit = [extension, chromiumOnly, /a11y\.spec\.ts/]
 
 export default defineConfig({
   testDir: './tests',
@@ -29,10 +33,11 @@ export default defineConfig({
     timezoneId: 'UTC',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], ...desktop } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], ...desktop }, testIgnore: extension },
     { name: 'firefox', use: { ...devices['Desktop Firefox'], ...desktop }, testIgnore: notOnGeckoOrWebKit },
     { name: 'webkit', use: { ...devices['Desktop Safari'], ...desktop }, testIgnore: notOnGeckoOrWebKit },
     { name: 'mobile-safari', use: { ...devices['iPhone 15'] }, testIgnore: notOnGeckoOrWebKit },
-    { name: 'mobile-chrome', use: { ...devices['Pixel 7'] }, testIgnore: chromiumOnly },
+    { name: 'mobile-chrome', use: { ...devices['Pixel 7'] }, testIgnore: [extension, chromiumOnly] },
+    { name: 'extension', use: { ...desktop }, testMatch: /tests\/extension\/.*\.spec\.ts/ },
   ],
 })
