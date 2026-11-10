@@ -12,7 +12,7 @@ object-level authorization as the top API risk [R13], so every rule here maps to
 | Principal | How it is established |
 |---|---|
 | Anonymous | no session |
-| Signed-in user | Django session (allauth headless browser flow, [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md)) |
+| Signed-in user | Django session: this site's cookie (allauth headless browser flow, [ADR-007](adr/ADR-007-authentication-and-ownership-migration.md)), or a session token in `X-Session-Token` from another frontend ([ADR-019](adr/ADR-019-cross-origin-frontends.md)) or a connected browser ([ADR-020](adr/ADR-020-connected-browsers.md)) |
 | **Owner** | `list.owner_id == user.id` (likewise `group.owner_id`) |
 | **Editor** / **Viewer** | a `ListMembership` (or `GroupMembership`) row with that role |
 
@@ -20,6 +20,11 @@ Until v2.1.0 a fifth principal existed: the **legacy token holder**, who present
 owner token (`Authorization: Bearer`) and had V1's rights on that list only (A3) until it was
 claimed. Task 9.6 retired it: every list has an owner account, and a bearer token grants
 nothing.
+
+However a user signed in, they are the same principal: a connected browser (the extension)
+has exactly its account's rights, on every list and group. One thing depends on *how* the
+session was made: only this site's cookie session can approve connecting a browser
+(`POST /api/v2/me/browsers/approvals/`), so a session token can never mint another.
 
 Roles never inherit across resources. Group roles grant nothing on lists. List roles grant
 nothing on other lists, including branches or forks of that list.

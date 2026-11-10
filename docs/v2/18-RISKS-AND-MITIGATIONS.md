@@ -3,7 +3,8 @@
 Likelihood (L) and Impact (I) are rated **H**igh, **M**edium or **L**ow, and the table is
 sorted by priority. P1 risks have a dedicated test suite *and* a design control. P3 risks are
 watched, not engineered against. Rows 1–30 are the prompt's list (Part 19) under its original
-numbers. Rows 31–35 were added by this planning.
+numbers. Rows 31–35 were added by this planning, and rows 36–38 with the browser extension
+(phase 11).
 
 > Risks 11–15 and 35 concern synchronization. They are **dormant** while it is postponed
 > ([ADR-015](adr/ADR-015-postpone-synchronization.md)) and come back when it is resumed.
@@ -38,6 +39,7 @@ numbers. Rows 31–35 were added by this planning.
 | 1 | Accidental changes to `main` | L | H | Rulesets on `main` (PR + `checks` required, no force-push or deletion), CLAUDE.md rules | verified by `gh api …/rules/branches/main` (task 0.3) |
 | 2 | V2 PRs targeting `main` | M | M | `gh-merge-base` / `--base v2`, the CI guard (blocking through the required `checks`), CLAUDE.md | the guard's shell logic tested locally in 0.3; visible on any wrong PR |
 | 33 | Phishing or abuse via public lists and the directory | M | M | Verified email required for `public`; denylist; `noindex`; since 9.0 a report button that emails the operator, and operator commands to unpublish, delete, find links to a host and suspend accounts ([13](13-SECURITY.md#moderation)) | gate tests; report and command tests; e2e `report.spec.ts` |
+| 36 | A connected browser's token is stolen, or a user is tricked into connecting someone else's browser | L | H | Approval only on this site's signed-in page and only for a request the extension in that browser started; a one-time code bound by PKCE, never in a URL; an email per connection; connections listed and ended on the account page; a new password ends them all; 90 days unused or one year at most ([ADR-020](adr/ADR-020-connected-browsers.md)) | `test_connected_browsers.py`, `connect-browser.spec.ts` |
 
 ## P3: medium and low
 
@@ -55,6 +57,8 @@ numbers. Rows 31–35 were added by this planning.
 | 32 | Email deliverability (verification and reset) | M | M | Verification is optional for private use; verified email is required only for `public` and invitations; standard SMTP relay | e2e with Mailpit; production smoke |
 | 34 | CSRF misconfiguration breaks the SPA or opens CSRF | M | M | Cookie sessions same-origin only; `CSRF_TRUSTED_ORIGINS` from `PUBLIC_BASE_URL`; tests for missing and wrong token. Other origins get CORS without credentials and use header tokens ([ADR-019](adr/ADR-019-cross-origin-frontends.md)) | API CSRF tests, e2e flows, `test_cross_origin.py` |
 | 35 | Scope creep in the merge UI (per-field picks, partial merges) | M | M | Explicitly deferred list ([08](08-SYNCHRONIZATION-SPEC.md#deferred-explicitly-out-of-scope-for-v2-mvp)) | review checklist on 6.x PRs |
+| 37 | The extension and the site drift apart (the connect page's message protocol, the API) | M | M | Both live in this repository and change in one PR; the protocol is one typed module on each side; additive API changes only inside v2 | e2e with the extension loaded (from 11.2); `extensionBridge.test.ts` |
+| 38 | The extension can't be tested where it matters (Firefox, right-click menus, shortcuts, permission prompts) | H | M | Logic kept in plain modules with unit tests; Chromium e2e for what can be driven; `web-ext lint` for the Firefox build; a manual checklist before each release ([qa-checklist](../qa-checklist.md)) | CI from 11.2; the manual pass in 11.6 |
 | 24 | Unnecessary infrastructure | L | M | Each service justified in [14](14-INFRASTRUCTURE.md). Any new one needs an ADR (CLAUDE.md) | ADR review |
 | 25 | Overengineering | M | M | A pure core only for merge, snapshots and policy; no generic repositories, event bus or CQRS stores ([03](03-ARCHITECTURE.md#why-this-shape)) | PR review against ADR-002 |
 

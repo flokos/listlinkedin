@@ -33,8 +33,8 @@ Requirements V2 doesn't meet, on purpose. Each is revisited after launch or when
 | V5.4.3 (L2) | No antivirus scan. Every image is decoded and re-encoded, so uploaded bytes are never served, and no other file type is accepted |
 | V6.2.12 (L2) | No breached-password check: it would make the api call an outside service (such as Have I Been Pwned), and the api makes no outbound calls by design. The common-password list stands in. Revisit after launch |
 | V6.3.3 (L2) | No multi-factor authentication yet ([Q6](20-DECISIONS-AND-OPEN-QUESTIONS.md)); allauth can add TOTP or passkeys by configuration |
-| V7.3.1 (L2) | No inactivity timeout, by decision ([Sessions](#sessions)) |
-| V7.5.2 (L2) | No list of active sessions to review; changing the password signs out every other device. Revisit with Q6 |
+| V7.3.1 (L2) | No inactivity timeout for sign-in sessions, by decision ([Sessions](#sessions)). Connected browsers do have one: 90 days (since 11.1) |
+| V7.5.2 (L2) | Sign-in sessions aren't listed for review; changing the password signs out every other device. Connected browsers are listed and can be ended one by one (since 11.1). Revisit with Q6 |
 | V11.5.1 (L2) | Owner tokens have 256 bits and session keys about 165, but list, group and short codes have 96 bits: V1's format, which invariant 1 keeps. Guessing is online only, rate-limited, and a private list also needs membership |
 | V12.3.1 (L2) | nginx → api and api → PostgreSQL stay on the host's private compose network, unencrypted. SMTP uses STARTTLS by default; the fetcher validates TLS. Revisit if services leave the single host |
 | V12.3.3 (L2) | As V12.3.1 |
@@ -56,6 +56,7 @@ Passwords may not contain the service's name, `listlinkedin`, in any case or spa
 - Server-side Django sessions in PostgreSQL. The cookie is `HttpOnly`, `Secure`, `SameSite=Lax` and, in production, `__Host-sessionid`.
 - **Lifetime:** 14 days (Django's default) from sign-in or the session's last change; requests alone don't extend it. **No inactivity timeout**: lists hold links, not money or health data, and people use the app across days; signing out is one click away, and password changes, account deletion and suspension end every session at once.
 - **Parallel sessions:** unlimited. Changing the password signs out every other device.
+- **Connected browsers** (the extension, since task 11.1, [ADR-020](adr/ADR-020-connected-browsers.md)): a session made by approval on this site instead of a sign-in. **Inactivity timeout: 90 days. Maximum lifetime: one year** after connecting. Using it moves its end forward, once a day. **At most ten** per account, listed on the account page, where each can be ended; a new password, account deletion and suspension end all of them. Their session keys are also in `accounts_connectedbrowser`, so emptying the session table ends them too.
 - **Ending all sessions** (an operator action, e.g. after a leak of the signing key): rotate `DJANGO_SECRET_KEY`, or empty the session table: `docker compose -f compose.prod.yaml exec api python manage.py shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"`.
 
 ## Cryptographic inventory
@@ -66,6 +67,7 @@ Passwords may not contain the service's name, `listlinkedin`, in any case or spa
 | Sessions, CSRF, email verification and reset links | HMAC-SHA256 (Django signing) | `DJANGO_SECRET_KEY` (50 random characters) | Rotate by moving the old key to `SECRET_KEY_FALLBACKS`; reset links expire in 1 hour, verification in 3 days |
 | Legacy edit links | 256-bit random token; SHA-256 hash stored | the token itself | Retired when claimed or rotated; all removed by task 9.6 (v2.1.0: the column is dropped) |
 | List, group and short codes | 96-bit random (`secrets`) | none | Permanent (invariant 1) |
+| Browser-approval codes (since 11.1) | 256-bit random (`secrets`); SHA-256 hash stored; bound to the extension by PKCE S256 [RFC 7636] | the code, and the verifier the extension keeps | One use, two minutes ([ADR-020](adr/ADR-020-connected-browsers.md)) |
 | Media file names | SHA-256 of the re-encoded image | none | Immutable |
 | TLS | TLS 1.2/1.3, ECDHE with AES-GCM or ChaCha20-Poly1305 | certificate key on the host (`TLS_CERT_DIR`) | Let's Encrypt, renewed every 60–90 days |
 | Database | none (private compose network) | `POSTGRES_PASSWORD` | Set at installation; change with `ALTER ROLE` and `.env` |
@@ -77,8 +79,8 @@ Secrets live only in the host's `.env` and reach the containers as environment v
 
 | Class | Data | Protection |
 |---|---|---|
-| Secret | Passwords, session keys, CSRF tokens, verification and reset keys, edit-link tokens, `DJANGO_SECRET_KEY` and other credentials | Never logged (tested) or returned again; hashed (passwords, edit links); keys in URL fragments only; HTTPS only |
-| Personal | Email addresses, display names, reports' details, IP addresses (rate limiting, nginx log) | Email addresses shown only to their own account and never logged; display names shown to people sharing a list; erased 30 days after an account is deleted ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)); reports go only to the operator |
+| Secret | Passwords, session keys (connected browsers' tokens are session keys), browser-approval codes, CSRF tokens, verification and reset keys, edit-link tokens, `DJANGO_SECRET_KEY` and other credentials | Never logged (tested) or returned again; hashed (passwords, edit links); keys in URL fragments only; HTTPS only |
+| Personal | Email addresses, display names, connected browsers' names, reports' details, IP addresses (rate limiting, nginx log) | Email addresses shown only to their own account and never logged; display names shown to people sharing a list; erased 30 days after an account is deleted ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)); reports go only to the operator |
 | Restricted content | Private lists and groups, unlisted ones (by their code), history, members | The policy and SQL-filtered queries ([12](12-AUTHORIZATION.md)); `no-store`; never in the directory |
 | Public content | Public lists and groups, tags, fetched page details | Anyone may read; still `noindex` |
 
@@ -255,21 +257,21 @@ Reviewed against [15](15-TEST-STRATEGY.md#v1-regression-checklist) (risk 30): ev
 | ID | L | Requirement (abridged) | Status | Evidence |
 |---|---|---|---|---|
 | V7.1.1 | 2 | The user's session inactivity timeout and absolute maximum session lifetime are documented … | Fixed | Documented in [Sessions](#sessions) |
-| V7.1.2 | 2 | The documentation defines how many concurrent (parallel) sessions are allowed for one … | Fixed | Documented in [Sessions](#sessions): no limit on parallel sessions |
+| V7.1.2 | 2 | The documentation defines how many concurrent (parallel) sessions are allowed for one … | Fixed | Documented in [Sessions](#sessions): no limit on parallel sign-in sessions; at most ten connected browsers (since 11.1) |
 | V7.1.3 | 2 | All systems that create and manage user sessions as part of a … | N/A | No federated identity |
 | V7.2.1 | 1 | The application performs all session token verification using a trusted, backend service. | Pass | Server-side Django sessions in PostgreSQL |
 | V7.2.2 | 1 | The application uses either self-contained or reference tokens that are dynamically generated … | Pass | A new session key per sign-in. Legacy edit links are V1 capabilities, not sessions, and go with task 9.6 Gone in v2.1.0. |
 | V7.2.3 | 1 | If reference tokens are used to represent user sessions, they are unique … | Pass | 32 random characters from 36 (about 165 bits), from `secrets` |
 | V7.2.4 | 1 | The application generates a new session token on user authentication, including re-authentication … | Pass | Django replaces the session key on sign-in |
-| V7.3.1 | 2 | There is an inactivity timeout such that re-authentication is enforced according to … | Accepted | No inactivity timeout, by decision ([Sessions](#sessions)) |
-| V7.3.2 | 2 | There is an absolute maximum session lifetime such that re-authentication is enforced … | Pass | Sessions end 14 days after sign-in or their last change (Django's default); requests alone don't extend them |
+| V7.3.1 | 2 | There is an inactivity timeout such that re-authentication is enforced according to … | Accepted | No inactivity timeout for sign-in sessions, by decision ([Sessions](#sessions)). Connected browsers end after 90 days without use (since 11.1) |
+| V7.3.2 | 2 | There is an absolute maximum session lifetime such that re-authentication is enforced … | Pass | Sign-in sessions end 14 days after sign-in or their last change (Django's default); requests alone don't extend them. A connected browser's session ends at the latest one year after connecting (since 11.1) |
 | V7.4.1 | 1 | When session termination is triggered (such as logout or expiration), the application … | Pass | Signing out deletes the server-side session |
 | V7.4.2 | 1 | The application terminates all active sessions when a user account is disabled … | Pass | Deleting an account ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)) or suspending it (task 9.0) ends every session (`sessions_revoked_at`) |
 | V7.4.3 | 2 | The application gives the option to terminate all other active sessions after … | Pass | Changing or resetting the password ends every other session at once (sessions are bound to the password hash), without asking |
 | V7.4.4 | 2 | All pages that require authentication have easy and visible access to logout … | Pass | **Sign out** in the account menu on every page |
 | V7.4.5 | 2 | Application administrators are able to terminate active sessions for an individual user … | Pass | `suspend_account` ends one account's sessions; all sessions end by emptying `django_session` ([Sessions](#sessions)) |
 | V7.5.1 | 2 | The application requires full re-authentication before allowing modifications to sensitive account attributes … | Pass | The email address can't be changed; a password change needs the current one |
-| V7.5.2 | 2 | Users are able to view and (having authenticated again with at least … | Accepted | No list of active sessions to review; changing the password signs out every other device. Revisit with Q6 |
+| V7.5.2 | 2 | Users are able to view and (having authenticated again with at least … | Accepted | Sign-in sessions aren't listed; changing the password signs out every other device. Since 11.1 connected browsers are listed on the account page and ended one by one. Revisit with Q6 |
 | V7.6.1 | 2 | Session lifetime and termination between Relying Parties (RPs) and Identity Providers (IdPs) … | N/A | No identity providers |
 | V7.6.2 | 2 | Creation of a session requires either the user's consent or an explicit … | Pass | Sessions start only from an explicit sign-in or sign-up |
 

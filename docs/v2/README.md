@@ -57,7 +57,7 @@ contains Links** stays the core of the model.
 | 20 | [Decisions and open questions](20-DECISIONS-AND-OPEN-QUESTIONS.md) | Decision log, open questions |
 | 21 | [Security review](21-SECURITY-REVIEW.md) | ASVS 5.0 L1/L2 review before release (task 9.1): every requirement, fixes, accepted deviations, logging, sessions, crypto and data inventories |
 | 22 | [Release rehearsal](22-RELEASE-REHEARSAL.md) | The V1 → V2 release rehearsed with the runbook's commands (task 9.5): timings, checks, findings |
-| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-019 |
+| — | [ADRs](adr/README.md) | Architecture Decision Records ADR-001 … ADR-020 |
 
 Diagrams are Mermaid blocks inside the documents (GitHub renders them), so there is no separate
 diagrams folder.
@@ -141,6 +141,10 @@ These are the decisions everything else builds on. The details are in the linked
 18. **Frontends on other domains** sign in with allauth's `app` client (`X-Session-Token`) and
     get CORS without credentials, only for `CORS_ALLOWED_ORIGINS`. This site's SPA keeps
     first-party cookie sessions. ([ADR-019](adr/ADR-019-cross-origin-frontends.md))
+19. **The browser extension signs in as a connected browser:** the user approves it on this
+    site, and it keeps a session token that lasts until it is unused for 90 days, a year old,
+    or disconnected. It can do everything the account can, except approve another browser.
+    ([ADR-020](adr/ADR-020-connected-browsers.md))
 
 ## Keeping these documents true
 

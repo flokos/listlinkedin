@@ -48,6 +48,7 @@ in development. Production rollback is covered [below](#rollback).
 | 8 | `sharing.0009_discovery` and `groups.0002_discovery` (task 8.1): `pg_trgm` extension, `tags` (empty), generated `search` column, GIN and partial indexes, the tag-count CHECK | schema | yes (verified: unapply and reapply) | `CREATE EXTENSION` needs the DB owner role. The compose `POSTGRES_USER` is the owner. Adding a stored generated column rewrites the table, under a second at V1 sizes |
 | 9 | `sharing.0010_directory_title_index` and `groups.0003_directory_title_index` (task 9.2): the title trigram index moves from `title` to `UPPER(title)` | schema (index only) | yes (verified) | Builds the index on the existing rows; quick at V1 sizes |
 | 9 | `accounts.0003_user_suspended_at` (task 9.0): nullable `suspended_at` on users, set by the operator's `suspend_account` | schema | yes | Existing accounts aren't suspended: NULL |
+| 11 | `accounts.0004_connected_browser` (task 11.1): the new table `accounts_connectedbrowser` ([ADR-020](adr/ADR-020-connected-browsers.md)) | schema | yes (drops the table: connected browsers must connect again) | A new, empty table |
 
 All V1 tables are small: lists live at most 30 days and hold at most 100 links. Plain
 (non-concurrent) `ALTER TABLE` and index builds take well under a second. **[Assumption]**

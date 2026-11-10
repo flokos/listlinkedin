@@ -12,7 +12,7 @@ per version).
 |---|---|
 | Format | JSON in and out (V1 parsers and renderers). `multipart/form-data` only on the upload endpoints |
 | Identifiers | Lists by `public_code` (`{code}`), groups by `code`, links by UUID, revisions by `number`, members by user id. UUID `id`s are returned but are never needed in URLs except for links |
-| Authentication | Django session cookie (`sessionid`, `HttpOnly`, `Secure` in production, `SameSite=Lax`) with **CSRF** on unsafe methods (`X-CSRFToken` header from the `csrftoken` cookie [R8]). Frontends on other domains send `X-Session-Token: <session_token>` instead, from allauth's app client, with no CSRF token ([ADR-019](adr/ADR-019-cross-origin-frontends.md)). Until v2.1.0, legacy lists also accepted `Authorization: Bearer <owner token>`; bearer tokens grant nothing since task 9.6 |
+| Authentication | Django session cookie (`sessionid`, `HttpOnly`, `Secure` in production, `SameSite=Lax`) with **CSRF** on unsafe methods (`X-CSRFToken` header from the `csrftoken` cookie [R8]). Frontends on other domains send `X-Session-Token: <session_token>` instead, from allauth's app client, with no CSRF token ([ADR-019](adr/ADR-019-cross-origin-frontends.md)). The browser extension sends the same header with a connected browser's token ([ADR-020](adr/ADR-020-connected-browsers.md)). Until v2.1.0, legacy lists also accepted `Authorization: Bearer <owner token>`; bearer tokens grant nothing since task 9.6 |
 | CORS | None by default. Origins in `CORS_ALLOWED_ORIGINS` may call `/api/v2/` and `/_allauth/app/v1/`, without credentials (no cookies). Allowed request headers `accept`, `content-type`, `x-session-token`; `X-Request-ID` exposed; preflights cached an hour. `/r/`, `/_allauth/browser/` and the docs stay same-origin |
 | Authorization | [12-AUTHORIZATION.md](12-AUTHORIZATION.md). Not viewable → 404. Viewable but forbidden → 403. Account required → 401 with `WWW-Authenticate: Session` |
 | Pagination | `PageNumberPagination` shape `{count, next, previous, results}` (V1-compatible). Default 20, max 100. A list's links default to 100 per page, which is the whole list |
@@ -92,11 +92,28 @@ pages (`PUBLIC_BASE_URL`). The project adds:
 | DELETE | `/api/v2/me/` | Account deletion. Requires `{"confirm": "<email>"}` (case-insensitive; otherwise 400 on `confirm`). 204: every session ends, owned lists are hidden at once, and everything is erased after 30 days ([ADR-016](adr/ADR-016-account-deletion-grace-period.md)). `deletion_scheduled_for` appears on the session's user while it can still be restored |
 | POST | `/api/v2/me/restore/` | Undo the deletion within the 30 days (the session of a deleting account works only here and on `GET /api/v2/session/`). 200 → the account; 409 once erased |
 
+### Connected browsers
+
+How the browser extension signs in ([ADR-020](adr/ADR-020-connected-browsers.md)), since task
+11.1. The extension opens `/connect-browser?challenge=…&name=…` on this site; the user
+approves; the page hands the extension a one-time code; the extension exchanges it.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/api/v2/me/browsers/approvals/` | **this site's cookie session only** (a session token gets 401) | `{challenge, name}`: `challenge` is PKCE's S256 value (43 base64url characters), `name` a label of at most 80 characters, stored as one line of text. 201 → `{code, expires_in: 120}`. 409 `too_many_browsers` at ten (pending approvals count) |
+| POST | `/api/v2/browsers/connect/` | anyone holding the code and its verifier | `{code, verifier}` (verifier: 43–128 characters of `A-Z a-z 0-9 - . _ ~`). 201 → `{id, name, session_token, user}`, once: the token goes in `X-Session-Token` from then on. Wrong, used or expired code, another verifier, or an account that can no longer sign in → the same 400 `invalid_code`; a wrong verifier doesn't use the code up. Rate limit `browser_connect` (per client IP) |
+| GET | `/api/v2/me/browsers/` | signed in | The connections that still work, newest first: `[{id, name, connected_at, last_used_at, current}]`. At most ten, so not paginated. `current` marks the connection the request itself came from; `last_used_at` moves at most once a day |
+| DELETE | `/api/v2/me/browsers/{id}/` | signed in | 204: that token stops working at once. The extension disconnects itself this way. 404 for another account's, or one that is gone |
+
+A connection ends when it is disconnected, unused for 90 days or a year old, and whenever the
+account's sessions end: a new password, deletion, suspension. It can call everything a
+signed-in session can, except the approval above.
+
 ## Lists
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/api/v2/lists/` | signed in | Lists the user owns or is a member of. `?role=owner\|editor\|viewer`, `?q=`, `?ordering=-updated_at\|title` |
+| GET | `/api/v2/lists/` | signed in | Lists the user owns or is a member of, most recently changed first. `?role=owner\|editor\|viewer` |
 | POST | `/api/v2/lists/` | signed in | `{title, description?, visibility?, expires_at?}` → 201 + revision 1. `Idempotency-Key` optional |
 | GET | `/api/v2/lists/{code}/` | can view | Detail (below). `ETag` |
 | PATCH | `/api/v2/lists/{code}/` | editor (content) / owner (settings) | Content fields write a revision; settings don't |
