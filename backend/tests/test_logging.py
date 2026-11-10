@@ -12,6 +12,7 @@ from allauth.account.models import EmailAddress
 from django.core import mail
 from django.test import Client
 
+from apps.accounts.browsers import challenge_for
 from apps.accounts.models import User
 from config.logging import (
     REQUEST_ID,
@@ -140,6 +141,22 @@ def test_secrets_and_addresses_never_reach_the_logs(caplog, settings):
             {"email": email, "role": "viewer"},
             **json_post,
         )
+    # Connecting a browser (ADR-020): the one-time code, the verifier and the session token.
+    # Before the reset below, which signs Ada out everywhere.
+    verifier = "v3r1f13r-" * 6
+    approval = client.post(
+        "/api/v2/me/browsers/approvals/",
+        {"challenge": challenge_for(verifier), "name": "Firefox on Linux"},
+        **json_post,
+    )
+    code = approval.json()["code"]
+    connect = {"path": "/api/v2/browsers/connect/", **json_post}
+    Client().post(data={"code": code, "verifier": verifier + "x"}, **connect)  # a failure
+    browser_token = (
+        Client().post(data={"code": code, "verifier": verifier}, **connect).json()["session_token"]
+    )
+    assert Client().get("/api/v2/me/", HTTP_X_SESSION_TOKEN=browser_token).status_code == 200
+
     client.post(f"{AUTH}/password/request", {"email": "ada@example.com"}, **json_post)
     reset_key = key_from(mail.outbox[-1].body, "/reset-password")
     Client().post(
@@ -148,7 +165,8 @@ def test_secrets_and_addresses_never_reach_the_logs(caplog, settings):
     Client().post(f"{AUTH}/login", {"email": "bob@example.com", "password": "wrong"}, **json_post)
 
     assert len(caplog.records) > 5  # these requests were logged
-    for secret in (session_id, csrf_value, verify_key, reset_key, owner_token):
+    secrets = (session_id, csrf_value, verify_key, reset_key, owner_token)
+    for secret in (*secrets, code, verifier, browser_token):
         assert secret not in caplog.text
     for address in ("ada@example.com", "bob@example.com", "nobody@example.com"):
         assert address not in caplog.text

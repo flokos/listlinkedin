@@ -18,6 +18,7 @@ from apps.sharing.services.lists import delete_lists_owned_by
 from apps.sharing.services.members import remove_memberships_of
 from apps.sharing.services.moderation import make_lists_private_owned_by
 
+from . import browsers
 from .models import DELETION_GRACE, User
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def delete_account(user: User, *, confirm: str) -> User:
         now = timezone.now()
         locked.deleted_at = locked.sessions_revoked_at = now
         locked.save(update_fields=["deleted_at", "sessions_revoked_at"])
+        browsers.disconnect_all(locked)  # their sessions ended just now; restoring revives none
         logger.info("Scheduled deletion of user %s", locked.pk)
     return locked
 
@@ -89,6 +91,7 @@ def purge_account(user_id) -> bool:
     deleted_lists = delete_lists_owned_by(user)
     removed = remove_memberships_of(user) + remove_group_memberships_of(user)
     EmailAddress.objects.filter(user=user).delete()
+    browsers.disconnect_all(user)  # none since the deletion; their names are personal data
     user.email = f"deleted-{user.pk}@deleted.invalid"  # frees the address for a new sign-up
     user.display_name = user.first_name = user.last_name = ""
     user.set_unusable_password()
@@ -128,6 +131,7 @@ def suspend_account(user: User, *, reason: str, unpublish: bool = False) -> tupl
     if locked.suspended_at is None:
         locked.suspended_at = locked.sessions_revoked_at = timezone.now()
         locked.save(update_fields=["suspended_at", "sessions_revoked_at"])
+        browsers.disconnect_all(locked)
     lists = groups = 0
     if unpublish:
         lists = make_lists_private_owned_by(locked)

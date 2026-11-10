@@ -7,6 +7,7 @@ from django.db.models.functions import Lower
 from django.utils.crypto import salted_hmac
 
 EMAIL_CI_CONSTRAINT = "accounts_user_email_ci_uniq"
+BROWSER_STATE_CONSTRAINT = "accounts_connectedbrowser_pending_or_connected"
 
 # Deleting an account takes effect at once for everyone else, but the data is only erased
 # after this grace period, during which signing in can restore it (docs/v2/adr/ADR-016).
@@ -88,3 +89,43 @@ class User(AbstractUser):
             return super()._get_session_auth_hash(secret)
         value = f"{self.password}|revoked:{self.sessions_revoked_at.isoformat()}"
         return salted_hmac(SESSION_HASH_SALT, value, secret=secret, algorithm="sha256").hexdigest()
+
+
+class ConnectedBrowser(models.Model):
+    """A browser connected to an account through the browser extension (docs/v2/adr/ADR-020).
+
+    The row is *pending* between the approval on this site and the extension's exchange (two
+    minutes): it holds the SHA-256 of the one-time code and the PKCE challenge the extension
+    must match. It is *connected* afterwards: it holds the key of the Django session whose
+    token the extension sends as X-Session-Token (ADR-019), and nothing of the code. Ending
+    that session, or deleting the row with it, disconnects the browser.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="connected_browsers")
+    # What the extension calls itself ("Firefox on Linux"): a label for the user, never trusted.
+    name = models.CharField(max_length=80)
+    challenge = models.CharField(max_length=43, blank=True, editable=False)
+    code_hash = models.CharField(max_length=64, null=True, blank=True, unique=True, editable=False)
+    code_expires_at = models.DateTimeField(null=True, blank=True, editable=False)
+    session_key = models.CharField(
+        max_length=40, null=True, blank=True, unique=True, editable=False
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    connected_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Updated at most once a day (browsers.touch_browser).
+    last_used_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(code_hash__isnull=False, session_key__isnull=True)
+                    | models.Q(code_hash__isnull=True, session_key__isnull=False)
+                ),
+                name=BROWSER_STATE_CONSTRAINT,
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.user_id})"
