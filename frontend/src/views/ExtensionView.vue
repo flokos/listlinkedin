@@ -3,7 +3,7 @@
 // extension is in no store): this page only links to them.
 import { mdiDownload, mdiFirefox, mdiGoogleChrome } from '@mdi/js'
 
-import { extensionDownloads } from '../utils/extensionDownloads'
+import { EXTENSION_VERSION, extensionDownloads } from '../utils/extensionDownloads'
 
 const browsers = [
   {
@@ -80,14 +80,15 @@ const browsers = [
       <h2 class="text-headline-small mb-3">Good to know</h2>
       <ul class="text-body-large ll-extension-notes mb-6">
         <li>
-          The extension is not in the Chrome Web Store or on addons.mozilla.org. The files are
-          published with each release of listlinkedin on GitHub, and it doesn't update by itself:
+          This is version {{ EXTENSION_VERSION }}. The extension is not in the Chrome Web Store or
+          on addons.mozilla.org: its files are published on GitHub, and it doesn't update by itself.
+          A newer version appears here; install it over the old one.
           <a
             :href="extensionDownloads.release"
             target="_blank"
             rel="noopener noreferrer"
             class="text-primary"
-            >see the latest release</a
+            >See this version's files</a
           >.
         </li>
         <li>

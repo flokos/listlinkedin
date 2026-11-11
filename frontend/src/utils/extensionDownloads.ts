@@ -1,16 +1,25 @@
-// Where the browser extension's builds are: files of the newest GitHub Release, under names
-// that stay the same from release to release (.github/workflows/extension-release.yml,
-// docs/extension.md). They are built for https://listlinkedin.versioncontrol.xyz: someone
-// running their own site builds their own (extension/README.md) and changes these.
-const RELEASE = 'https://github.com/flokos/listlinkedin/releases/latest'
+// Where the browser extension's builds are: the files of its own GitHub Release
+// (`extension-v<version>`, made by .github/workflows/extension-release.yml; docs/extension.md).
+// They are built for https://listlinkedin.versioncontrol.xyz: someone running their own site
+// builds their own (extension/README.md) and changes these.
+
+/**
+ * The extension version this site offers. CI checks that it is extension/package.json's, so
+ * raising one without the other fails; that release must exist before the site is released.
+ */
+export const EXTENSION_VERSION = '1.0.0'
+
+const REPOSITORY = 'https://github.com/flokos/listlinkedin'
+const TAG = `extension-v${EXTENSION_VERSION}`
+const FILES = `${REPOSITORY}/releases/download/${TAG}`
 
 export const extensionDownloads = {
   /** Chrome, Edge and other Chromium browsers: a zip to unpack and load. */
-  chrome: `${RELEASE}/download/listlinkedin-chrome.zip`,
+  chrome: `${FILES}/listlinkedin-${EXTENSION_VERSION}-chrome.zip`,
   /** Firefox: the add-on signed by Mozilla, which Firefox keeps installed. */
-  firefox: `${RELEASE}/download/listlinkedin-firefox.xpi`,
-  /** The release's own page, with every file and its version. */
-  release: RELEASE,
+  firefox: `${FILES}/listlinkedin-${EXTENSION_VERSION}-firefox-signed.xpi`,
+  /** The release's own page, with every file. */
+  release: `${REPOSITORY}/releases/tag/${TAG}`,
   /** The whole guide: permissions, updating, what to do when something is wrong. */
-  guide: 'https://github.com/flokos/listlinkedin/blob/main/docs/extension.md',
+  guide: `${REPOSITORY}/blob/main/docs/extension.md`,
 } as const

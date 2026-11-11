@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { createVuetify } from 'vuetify'
 
+import { EXTENSION_VERSION } from '../utils/extensionDownloads'
 import ExtensionView from './ExtensionView.vue'
 
 async function open() {
@@ -20,7 +21,7 @@ async function open() {
 }
 
 describe('ExtensionView', () => {
-  it('links to the builds of the latest release, under names that stay the same', async () => {
+  it("links to the files of the extension's own release", async () => {
     const wrapper = await open()
     const href = (text: string) =>
       wrapper
@@ -29,16 +30,15 @@ describe('ExtensionView', () => {
         .attributes('href')
 
     expect(wrapper.find('h1').text()).toBe('Browser extension')
-    // .github/workflows/extension-release.yml attaches exactly these names.
-    expect(href('Download for Chrome')).toBe(
-      'https://github.com/flokos/listlinkedin/releases/latest/download/listlinkedin-chrome.zip',
+    // .github/workflows/extension-release.yml publishes exactly these names under this tag.
+    const version = EXTENSION_VERSION
+    const files = `https://github.com/flokos/listlinkedin/releases/download/extension-v${version}`
+    expect(href('Download for Chrome')).toBe(`${files}/listlinkedin-${version}-chrome.zip`)
+    expect(href('Download for Firefox')).toBe(`${files}/listlinkedin-${version}-firefox-signed.xpi`)
+    expect(href("See this version's files")).toBe(
+      `https://github.com/flokos/listlinkedin/releases/tag/extension-v${version}`,
     )
-    expect(href('Download for Firefox')).toBe(
-      'https://github.com/flokos/listlinkedin/releases/latest/download/listlinkedin-firefox.xpi',
-    )
-    expect(href('see the latest release')).toBe(
-      'https://github.com/flokos/listlinkedin/releases/latest',
-    )
+    expect(wrapper.text()).toContain(`This is version ${version}.`)
   })
 
   it('opens the other site in a new tab without telling it where the visitor came from', async () => {

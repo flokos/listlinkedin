@@ -69,6 +69,11 @@ jobs:
           docker run --rm -v "$PWD/extension/dist:/app/dist:ro" listlinkedin-extension:dev \
             npm run lint:firefox
           ls extension/dist/listlinkedin-*-chrome.zip extension/dist/listlinkedin-*-firefox.zip
+          # The site's "Browser extension" page links to the release of one extension version:
+          # the one the extension's code says it is.
+          version=$(jq -r .version extension/package.json)
+          grep -qF "EXTENSION_VERSION = '$version'" frontend/src/utils/extensionDownloads.ts ||
+            { echo "::error::frontend/src/utils/extensionDownloads.ts doesn't offer extension version $version"; exit 1; }
 
       # The builds of this commit, for production's address, to try by hand
       # (docs/extension.md). The Firefox one is unsigned: it loads as a temporary add-on.

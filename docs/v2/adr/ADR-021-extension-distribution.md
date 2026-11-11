@@ -1,4 +1,4 @@
-# ADR-021: The extension is handed out with GitHub Releases; Mozilla signs the Firefox build
+# ADR-021: The extension has its own GitHub Releases; Mozilla signs the Firefox build
 
 - Status: Accepted (2026-11-11, user: D37). Follows D36 (no store publishing for now).
 - Related: [docs/extension.md](../../extension.md),
@@ -19,20 +19,26 @@ account, and it signs each version of an add-on once.
 
 ## Decision
 
-1. **A GitHub Release carries the extension.** The workflow `extension-release.yml` runs when
-   a release is published (and by hand for a tag), builds the extension from that tag for
-   production's address in the same Docker targets as CI, and attaches a zip per browser.
-2. **The same workflow has Mozilla sign the Firefox build as an unlisted add-on** and
-   attaches the signed `.xpi`, when the repository secrets `AMO_JWT_ISSUER` and
-   `AMO_JWT_SECRET` exist. Without them it skips the step and says so. The readable source
+1. **The extension is released on its own**, apart from the site (user, 2026-11-11): a tag
+   `extension-v<version>` on `main` and a GitHub Release of that name. Pushing the tag runs
+   the workflow `extension-release.yml`, which checks that the tag names the version in
+   `extension/package.json` and is on `main`, builds the extension for production's address
+   in the same Docker targets as CI, and publishes the release with a zip per browser.
+2. **An extension release is never GitHub's "latest" release.** The server deploys the
+   latest release and only `vX.Y.Z` tags ([ADR-018](ADR-018-pull-based-deployment.md)); the
+   workflow creates its release with `--latest=false`, so the site's deployment never sees it.
+3. **The same workflow has Mozilla sign the Firefox build as an unlisted add-on** and adds
+   the signed `.xpi`, when the repository secrets `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`
+   exist. Without them it warns and the release has no signed file. The readable source
    (`git archive` of `extension/`) is sent along, because the build is bundled.
-3. **The site points to those files.** Its "Browser extension" page (`/extension`) links to
-   the newest release's files under names that don't change (`listlinkedin-chrome.zip`,
-   `listlinkedin-firefox.xpi`), which the workflow attaches beside the versioned ones. The
-   page hosts nothing itself and loads nothing from GitHub: they are plain links.
-4. **The extension has its own version** (`extension/package.json`, `1.0.0` first), raised
-   in every release that changes `extension/`.
-5. The tool is Mozilla's `web-ext`, a locked dev dependency of `extension/`, run in the
+4. **The site points to one extension version.** Its "Browser extension" page (`/extension`)
+   links to the files of the release `extension-v<EXTENSION_VERSION>`
+   (`frontend/src/utils/extensionDownloads.ts`); CI checks that this is the version in
+   `extension/package.json`. The page hosts nothing itself and loads nothing from GitHub:
+   they are plain links.
+5. **The extension has its own version** (`extension/package.json`, `1.0.0` first), raised
+   whenever a new one is released.
+6. The tool is Mozilla's `web-ext`, a locked dev dependency of `extension/`, run in the
    extension's Docker image. No third-party action handles the credentials.
 
 ## Consequences
@@ -43,13 +49,21 @@ account, and it signs each version of an add-on once.
 - Two secrets exist that the application never sees. They live only in GitHub's secret store
   and reach one workflow step as environment variables. Whoever holds them can submit
   versions of this add-on ID; they are revoked on addons.mozilla.org.
-- The extension's code and source are sent to Mozilla at each release that changes it. That
+- The extension's code and source are sent to Mozilla at each of its releases. That
   is the same code as in this repository.
 - The add-on ID belongs to the Mozilla account that signs it first. Listing it on
   addons.mozilla.org later uses the same account and ID.
-- The workflow only adds files to a release. If it fails, the deployment (ADR-018) is not
-  affected, and it can be run again for the tag. Re-signing a version Mozilla already signed
-  fails: raise the version.
+- Releasing the extension deploys nothing, and releasing the site doesn't release the
+  extension. The order matters once: the extension's release must exist before the site that
+  links to it is released, and an extension that needs new endpoints works only once the
+  site has them.
+- A new extension version reaches the site's page with the next site release, because the
+  version is a constant in the frontend. Looking it up from GitHub at run time would make
+  every visitor's browser call GitHub, which the site promises not to do.
+- If someone marks an extension release as "latest" by hand, the server's deploy job ignores
+  it and fails until a site release is latest again.
+- If the workflow fails it can be run again for the tag. Re-signing a version Mozilla
+  already signed fails: raise the version.
 
 ## Not decided here
 

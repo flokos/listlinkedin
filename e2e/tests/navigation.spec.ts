@@ -29,7 +29,7 @@ test.describe('desktop menu', () => {
     await expect(page).toHaveTitle('Browser extension · listlinkedin')
     await expect(page.getByRole('link', { name: 'Download for Firefox' })).toHaveAttribute(
       'href',
-      /\/releases\/latest\/download\/listlinkedin-firefox\.xpi$/,
+      /\/releases\/download\/extension-v[\d.]+\/listlinkedin-[\d.]+-firefox-signed\.xpi$/,
     )
     expect(await page.evaluate(() => (window as unknown as { marker?: string }).marker)).toBe('same document')
   })

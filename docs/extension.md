@@ -10,8 +10,13 @@ this page describes. Developers building it themselves: see
 
 ## Get it
 
-Each [GitHub Release](https://github.com/flokos/listlinkedin/releases) since `v2.3.0` carries
-the extension, built for `https://listlinkedin.versioncontrol.xyz`:
+The site's **Browser extension** page (`/extension`, in the footer) has a download button for
+each browser and the short version of the steps below.
+
+The files themselves are on GitHub. The extension has its own releases, apart from the
+site's: [`extension-v<version>`](https://github.com/flokos/listlinkedin/releases?q=extension-v),
+`extension-v1.0.0` first. Each carries the extension built for
+`https://listlinkedin.versioncontrol.xyz`:
 
 | File | For |
 |---|---|
@@ -19,14 +24,8 @@ the extension, built for `https://listlinkedin.versioncontrol.xyz`:
 | `listlinkedin-<version>-firefox-signed.xpi` | Firefox: signed by Mozilla, stays installed |
 | `listlinkedin-<version>-firefox.zip` | Firefox, unsigned: only as a temporary add-on |
 
-The site's own **Browser extension** page (`/extension`, in the footer) has a download
-button for each browser and the short version of the steps below. Its buttons lead to the
-newest release's files under names without a version (`listlinkedin-chrome.zip`,
-`listlinkedin-firefox.xpi`), which every release also carries.
-
-`<version>` is the extension's own version (`1.0.0` first), not the site's. An extension
-talks to one site, fixed when it is built. For another site (a development stack, your own
-installation), build it yourself with `LL_BASE_URL` set
+An extension talks to one site, fixed when it is built. For another site (a development
+stack, your own installation), build it yourself with `LL_BASE_URL` set
 ([extension/README.md](../extension/README.md#build-and-load-it)).
 
 ## Install it
@@ -107,7 +106,7 @@ does.
 
 ## Update or remove it
 
-- **Update:** download the new release's file. Chrome: replace the folder's contents with
+- **Update:** download the new version's file from the site's page. Chrome: replace the folder's contents with
   the new zip's and press the reload arrow on `chrome://extensions`. Firefox: install the
   new `.xpi` over the old one. You stay connected. There are no automatic updates.
 - **Remove:** disconnect first (options page), so the site forgets this browser at once.
@@ -127,20 +126,30 @@ does.
 
 ## For maintainers: releasing it
 
-`extension/package.json` holds the extension's version. **Raise it in any release that
-changes `extension/`**: Mozilla signs each version once, and browsers treat a file with the
-same version as the same extension.
-
-Publishing a GitHub Release runs
-[`extension-release.yml`](../.github/workflows/extension-release.yml), which builds the
-extension from the release's tag for production's address and attaches the two zips, each
-also under a name without the version, for the site's page
-(`frontend/src/utils/extensionDownloads.ts`). It can
-be run again for a tag from the Actions page. It never touches the deployment
+The extension is released on its own, with the tag `extension-v<version>`. Such a release
+deploys nothing: the server only deploys the site's `vX.Y.Z` releases
 ([ADR-018](v2/adr/ADR-018-pull-based-deployment.md)).
 
-**Mozilla signing** ([ADR-021](v2/adr/ADR-021-extension-distribution.md)) happens in the same
-workflow when two repository secrets exist; without them the step is skipped and says so.
+1. In a pull request, raise the version in `extension/package.json` and
+   `EXTENSION_VERSION` in `frontend/src/utils/extensionDownloads.ts` (CI checks that they
+   agree). Mozilla signs each version once, and browsers treat a file with the same version
+   as the same extension.
+2. After the merge, tag that commit on `main` and push the tag:
+   `git tag extension-v1.1.0 origin/main && git push origin extension-v1.1.0`.
+3. [`extension-release.yml`](../.github/workflows/extension-release.yml) checks that the tag
+   names the code's version and is on `main`, builds the extension for production's address,
+   has Mozilla sign the Firefox build, and publishes a GitHub Release with the three files.
+   The release is never marked "latest": that word belongs to the site's releases, and the
+   server deploys whatever carries it. Don't change that by hand.
+4. Release the site afterwards (or at least after the extension's release exists): its
+   "Browser extension" page links to the files of exactly that extension version. An
+   extension that needs new API endpoints can't connect or work until the site has them.
+
+If the workflow fails, fix the cause and run it again for the tag from the Actions page. If
+Mozilla already signed that version, it won't sign it again: raise the version.
+
+**Mozilla signing** ([ADR-021](v2/adr/ADR-021-extension-distribution.md)) needs two
+repository secrets; without them the workflow warns and the release has no signed file.
 
 1. Sign in on [addons.mozilla.org](https://addons.mozilla.org/developers/addon/api/key/) with
    the Mozilla account that should own the add-on, and generate API credentials.
@@ -148,14 +157,10 @@ workflow when two repository secrets exist; without them the step is skipped and
    as `AMO_JWT_SECRET` (`gh secret set AMO_JWT_ISSUER`, or Settings → Secrets and variables
    → Actions). They are never written to a file or a log.
 
-The workflow then sends the Firefox build and its source to Mozilla as an **unlisted**
-add-on: it is checked automatically and signed, usually within minutes, and is not put on
-addons.mozilla.org. The signed file is attached to the release as
-`listlinkedin-<version>-firefox-signed.xpi` and as `listlinkedin-firefox.xpi`. A release
-without it (no keys, or Mozilla refused) leaves the site's Firefox button without a file:
-run the workflow again for the tag once that is fixed. The add-on's ID
-(`extension@listlinkedin.versioncontrol.xyz`) belongs to the first Mozilla account that
-signs it.
+The workflow sends the Firefox build and its source to Mozilla as an **unlisted** add-on: it
+is checked automatically and signed, usually within minutes, and is not put on
+addons.mozilla.org. The add-on's ID (`extension@listlinkedin.versioncontrol.xyz`) belongs to
+the first Mozilla account that signs it.
 
 Every pull request's `checks` job also keeps both zips for 14 days as the `extension`
 artifact (unsigned, for production's address), to try a change by hand.

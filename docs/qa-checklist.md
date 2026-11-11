@@ -90,7 +90,8 @@ Run this list in **Chrome** and in **Firefox** with a build for the stack under 
 ([extension/README.md](../extension/README.md)), before a release that changes `extension/`
 or the Connect page.
 
-- [ ] A release's files ([extension.md](extension.md#get-it)): the Chrome zip loads unpacked;
+- [ ] An extension release's files ([extension.md](extension.md#get-it)), from the site's
+      "Browser extension" page: the Chrome zip loads unpacked;
       the signed `.xpi` installs from `about:addons` and is still there after Firefox
       restarts; both talk to production.
 - [ ] Install: the welcome page opens by itself. Installed from a file, Firefox's prompt

@@ -247,8 +247,8 @@ Two secrets never reach the application: `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, 
 API credentials for signing the extension's Firefox build
 ([ADR-021](adr/ADR-021-extension-distribution.md)). They exist only as GitHub repository
 secrets, are passed to one step of `extension-release.yml` as environment variables, and are
-used by `web-ext` from the extension's locked dependencies. That workflow runs for published
-releases and by hand, never for pull requests.
+used by `web-ext` from the extension's locked dependencies. That workflow runs for
+`extension-v*` tags and by hand, never for pull requests.
 
 ## Moderation
 
