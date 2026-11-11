@@ -27,6 +27,11 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: "@types/node"  # follows the Node in frontend/Dockerfile
         update-types: [version-update:semver-major]
+      # 3.3.14 reports type errors that aren't there: on a component, a plain attribute with
+      # "//" in its value (a placeholder showing an address) breaks the types of everything
+      # after it in the template. Held at 3.3.13 until a later release.
+      - dependency-name: vue-tsc
+        versions: ["3.3.14"]
 
   - package-ecosystem: npm
     directory: /extension
@@ -40,6 +45,8 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: "@types/node"  # follows the Node in extension/Dockerfile
         update-types: [version-update:semver-major]
+      - dependency-name: vue-tsc  # as for the frontend
+        versions: ["3.3.14"]
 
   - package-ecosystem: npm
     directory: /e2e
