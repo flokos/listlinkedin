@@ -7,6 +7,7 @@ import {
   getRecent,
   type ListSummary,
   markUsed,
+  saveNewListVisibility,
   type Visibility,
 } from './storage'
 
@@ -162,15 +163,24 @@ export async function fetchLinks(code: string): Promise<LinkSummary[]> {
 }
 
 /** Creates a private list. `key` makes a retried request return the same list. */
-export async function createList(title: string, key: string): Promise<ListSummary> {
+/**
+ * Makes a list that `visibility` says who can open: the user's answer in the form that made
+ * it, never a default of this function's. The answer is offered again the next time.
+ */
+export async function createList(
+  title: string,
+  key: string,
+  visibility: Visibility,
+): Promise<ListSummary> {
   const created = summary(
     await asAccount<ApiList>('/api/v2/lists/', {
       method: 'POST',
-      body: { title },
+      body: { title, visibility },
       idempotencyKey: key,
     }),
   )
   await remember(created)
+  await saveNewListVisibility(visibility)
   return created
 }
 

@@ -41,6 +41,10 @@ New lists default to `private` (secure by default). Share is one click in the Sh
 which shows the visibility choice first ([11](11-UI-UX-MIGRATION.md#sharing)). Migrated V1
 lists are `unlisted`, which is exactly their V1 semantics.
 
+The browser extension asks "Who can open it" where it makes a list (since 11.5), because it
+has no page for adding people. The first answer offered is `private`; after that, the one
+the user gave last. The list is still made with what the form shows, never silently.
+
 ## List permission matrix
 
 ✓ = allowed, — = denied. "Can view" means the visibility rule above passes.

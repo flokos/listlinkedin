@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { markUsed, saveConnection } from '../../lib/storage'
+import { getNewListVisibility, markUsed, saveConnection } from '../../lib/storage'
 import { ADA, browser, json } from '../../test/fakeBrowser'
 import { apiList, page, site } from '../../test/site'
 import PickerApp from './PickerApp.vue'
@@ -126,9 +126,18 @@ describe('the picker', () => {
     await wrapper.find('.picker__all input').setValue(true)
     expect((wrapper.find('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(true)
     await wrapper.find('#picker-new-list').setValue('Reading')
+    // The user's choice, made here: the list is made that way, and the choice is kept.
+    await wrapper.find('#picker-new-access').setValue('unlisted')
+    expect(wrapper.find('#picker-new-access-meaning').text()).toBe(
+      'Anyone with this link can view the list, but not change it.',
+    )
     await save()
 
-    expect(bodies[calls.indexOf('POST /api/v2/lists/')]).toEqual({ title: 'Reading' })
+    expect(bodies[calls.indexOf('POST /api/v2/lists/')]).toEqual({
+      title: 'Reading',
+      visibility: 'unlisted',
+    })
+    expect(await getNewListVisibility()).toBe('unlisted')
     expect(wrapper.find('[role="status"]').text()).toContain('3 pages saved.')
     expect(wrapper.find('[role="status"] a').text()).toBe('Open “Reading”')
   })

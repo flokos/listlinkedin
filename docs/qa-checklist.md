@@ -151,6 +151,9 @@ Menus, shortcuts and sharing (since task 11.3):
 - [ ] Refuse the browser's question instead: the page says it can't show the tabs.
 - [ ] Tick a few, choose **A new list…**, save: the sentence says how many were saved, the
       list has them in the order shown, and its history shows one change.
+- [ ] A new list, in the popup and in the picker, has **Who can open it**: "Only people you
+      add" the first time. Choose **Anyone with the link**: the list opens in a private
+      window, and the next new list offers that answer first.
 - [ ] **History**: its own question; the latest visits come first; search narrows them. Save
       some that are in the list already: "… were already there".
 - [ ] Tick more than a list has room for: the note says how many will fit, and the result

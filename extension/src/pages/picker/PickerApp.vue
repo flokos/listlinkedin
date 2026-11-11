@@ -16,12 +16,15 @@ import { historyPages, openTabs } from '../../lib/sources'
 import {
   type Connection,
   getConnection,
+  getNewListVisibility,
   getRecent,
   type ListSummary,
   onConnectionChange,
+  type Visibility,
 } from '../../lib/storage'
 import BrandMark from '../../ui/BrandMark.vue'
 import ConnectPrompt from '../../ui/ConnectPrompt.vue'
+import NewListAccess from '../../ui/NewListAccess.vue'
 import NoticeBox from '../../ui/NoticeBox.vue'
 
 const SOURCES: { name: Optional; label: string }[] = [
@@ -43,6 +46,8 @@ const picked = ref<string[]>([])
 const lists = ref<ListSummary[]>([])
 const target = ref('')
 const newTitle = ref('')
+/** Who can open the new list: the user's answer here, starting from the one given last. */
+const newAccess = ref<Visibility>('private')
 const busy = ref(false)
 const problem = ref('')
 const done = ref<{ result: BatchResult; list: ListSummary; stopped?: string }>()
@@ -108,6 +113,7 @@ async function loadLists() {
 }
 
 onMounted(async () => {
+  newAccess.value = await getNewListVisibility()
   connection.value = await getConnection()
   stop = onConnectionChange((next) => (connection.value = next))
 })
@@ -165,7 +171,7 @@ async function save() {
   try {
     let list = chosen.value
     if (target.value === NEW_LIST) {
-      list = await createList(newTitle.value.trim(), createKey)
+      list = await createList(newTitle.value.trim(), createKey, newAccess.value)
       createKey = crypto.randomUUID()
       lists.value = [list, ...lists.value]
       target.value = list.code
@@ -296,6 +302,12 @@ async function save() {
             autocomplete="off"
           />
         </div>
+        <NewListAccess
+          v-if="target === NEW_LIST"
+          id="picker-new-access"
+          v-model="newAccess"
+          :disabled="busy"
+        />
         <p v-if="picked.length > room" class="ll-muted" role="note">
           {{ picked.length }} pages are ticked and this list has room for {{ room }}: the first
           {{ room }} that aren't in it yet will be saved.

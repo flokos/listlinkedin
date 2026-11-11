@@ -15,7 +15,9 @@ declare const chrome: any
 
 const SITE = 'http://fixture.test/'
 
-const listsOf = async (page: Page): Promise<{ code: string; title: string; link_count: number }[]> =>
+const listsOf = async (
+  page: Page,
+): Promise<{ code: string; title: string; link_count: number; visibility: string }[]> =>
   (await (await page.request.get('/api/v2/lists/')).json()).results
 
 const linksOf = async (page: Page, code: string): Promise<{ destination_url: string; title: string | null }[]> =>
@@ -49,11 +51,14 @@ test('save the open tabs to a new list, then pick from the history', async ({ co
   await picker.getByLabel(/^Select all/).check()
   await expect(picker.getByLabel('Save to')).toHaveValue('+new') // no list yet
   await picker.getByLabel("New list's name").fill('From my tabs')
+  // A new list is private unless the user says otherwise, here.
+  await expect(picker.getByLabel('Who can open it')).toHaveValue('private')
+  await picker.getByLabel('Who can open it').selectOption('unlisted')
   await picker.getByRole('button', { name: 'Save 2 pages' }).click()
   await expect(picker.getByRole('status')).toContainText('2 pages saved.')
 
   const [list] = await listsOf(page)
-  expect(list).toMatchObject({ title: 'From my tabs', link_count: 2 })
+  expect(list).toMatchObject({ title: 'From my tabs', link_count: 2, visibility: 'unlisted' })
   expect(await linksOf(page, list!.code)).toMatchObject([
     { destination_url: SITE, title: 'Fixture' }, // the tabs' titles, as the user saw them
     { destination_url: `${SITE}?second`, title: 'Fixture ?second' },

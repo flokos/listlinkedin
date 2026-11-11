@@ -43,7 +43,8 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
 
 - **The popup** (the toolbar button): "Connect this browser" until an account is connected.
   Then two views. _Save this page_: the tab's title, a list to pick (the ones saved to last
-  first), a new list. _My lists_: the account's lists and groups; a list's links; copying a
+  first), a new list (with who can open it: private unless chosen otherwise, and the answer
+  given last is offered again). _My lists_: the account's lists and groups; a list's links; copying a
   list's, a group's or a link's address; who can open a list; adding a list to a group.
 - **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
