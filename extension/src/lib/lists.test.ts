@@ -112,6 +112,8 @@ describe('groups', () => {
         listCount: 2,
         canAddList: true,
         canSet: false, // an editor of the group, not its owner
+        canEdit: true,
+        canDelete: false,
       },
     ])
     expect((await fetchGroupLists('G')).map((list) => [list.code, list.canEdit])).toEqual([

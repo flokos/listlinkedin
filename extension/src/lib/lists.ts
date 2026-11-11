@@ -12,7 +12,7 @@ import {
 } from './storage'
 
 /** A list as /api/v2/ represents it (backend/apps/sharing/v2/serializers.py), as far as used. */
-interface ApiList {
+export interface ApiList {
   code: string
   title: string
   url: string
@@ -22,7 +22,7 @@ interface ApiList {
   permissions: string[]
 }
 
-interface ApiGroup {
+export interface ApiGroup {
   code: string
   title: string
   url: string
@@ -55,6 +55,10 @@ export interface GroupSummary {
   canAddList: boolean
   /** The server's policy says this account may choose who can open the group. */
   canSet: boolean
+  /** …may rename it, put its lists in another order and take lists out of it. */
+  canEdit: boolean
+  /** …may delete it. */
+  canDelete: boolean
 }
 
 /** A link of a list, as much as showing and sharing it needs. */
@@ -73,7 +77,7 @@ export const LINKS_PER_LIST = 100
 const PAGE_SIZE = 100
 const MAX_PAGES = 5
 
-const summary = (list: ApiList): ListSummary => ({
+export const summary = (list: ApiList): ListSummary => ({
   code: list.code,
   title: list.title,
   url: list.url,
@@ -133,16 +137,21 @@ export async function lastUsedList(): Promise<ListSummary | null> {
 
 export async function fetchGroups(): Promise<GroupSummary[]> {
   const groups = await everyPage<ApiGroup>('/api/v2/groups/')
-  return groups.map((group) => ({
-    code: group.code,
-    title: group.title,
-    url: group.url,
-    visibility: group.visibility,
-    listCount: group.list_count,
-    canAddList: group.permissions.includes('add_list'),
-    canSet: group.permissions.includes('settings'),
-  }))
+  return groups.map(groupSummary)
 }
+
+/** A group as the popup keeps it. What the account may do is the server's word. */
+export const groupSummary = (group: ApiGroup): GroupSummary => ({
+  code: group.code,
+  title: group.title,
+  url: group.url,
+  visibility: group.visibility,
+  listCount: group.list_count,
+  canAddList: group.permissions.includes('add_list'),
+  canSet: group.permissions.includes('settings'),
+  canEdit: group.permissions.includes('edit'),
+  canDelete: group.permissions.includes('delete'),
+})
 
 /** The lists a group shows this account, in the group's order. */
 export async function fetchGroupLists(code: string): Promise<ListSummary[]> {

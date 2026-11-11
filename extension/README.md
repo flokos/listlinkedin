@@ -46,6 +46,10 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
   first), a new list (with who can open it: private unless chosen otherwise, and the answer
   given last is offered again). _My lists_: the account's lists and groups; a list's links; copying a
   list's, a group's or a link's address; who can open a list; adding a list to a group.
+- **Groups in the popup** (_My lists_): **New group** (with who can open it: private unless
+  chosen otherwise), and **Edit group** for a group the account may change: its name, who
+  can open it, adding lists, their order (drag, or the arrows), taking a list out, deleting
+  the group. A group never changes its lists or who can open them.
 - **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
   page or link, then **Save open tabs…** and **Save from history…**. On the toolbar button:
