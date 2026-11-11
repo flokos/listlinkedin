@@ -44,8 +44,10 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
 - **The popup** (the toolbar button): "Connect this browser" until an account is connected.
   Then two views. _Save this page_: the tab's title, a list to pick (the ones saved to last
   first), a new list (with who can open it: private unless chosen otherwise, and the answer
-  given last is offered again). _My lists_: the account's lists and groups; a list's links; copying a
-  list's, a group's or a link's address; who can open a list; adding a list to a group.
+  given last is offered again). _My lists_: the account's lists and groups; a list's links;
+  copying a list's, a group's or a link's address; who can open a list; adding a list to a
+  group; **Edit links** (for who may edit the list): drag a link to another place or move it
+  with the arrows, or remove it.
 - **Groups in the popup** (_My lists_): **New group** (with who can open it: private unless
   chosen otherwise), and **Edit group** for a group the account may change: its name, who
   can open it, adding lists, their order (drag, or the arrows), taking a list out, deleting
