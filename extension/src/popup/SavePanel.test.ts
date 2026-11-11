@@ -1,9 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { cacheLists, markUsed, saveConnection } from '../lib/storage'
 import { ADA, browser, json } from '../test/fakeBrowser'
-import { apiList, page, type Route, site } from '../test/site'
+import { apiGroup, apiList, listSummary as summary, page, type Route, site } from '../test/site'
 import SavePanel from './SavePanel.vue'
 
 const TAB = { url: 'https://example.com/article', title: 'An article' }
@@ -57,6 +57,30 @@ describe('SavePanel', () => {
     })
     expect(wrapper.find('[role="status"]').text()).toBe('Saved to List B.')
     expect(wrapper.find('a').attributes('href')).toBe('https://lists.example.test/l/B')
+  })
+
+  it('copies the short link of the page it just saved, and says who it works for', async () => {
+    const written: string[] = []
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: vi.fn(async (text: string) => void written.push(text)) },
+    })
+    site({
+      ...noGroups,
+      [LISTS]: () => page([apiList('A')]),
+      'POST /api/v2/lists/A/links/': () =>
+        json({ id: 'l1', short_url: 'https://lists.example.test/r/abc' }, 201),
+    })
+    const { wrapper, choose, button, save } = await open()
+    await choose('List A')
+    await save()
+
+    await button('Copy short link')!.trigger('click')
+    await flushPromises()
+
+    expect(written).toEqual(['https://lists.example.test/r/abc'])
+    expect(wrapper.find('.save__copied').text()).toBe(
+      'Short link copied. Only people you add can open this link.',
+    )
   })
 
   it('offers the lists saved to last first, with the latest already chosen', async () => {
@@ -167,7 +191,7 @@ describe('SavePanel', () => {
   it("narrows to a group's lists", async () => {
     site({
       [LISTS]: () => page([apiList('A'), apiList('B')]),
-      [GROUPS]: () => page([{ code: 'G', title: 'Team', list_count: 2 }]),
+      [GROUPS]: () => page([apiGroup('G', { title: 'Team' })]),
       'GET /api/v2/groups/G/lists/': () =>
         json([apiList('B'), apiList('V', { permissions: ['view'] })]),
     })
@@ -201,14 +225,3 @@ describe('SavePanel', () => {
     expect(wrapper.text()).toContain('No list matches.')
   })
 })
-
-function summary(code: string) {
-  return {
-    code,
-    title: `List ${code}`,
-    url: `https://lists.example.test/l/${code}`,
-    visibility: 'private' as const,
-    linkCount: 3,
-    canEdit: true,
-  }
-}

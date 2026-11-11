@@ -2,6 +2,7 @@
 // method and path, and records what was asked.
 import { vi } from 'vitest'
 
+import type { ListSummary } from '../lib/storage'
 import { json } from './fakeBrowser'
 
 export type Route = (init: RequestInit) => Response | Error
@@ -13,7 +14,7 @@ export const apiList = (code: string, extra: Record<string, unknown> = {}) => ({
   url: `https://lists.example.test/l/${code}`,
   visibility: 'private',
   link_count: 3,
-  permissions: ['view', 'edit'],
+  permissions: ['view', 'edit', 'settings'],
   ...extra,
 })
 
@@ -39,6 +40,38 @@ export function site(routes: Record<string, Route>) {
   )
   return { calls, bodies }
 }
+
+/** A list as the extension keeps it (what `apiList(code)` becomes). */
+export const listSummary = (code: string, extra: Partial<ListSummary> = {}): ListSummary => ({
+  code,
+  title: `List ${code}`,
+  url: `https://lists.example.test/l/${code}`,
+  visibility: 'private',
+  linkCount: 3,
+  canEdit: true,
+  canSet: true,
+  ...extra,
+})
+
+/** A group as /api/v2/ sends it, as far as the extension reads it. */
+export const apiGroup = (code: string, extra: Record<string, unknown> = {}) => ({
+  code,
+  title: `Group ${code}`,
+  url: `https://lists.example.test/g/${code}`,
+  visibility: 'private',
+  list_count: 2,
+  permissions: ['view', 'edit', 'add_list', 'settings'],
+  ...extra,
+})
+
+/** A link as /api/v2/ sends it, as far as the extension reads it. */
+export const apiLink = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  destination_url: `https://example.com/${id}`,
+  short_url: `https://lists.example.test/r/short-${id}`,
+  display: { title: `Link ${id}`, site_name: 'example.com' },
+  ...extra,
+})
 
 /** `{next: null, results}`: one page of a paginated answer. */
 export const page = (results: unknown[]) => json({ next: null, results })

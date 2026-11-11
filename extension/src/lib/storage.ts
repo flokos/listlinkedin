@@ -3,7 +3,7 @@
 // `storage.local` survives restarts: the connection (with its session token), and what makes
 // the popup open at once (the account's lists, and the ones used last).
 // `storage.session` lasts until the browser closes and is never written to disk: the secret of
-// a connection that is being made.
+// a connection that is being made, and how the last menu entry or shortcut went.
 //
 // Neither is readable by web pages or by the content script.
 import { ext } from './ext'
@@ -38,6 +38,19 @@ export interface ListSummary {
   linkCount: number
   /** The server's policy says this account may add links. */
   canEdit: boolean
+  /** The server's policy says this account may choose who can open the list. */
+  canSet: boolean
+}
+
+/**
+ * How something done without a window went (a right-click menu, a keyboard shortcut), for the
+ * popup to say the next time it opens.
+ */
+export interface Outcome {
+  tone: 'info' | 'error'
+  text: string
+  /** When, in milliseconds since the epoch. */
+  at: number
 }
 
 interface Local {
@@ -99,3 +112,20 @@ export const savePending = (pending: PendingConnect) =>
   ext().storage.session.set({ [PENDING]: pending })
 
 export const clearPending = () => ext().storage.session.remove(PENDING)
+
+const OUTCOME = 'outcome'
+/** An outcome older than this is no longer worth telling. */
+const OUTCOME_FOR = 10 * 60_000
+
+export const saveOutcome = (outcome: Outcome) => ext().storage.session.set({ [OUTCOME]: outcome })
+
+export const clearOutcome = () => ext().storage.session.remove(OUTCOME)
+
+/** The outcome waiting to be told, if it is recent enough. It is told once. */
+export async function takeOutcome(now = Date.now()): Promise<Outcome | null> {
+  const stored = await ext().storage.session.get(OUTCOME)
+  const outcome = stored[OUTCOME] as Outcome | undefined
+  if (!outcome) return null
+  await clearOutcome()
+  return now - outcome.at <= OUTCOME_FOR ? outcome : null
+}

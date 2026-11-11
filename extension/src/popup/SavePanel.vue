@@ -4,7 +4,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { Disconnected } from '../lib/account'
 import { errorMessage } from '../lib/api'
+import { copyText } from '../lib/clipboard'
 import {
+  byLastUse,
   cachedLists,
   createList,
   fetchGroupLists,
@@ -16,6 +18,7 @@ import {
 } from '../lib/lists'
 import { type PageToSave, pageToSave, whyNotSaveable } from '../lib/pages'
 import { getRecent, type ListSummary } from '../lib/storage'
+import { whoCanOpen } from '../lib/visibility'
 import NoticeBox from '../ui/NoticeBox.vue'
 import ListPicker from './ListPicker.vue'
 
@@ -52,13 +55,9 @@ const editable = computed(() => pool.value.filter((list) => list.canEdit))
 const choices = computed(() => {
   const text = query.value.trim().toLowerCase()
   const found = editable.value.filter((list) => !text || list.title.toLowerCase().includes(text))
-  if (group.value) return found // a group has its own order
-  // The lists saved to last come first, in that order; the rest stay as the site sorts them.
-  const place = (list: ListSummary) => {
-    const index = recent.value.indexOf(list.code)
-    return index === -1 ? recent.value.length : index
-  }
-  return [...found].sort((a, b) => place(a) - place(b))
+  // A group has its own order. Otherwise the lists saved to last come first, in that order,
+  // and the rest stay as the site sorts them.
+  return group.value ? found : byLastUse(found, recent.value)
 })
 const known = computed(() => [...(lists.value ?? []), ...Object.values(inGroup.value).flat()])
 const target = computed(() => known.value.find((list) => list.code === selected.value))
@@ -153,8 +152,23 @@ async function save() {
   }
 }
 
+// The short link opens the page through the site, for whoever may open the list: copying it
+// changes nothing about who that is.
+const copied = ref('')
+async function copyShortLink() {
+  if (!saved.value?.shortUrl) return
+  const { list, shortUrl } = saved.value
+  try {
+    await copyText(shortUrl)
+    copied.value = `Short link copied. ${whoCanOpen(list.visibility, 'list', list.canSet)}`
+  } catch {
+    copied.value = `The browser didn't allow copying. The short link is ${shortUrl}`
+  }
+}
+
 function another() {
   saved.value = undefined
+  copied.value = ''
   selected.value = ''
   void loadLists() // the list just saved to has one more link
 }
@@ -168,10 +182,20 @@ function another() {
     </NoticeBox>
     <div class="ll-row">
       <a class="ll-button" :href="saved.list.url" target="_blank" rel="noreferrer">Open the list</a>
+      <button
+        v-if="saved.shortUrl"
+        type="button"
+        class="ll-button ll-button--tonal"
+        @click="copyShortLink"
+      >
+        Copy short link
+      </button>
       <button type="button" class="ll-button ll-button--text" @click="another">
         Save to another list
       </button>
     </div>
+    <!-- Always there, so that a screen reader hears it fill. -->
+    <p class="ll-muted save__copied" aria-live="polite">{{ copied }}</p>
   </section>
 
   <form v-else class="save" novalidate @submit.prevent="save">
@@ -187,6 +211,7 @@ function another() {
           class="ll-input"
           maxlength="255"
           autocomplete="off"
+          placeholder="The page's own title"
         />
       </div>
       <p class="save__url ll-muted" :title="page.url">{{ page.url }}</p>
@@ -250,6 +275,10 @@ function another() {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+}
+.save__copied {
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 .save__new {
   display: flex;

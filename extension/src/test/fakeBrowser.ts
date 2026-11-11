@@ -21,6 +21,26 @@ export interface Sender {
   tab?: { id: number }
 }
 
+/** A right-click menu entry, as the extension asks the browser for it. */
+export interface MenuEntry {
+  id: string
+  title?: string
+  type?: string
+  parentId?: string
+  contexts: string[]
+}
+
+export interface MenuClick {
+  menuItemId: string
+  pageUrl?: string
+  linkUrl?: string
+}
+
+export interface FakeTab {
+  url?: string
+  title?: string
+}
+
 export function fakeBrowser() {
   const onChanged = event<(changes: Changes, area: string) => void>()
   const area = (name: string) => {
@@ -52,20 +72,59 @@ export function fakeBrowser() {
       }),
     }
   }
+  /** The menus the browser has now, in the order they were made. */
+  const menus: MenuEntry[] = []
+  /** The mark on the toolbar button. */
+  const badge = { text: '', color: '' }
   return {
     runtime: {
       id: 'fake-extension-id',
+      lastError: undefined,
       getURL: (path: string) => `chrome-extension://fake-extension-id/${path}`,
       sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(async () => undefined),
       openOptionsPage: vi.fn(async () => {}),
       onInstalled: event<(details: { reason: string }) => void>(),
+      onStartup: event<() => void>(),
       onMessage:
         event<(message: unknown, sender: Sender, respond: (reply: unknown) => void) => boolean>(),
     },
     storage: { local: area('local'), session: area('session'), onChanged },
     tabs: {
       create: vi.fn(async (options: { url: string }) => ({ id: 1, ...options })),
-      query: vi.fn<(query: unknown) => Promise<{ url?: string; title?: string }[]>>(async () => []),
+      query: vi.fn<(query: unknown) => Promise<FakeTab[]>>(async () => []),
+    },
+    windows: {
+      create: vi.fn(async (options: { url: string; type?: string }) => ({ id: 2, ...options })),
+    },
+    contextMenus: {
+      menus,
+      create: vi.fn((entry: MenuEntry, made?: () => void) => {
+        menus.push(structuredClone(entry))
+        made?.()
+        return entry.id
+      }),
+      removeAll: vi.fn(async () => void menus.splice(0)),
+      onClicked: event<(info: MenuClick, tab?: FakeTab) => void>(),
+    },
+    commands: {
+      onCommand: event<(command: string, tab?: FakeTab) => void>(),
+      getAll: vi.fn<() => Promise<{ name?: string; description?: string; shortcut?: string }[]>>(
+        async () => [],
+      ),
+    },
+    action: {
+      badge,
+      setBadgeText: vi.fn(async ({ text }: { text: string }) => void (badge.text = text)),
+      setBadgeBackgroundColor: vi.fn(
+        async ({ color }: { color: string }) => void (badge.color = color),
+      ),
+    },
+    offscreen: {
+      hasDocument: vi.fn(async () => false),
+      createDocument: vi.fn<(options: { url: string; reasons: string[] }) => Promise<void>>(
+        async () => {},
+      ),
+      closeDocument: vi.fn(async () => {}),
     },
     permissions: {
       contains: vi.fn<(wanted: { origins: string[] }) => Promise<boolean>>(async () => true),

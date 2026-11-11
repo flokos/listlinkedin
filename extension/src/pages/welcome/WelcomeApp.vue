@@ -38,6 +38,12 @@ onBeforeUnmount(() => stop())
         <li>Click the listlinkedin button in the toolbar. Pin it there if it is hidden.</li>
         <li>Choose a list and save.</li>
       </ol>
+      <p>
+        After that it gets shorter: right-click a page or a link and choose
+        <strong>Save to listlinkedin</strong>, or use a keyboard shortcut. They save to a list
+        without opening anything, and a mark on the toolbar button says how it went. The shortcuts
+        are listed in the extension's options.
+      </p>
       <p class="ll-muted">You can close this tab.</p>
     </section>
     <section v-else-if="connection === null" class="ll-card welcome__card">
