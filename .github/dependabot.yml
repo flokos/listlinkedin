@@ -29,6 +29,19 @@ updates:
         update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
+    directory: /extension
+    schedule:
+      interval: weekly
+    groups:
+      extension-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/node"  # follows the Node in extension/Dockerfile
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
     directory: /e2e
     schedule:
       interval: weekly
@@ -40,7 +53,7 @@ updates:
         update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
-    directories: [/backend, /frontend, /e2e]
+    directories: [/backend, /frontend, /extension, /e2e]
     schedule:
       interval: weekly
     ignore:

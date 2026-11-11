@@ -69,6 +69,7 @@ backend/                Django 5.2 + Django REST Framework (its own Docker build
   common/                 framework-free domain errors
   templates/account/      the account emails' wording
 frontend/               Vue 3 + Vuetify 4 + TypeScript; its Dockerfile also builds nginx
+extension/              the browser extension for Chrome and Firefox (Vue 3 + TypeScript)
 deploy/                 nginx config, smoke test, performance run, backup, restore, autoheal
 e2e/                    Playwright tests against the production stack
 docs/                   deployment guide, design system, QA checklist; v2/ specs and ADRs
@@ -129,6 +130,8 @@ docker compose up --build -d
 **Frontend:**
 
 - [frontend/README.md](frontend/README.md) covers the frontend's structure.
+- [extension/README.md](extension/README.md) covers the browser extension, which is built
+  and tested on its own.
 - The design system (palette, tokens, components, accessibility rules) is in
   [docs/design-system.md](docs/design-system.md).
 - The dev server renders a style guide at http://localhost:5173/design.
@@ -145,6 +148,7 @@ docker compose run --rm api pytest                 # backend, against a real Pos
 docker compose exec frontend npm run test          # frontend unit tests (Vitest)
 bash e2e/run.sh                                    # browsers against the production stack
 bash e2e/run.sh --project=chromium a11y.spec       # one browser, one spec
+bash e2e/run.sh --project=extension                # the browser extension, in Chromium
 bash deploy/smoke-test.sh                          # the production stack's HTTP behaviour
 ```
 
@@ -159,8 +163,8 @@ bash deploy/smoke-test.sh                          # the production stack's HTTP
 **CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs three jobs on every pull
 request:
 
-- `checks`: lint, formatting, migrations, the backend and frontend tests, the dependency
-  audit and the production build.
+- `checks`: lint, formatting, migrations, the backend, frontend and extension tests, the
+  dependency audit, the production build and the extension's builds.
 - `proxy`: the smoke test.
 - `e2e`: the end-to-end tests.
 
@@ -197,6 +201,7 @@ request:
 | [docs/deployment.md](docs/deployment.md) | Running it in production, operating it |
 | [docs/v2/](docs/v2/README.md) | The V2 specs, ADRs, roadmap, security review |
 | [docs/design-system.md](docs/design-system.md) | The UI's design system |
+| [extension/README.md](extension/README.md) | The browser extension: building, loading and testing it |
 | [docs/qa-checklist.md](docs/qa-checklist.md) | Manual accessibility and device checks |
 | [docs/v1/](docs/v1/README.md) | Version 1: its README, decisions and threat model |
 | [CLAUDE.md](CLAUDE.md) | Working rules for contributors and coding agents |

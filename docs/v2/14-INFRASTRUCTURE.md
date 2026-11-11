@@ -17,6 +17,7 @@ the host.
 | `nginx` (prod) | ✓ | `/media/` location (read-only volume), `/_allauth/` proxied, upload locations with a larger body limit | static, media and TLS |
 | `frontend` (dev) | ✓ | Vite proxy also forwards `/_allauth/` and `/media/` | dev parity |
 | `mailpit` (dev and e2e only) | — | since task 1.2: in `compose.yaml` (read mail at http://localhost:8025) and in `e2e/compose.e2e.yaml` (tests open emailed links) | email flows can't be tested otherwise. 14 MB image. Not used in production |
+| `extension` (dev, profile `extension`) | — | since task 11.2: rebuilds the browser extension into `extension/dist/` on every change. Not part of the stack, and nothing runs in production: the extension lives in users' browsers | loading a development build in a browser |
 
 New volume: `media` (prod: a named volume or host path, included in backups). Since task 2.3
 it is mounted at `/srv/media` in `api` and `cleanup` (read-write) and in `nginx` (read-only). The
@@ -111,6 +112,7 @@ address.
 | `WORKER_REPLICAS` | compose (production) | `2`: task processes, each running one task at a time (since task 7.1) |
 | `MAINTENANCE_DIR` | nginx (production) | `./deploy/maintenance`: the maintenance page and its `on` switch; nginx answers 503 while the switch exists (since task 9.5) |
 | `LOG_FORMAT` | api, worker, cleanup (production) | `json`: one JSON object per log line; `text` for the development format (since task 9.1) |
+| `LL_BASE_URL`, `LL_GECKO_ID` | the extension's build (`extension/scripts/build.ts`) | production's address and the official add-on ID. The site a build talks to is fixed here; `EXTENSION_BASE_URL` sets it for the `extension` compose service (default: the dev server). Since task 11.2 |
 | `THROTTLE_*` (extended) | api | V1 defaults + new scopes ([13](13-SECURITY.md#rate-limits)); `THROTTLE_ACCOUNT` 300/hour since task 1.1; `THROTTLE_MEMBER_ADD` 60/hour per user since task 1.5; `THROTTLE_UPLOAD` 120/hour per user since task 2.3; `THROTTLE_RESTORE` 120/hour since task 3.3; `THROTTLE_GROUP_CREATE` 30/hour and `THROTTLE_GROUP_MANAGE` 600/hour since task 4.2; `THROTTLE_METADATA_REFRESH` 60/hour per user and `THROTTLE_DIRECTORY` 600/hour per IP since task 8.1; `THROTTLE_REPORT` 10/hour per user or IP since task 9.0; `THROTTLE_BROWSER_CONNECT` 30/hour per IP since task 11.1 |
 
 ## Scheduled jobs

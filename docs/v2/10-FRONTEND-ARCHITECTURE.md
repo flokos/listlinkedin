@@ -105,6 +105,11 @@ window to this origin, accepted only from this window and origin. The page first
 the extension started the request (`findExtension`), and after the user approves hands it the
 one-time code (`sendCode`). The extension's half lives in `extension/` and changes with it.
 
+The extension itself (task 11.2) is its own package, `extension/`, not part of this app: Vue 3
+without Vuetify, its own API client (a session token, never cookies) and its own tests. It
+borrows the app's colours and wording, and nothing else is shared but that protocol
+([extension/README.md](../../extension/README.md)).
+
 ## Components
 
 | V1 component | V2 |

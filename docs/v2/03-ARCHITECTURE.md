@@ -10,6 +10,7 @@ It adds exactly one new process type, a background worker for metadata extractio
 ```mermaid
 flowchart LR
   user((Browser)) -->|HTTPS| nginx
+  ext((Browser extension)) -->|HTTPS, session token| nginx
   subgraph host[Docker Compose host]
     nginx[nginx<br/>TLS, SPA, /media, proxy]
     api[api<br/>Django + DRF, Gunicorn]
@@ -37,6 +38,14 @@ flowchart LR
 | cleanup | V1, extended | Scheduled jobs: expired lists and the throttle cache, sessions (`clearsessions`), task results, stuck tasks (every 5 minutes), erased accounts, unused media (weekly) |
 | db | V1 | All state, including sessions, the rate-limit cache and the task queue |
 | media volume | **new** | Re-encoded images (uploads and fetched icons) |
+
+Since phase 11 the API has a second client next to the SPA (and other frontends,
+[ADR-019](adr/ADR-019-cross-origin-frontends.md)): the **browser extension** in `extension/`,
+for Chrome and Firefox. It is not a runtime component of the host: it runs in users'
+browsers, talks to `/api/v2/` only, and signs in as a connected browser
+([ADR-020](adr/ADR-020-connected-browsers.md)). Like the SPA it never decides who may do
+what: it shows what each list's `permissions` allow
+([extension/README.md](../../extension/README.md)).
 
 ## Layers and dependency direction
 

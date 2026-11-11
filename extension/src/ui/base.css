@@ -1,0 +1,204 @@
+/* The extension's look: listlinkedin's typeface, colours and shapes, without Vuetify. The
+   values are the web app's (frontend/src/design/tokens.ts and themes.ts), where every text and
+   background pairing below is checked for contrast. Light and dark follow the browser. */
+
+:root {
+  color-scheme: light dark;
+  --ll-background: #faf8fd;
+  --ll-surface: #ffffff;
+  --ll-on-surface: #221c2e;
+  --ll-muted: rgb(34 28 46 / 72%);
+  --ll-primary: #6927c8;
+  --ll-on-primary: #ffffff;
+  --ll-primary-container: #ede5ff;
+  --ll-on-primary-container: #481e83;
+  --ll-outline: #857b98;
+  --ll-outline-variant: #e7e2f0;
+  --ll-focus: #7a35e3;
+  --ll-error: #b3263e;
+  --ll-error-container: #fce8ec;
+  --ll-on-error-container: #5c0a1c;
+  --ll-success-container: #e1f5e8;
+  --ll-on-success-container: #0a3a20;
+  --ll-info-container: #e8e7ff;
+  --ll-on-info-container: #1d1a6b;
+  --ll-warning-container: #fdf0d9;
+  --ll-on-warning-container: #3f2600;
+  --ll-radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ll-background: #140d1f;
+    --ll-surface: #1c1529;
+    --ll-on-surface: #f3f0f8;
+    --ll-muted: rgb(243 240 248 / 74%);
+    --ll-primary: #c3a8fc;
+    --ll-on-primary: #2d0f5a;
+    --ll-primary-container: #5822a3;
+    --ll-on-primary-container: #ede5ff;
+    --ll-outline: #857b98;
+    --ll-outline-variant: #352e44;
+    --ll-focus: #c3a8fc;
+    --ll-error: #f4a9b6;
+    --ll-error-container: #5c1426;
+    --ll-on-error-container: #fce8ec;
+    --ll-success-container: #123f27;
+    --ll-on-success-container: #e1f5e8;
+    --ll-info-container: #2c2880;
+    --ll-on-info-container: #e8e7ff;
+    --ll-warning-container: #4a3000;
+    --ll-on-warning-container: #fdf0d9;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* The type is set on body, not :root: Chrome gives an extension's pages a stylesheet of its
+   own (`body { font-family: system-ui; font-size: 75% }`), which inheritance from :root
+   would lose to. */
+body {
+  margin: 0;
+  background: var(--ll-background);
+  color: var(--ll-on-surface);
+  font-family:
+    'Inter Variable',
+    Inter,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-feature-settings: 'cv11', 'ss01'; /* Inter: single-storey a, open digits */
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+a {
+  color: var(--ll-primary);
+}
+
+.ll-muted {
+  color: var(--ll-muted);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ll-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.ll-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--ll-primary);
+  color: var(--ll-on-primary);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ll-button[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ll-button--tonal {
+  background: var(--ll-primary-container);
+  color: var(--ll-on-primary-container);
+}
+
+.ll-button--text {
+  padding: 0 8px;
+  background: transparent;
+  color: var(--ll-primary);
+}
+
+.ll-button--danger {
+  background: var(--ll-error);
+  color: var(--ll-surface);
+}
+
+.ll-field {
+  display: grid;
+  gap: 4px;
+}
+
+.ll-field > label,
+.ll-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ll-muted);
+}
+
+.ll-input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--ll-outline);
+  border-radius: var(--ll-radius);
+  background: var(--ll-surface);
+  color: var(--ll-on-surface);
+  font: inherit;
+}
+
+.ll-card {
+  padding: 16px;
+  border: 1px solid var(--ll-outline-variant);
+  border-radius: 12px;
+  background: var(--ll-surface);
+}
+
+.ll-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The extension's full pages (welcome, options): one readable column. */
+.ll-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  display: grid;
+  gap: 20px;
+}
+
+.ll-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

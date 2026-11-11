@@ -51,6 +51,11 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
   One app never writes another app's models directly; it calls that app's services.
 - Every permission decision goes through the policy module ([12-AUTHORIZATION.md](docs/v2/12-AUTHORIZATION.md)).
   List querysets are filtered by visibility in SQL, not after loading.
+- `extension/` (since 11.2) is the browser extension: a client of `/api/v2/`, not a domain app.
+  It sends `X-Session-Token` with `credentials: 'omit'`, asks for no site but the one it was
+  built for, and shows what `permissions` allow instead of deciding itself. Its message
+  protocol with the Connect page has two halves that change together:
+  `extension/src/lib/bridge.ts` and `frontend/src/utils/extensionBridge.ts`.
 - `List` and `Link` stay the central concepts. Don't add a `WebApp` entity, and don't rename
   `SharedList`/`SharedLink` or their tables.
 
@@ -79,6 +84,9 @@ docker compose run --rm --no-deps api sh -c "ruff check . && ruff format --check
 docker compose run --rm api python manage.py makemigrations --check --dry-run
 docker compose exec frontend sh -c "npm run lint && npm run type-check && npm run test && npm run check:contrast"
 bash e2e/run.sh                                                # Playwright, production stack
+docker build --target dev -t listlinkedin-extension:dev extension   # the browser extension:
+docker run --rm listlinkedin-extension:dev sh -c "npm run lint && npm run format:check && npm run type-check && npm run test"
+docker build --target export --output extension/dist extension      # dist/chrome, dist/firefox
 ```
 
 ## Definition of done for every V2 PR

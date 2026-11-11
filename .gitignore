@@ -11,6 +11,8 @@ deploy/acme/
 # Frontend
 node_modules/
 frontend/dist/
+# Browser extension builds (extension/README.md)
+extension/dist/
 # Playwright MCP output (screenshots, snapshots)
 .playwright-mcp/
 

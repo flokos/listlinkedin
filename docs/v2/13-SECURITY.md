@@ -164,6 +164,15 @@ guessed by someone who already has the image. Moving private images behind an au
   page offers nothing to approve unless the extension in that browser says it started the
   request, so a link someone sent connects nothing. Each connection emails the account; the
   account page lists connections and ends them; ten at most.
+- **The extension** (`extension/`, since 11.2) keeps that token in its own `storage.local`,
+  which web pages and its content script can't read, and the PKCE verifier in
+  `storage.session` (memory only). It sends the token to the one site it was built for
+  (`LL_BASE_URL`) and nowhere else, with `credentials: 'omit'`, so the site's cookies never
+  travel with it. Its manifest asks for that site, `activeTab` and `storage`: it can't read
+  other tabs, history or page content, and runs no script on the pages people save. The
+  content script runs on this site only and relays the Connect page's messages; the
+  background script answers only its own content script in a top frame of this site. The
+  extension loads no remote code and renders titles and names as text only.
 - Email verification and password-reset keys travel in the URL **fragment**
   (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
   nginx logs, as V1's edit-link tokens did. The SPA removes them from the address bar on

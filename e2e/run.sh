@@ -46,6 +46,10 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$SERVER_NAME" \
 echo "Building and starting the production stack..."
 compose up --build -d --quiet-pull 2>&1 | grep -iE "error|fail" || true
 docker build -q -t listlinkedin-e2e e2e >/dev/null
+# The browser extension, built for this stack's address: the `extension` project loads it
+# into Chromium (e2e/tests/extension/).
+docker build -q --target export --build-arg LL_BASE_URL="$PUBLIC_BASE_URL" \
+    --output "$work/extension" extension >/dev/null
 
 nginx_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
     "$(compose ps -q nginx)")
@@ -53,7 +57,8 @@ network="${COMPOSE_PROJECT_NAME}_default"
 
 e2e() {
     docker run --rm --network "$network" --add-host "$SERVER_NAME:$nginx_ip" \
-        --ipc=host -e CI -e E2E_RETRIES -e E2E_WORKERS "$@"
+        --ipc=host -e CI -e E2E_RETRIES -e E2E_WORKERS \
+        -v "$work/extension/chrome:/extension:ro" "$@"
 }
 
 echo "Waiting for the app..."

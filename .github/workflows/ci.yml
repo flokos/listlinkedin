@@ -54,6 +54,21 @@ jobs:
       - name: Frontend type-check and production build
         run: docker build --target build frontend
 
+      - name: Extension lint, format, type-check and unit tests
+        run: |
+          docker build --target dev -t listlinkedin-extension:dev extension
+          docker run --rm listlinkedin-extension:dev sh -c \
+            "npm run lint && npm run format:check && npm run type-check && npm run test"
+
+      # The same pages and scripts for both browsers, each with its own manifest. Mozilla's
+      # linter checks the Firefox build, which no browser test can load (extension/README.md).
+      - name: Extension builds for Chrome and Firefox
+        run: |
+          docker build --target export --output extension/dist extension
+          test -f extension/dist/chrome/manifest.json
+          docker run --rm -v "$PWD/extension/dist:/app/dist:ro" listlinkedin-extension:dev \
+            npm run lint:firefox
+
       # Known vulnerabilities in the locked dependencies (task 9.1). pip-audit reports every
       # advisory with a fix; npm audit fails on high and critical ones. An advisory without a
       # fix is ignored explicitly, with its reason, in docs/v2/21-SECURITY-REVIEW.md.
@@ -63,6 +78,7 @@ jobs:
             ghcr.io/astral-sh/uv:0.9.5-python3.14-bookworm-slim sh -c \
             "uv export --frozen --no-emit-project > /tmp/requirements.txt && uvx pip-audit==2.10.1 --disable-pip -r /tmp/requirements.txt"
           docker run --rm listlinkedin-frontend:dev npm audit --audit-level=high
+          docker run --rm listlinkedin-extension:dev npm audit --audit-level=high
 
       - name: Show service logs on failure
         if: failure()
