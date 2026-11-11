@@ -17,6 +17,18 @@ if ! iptables -C INPUT -p tcp -m state --state NEW -m multiport --dports 80,443 
   command -v docker >/dev/null || netfilter-persistent save
 fi
 
+# SSH takes a key and nothing else, and never root: port 22 may be open to every address
+# (ADR-022). The file sorts first, and sshd keeps the first value it reads.
+cat > /etc/ssh/sshd_config.d/00-listlinkedin-key-only.conf <<'SSHD'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AuthenticationMethods publickey
+SSHD
+chmod 0644 /etc/ssh/sshd_config.d/00-listlinkedin-key-only.conf
+sshd -t
+systemctl try-reload-or-restart ssh # nothing to do while no connection has started it
+
 # Stop here rather than let Docker put the database on the boot volume.
 /usr/local/sbin/lli-prepare-data-volume
 

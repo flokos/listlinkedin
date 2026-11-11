@@ -1,6 +1,7 @@
 # ADR-017: Production on Oracle Cloud Always Free, managed with Terraform
 
-- Status: Accepted (2026-11-01, the user approved the plan; provisioned the same day)
+- Status: Accepted (2026-11-01, the user approved the plan; provisioned the same day). Who
+  may reach SSH was changed by [ADR-022](ADR-022-ssh-key-only-from-any-address.md)
 - Changes: where [deployment](../../deployment.md) runs. Related: D32
   ([20](../20-DECISIONS-AND-OPEN-QUESTIONS.md)), [14](../14-INFRASTRUCTURE.md)
 
