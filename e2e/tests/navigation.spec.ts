@@ -27,9 +27,13 @@ test.describe('desktop menu', () => {
     await page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name: 'Browser extension' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Browser extension' })).toBeFocused()
     await expect(page).toHaveTitle('Browser extension · listlinkedin')
-    await expect(page.getByRole('link', { name: 'Download for Firefox' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Get it for Firefox' })).toHaveAttribute(
       'href',
-      /\/releases\/download\/extension-v[\d.]+\/listlinkedin-[\d.]+-firefox-signed\.xpi$/,
+      'https://addons.mozilla.org/firefox/addon/listlinkedin/',
+    )
+    await expect(page.getByRole('link', { name: 'Download for Chrome' })).toHaveAttribute(
+      'href',
+      /\/releases\/download\/extension-v[\d.]+\/listlinkedin-[\d.]+-chrome\.zip$/,
     )
     expect(await page.evaluate(() => (window as unknown as { marker?: string }).marker)).toBe('same document')
   })

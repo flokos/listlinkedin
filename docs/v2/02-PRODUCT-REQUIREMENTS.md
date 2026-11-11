@@ -171,7 +171,8 @@ same API; lists and links stay the product.
 | Browse lists, groups and links and open them, like bookmarks | Phase 11 (11.3) | |
 | Save all open tabs, or pages picked from history | Phase 11 (11.4, 11.5) | Optional permissions, asked on first use; only the picked pages are sent |
 | Install by hand from a build | Phase 11 (11.6) | Release Firefox keeps an unsigned add-on only until it closes |
-| Store listings (Chrome Web Store, Firefox Add-ons) | Later | The owner's developer accounts |
+| Firefox: install and update from addons.mozilla.org | Phase 11 (11.9) | Mozilla reviews each version ([ADR-023](adr/ADR-023-firefox-add-on-listed-on-mozilla.md)) |
+| Chrome Web Store listing | Later | The owner's developer account |
 | Safari, mobile browsers, a badge for pages already saved, address-bar search, an offline queue | Later | |
 
 ## Cross-cutting [8.6, 8.9, 8.10, 13–15]

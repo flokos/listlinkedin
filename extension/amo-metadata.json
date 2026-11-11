@@ -1,0 +1,24 @@
+{
+  "slug": "listlinkedin",
+  "categories": ["bookmarks"],
+  "summary": {
+    "en-US": "Save pages to your listlinkedin lists and share them, without leaving the page: from the toolbar button, the right-click menu or a keyboard shortcut."
+  },
+  "description": {
+    "en-US": "listlinkedin (https://listlinkedin.versioncontrol.xyz) keeps lists of links that you can share with one address. This extension is its companion in the browser.\n\n<b>What it does</b>\n<ul><li>Save the page you are on, or a link you right-click, into one of your lists or a new one.</li><li>Save several open tabs or pages from your history at once, after you tick them.</li><li>Copy the link of a list, a group or a single link, and choose who can open a list.</li><li>Put a list's links in another order or remove them; make groups of lists and change them.</li><li>Three keyboard shortcuts, which you can change: open the popup, save this page to the list you saved to last, copy that list's link.</li></ul>\n\n<b>What it needs</b>\nA listlinkedin account. You connect the browser by approving it on the site: no password is typed into the extension, and your account page can disconnect it at any time.\n\n<b>What it sends</b>\nOnly to listlinkedin: the address and title of each page you save, and what you do to your lists and groups. Open tabs and history are read inside the browser, only after you allow it, and only the pages you tick are sent. No analytics, no advertising, no code loaded from anywhere.\n\nThe extension and the site are open source (MIT): https://github.com/flokos/listlinkedin"
+  },
+  "homepage": {
+    "en-US": "https://listlinkedin.versioncontrol.xyz/extension"
+  },
+  "support_url": {
+    "en-US": "https://github.com/flokos/listlinkedin/issues"
+  },
+  "privacy_policy": {
+    "en-US": "The extension talks to one site, https://listlinkedin.versioncontrol.xyz, and to nothing else.\n\nIt sends to that site: the address and the title of each page you choose to save, and the changes you make to your lists and groups. The site stores them in your account, as it does when you use the site itself; who can open a list is your choice there.\n\nIt keeps in this browser: the connection to your account (a session token, your email address and the name you gave this browser), the names of your lists and which ones you used last, and your last answer to \"Who can open it\". Disconnecting, on the extension's options page or on your account page, removes them.\n\nThe open tabs and the browsing history are read only after you allow it, inside the browser, to show you a list to tick from. Only the pages you tick are sent. The extension does not read page content or the clipboard.\n\nThere is no analytics, advertising or tracking, and nothing is sold or shared with anyone else. The site's own privacy page: https://listlinkedin.versioncontrol.xyz/about"
+  },
+  "requires_payment": false,
+  "version": {
+    "license": "MIT",
+    "approval_notes": "The extension is a client of https://listlinkedin.versioncontrol.xyz and needs an account there, which anyone can create for free on the site (Sign up; the email address is confirmed by a link). To test: install, choose \"Connect this browser\" on the welcome page, sign in on the site and choose Connect; then save a page from the toolbar popup or the right-click menu.\n\nThe code is bundled with Vite (Vue 3, TypeScript) and not minified. The uploaded source is the repository's extension/ folder (https://github.com/flokos/listlinkedin, MIT). To build it: `docker build --target export --output dist .` in that folder (Node 26, `npm ci && npm run build && npm run pack`); the Firefox build is dist/firefox. Details: README.md in the source.\n\nThe linter's UNSAFE_VAR_ASSIGNMENT warning is in Vue's runtime (insertStaticContent, for templates compiled at build time). The extension's own code never sets HTML from data: the lint rule vue/no-v-html is an error."
+  }
+}

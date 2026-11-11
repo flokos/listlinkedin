@@ -1,6 +1,6 @@
 # Releases the browser extension, on its own: a GitHub Release named after the tag
-# `extension-v<version>`, with a zip per browser and the Firefox build signed by Mozilla when
-# the signing keys are set (docs/extension.md, ADR-021).
+# `extension-v<version>`, with a zip per browser; then the Firefox build is submitted to
+# addons.mozilla.org, where Firefox users install it (docs/extension.md, ADR-021, ADR-023).
 #
 # It is not a release of the site. The server deploys only `vX.Y.Z` releases, and only the
 # one GitHub calls "latest" (ADR-018): this workflow never marks its release as latest.
@@ -64,36 +64,6 @@ jobs:
           mkdir release
           cp extension/dist/listlinkedin-*.zip release/
 
-      # Mozilla signs a build so that Firefox keeps it installed ("unlisted": it is not put
-      # on addons.mozilla.org). The keys are the repository secrets AMO_JWT_ISSUER and
-      # AMO_JWT_SECRET; without them this step says so and the release has no signed file.
-      # Mozilla signs each version once.
-      - name: Have Mozilla sign the Firefox build
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
-            echo "::warning::No Mozilla signing keys (AMO_JWT_ISSUER, AMO_JWT_SECRET): this release has no signed Firefox add-on."
-            exit 0
-          fi
-          # The readable source of the bundled code, which Mozilla asks for; extension/README.md
-          # says how to build it.
-          mkdir -p signed
-          git archive --format=zip -o signed/source.zip HEAD extension
-          # A copy of the build: web-ext keeps a note of its upload inside the folder it signs
-          # (.amo-upload-uuid), so that folder can't be read-only, and the zips stay untouched.
-          cp -r extension/dist/firefox signed/firefox
-          docker run --rm -e WEB_EXT_API_KEY -e WEB_EXT_API_SECRET \
-            -v "$PWD/signed:/signed" \
-            listlinkedin-extension:dev \
-            web-ext sign --no-config-discovery --channel unlisted \
-              --source-dir /signed/firefox --artifacts-dir /signed \
-              --upload-source-code /signed/source.zip
-          xpi=$(ls signed/*.xpi | head -n 1)
-          sudo cp "$xpi" "release/listlinkedin-$VERSION-firefox-signed.xpi"
-
       # Never "latest": that word is the site's, and the server deploys what carries it.
       - name: Publish the release
         env:
@@ -106,5 +76,37 @@ jobs:
           else
             gh release create "$TAG" release/* --verify-tag --latest=false \
               --title "Browser extension $VERSION" \
-              --notes "The listlinkedin browser extension, version $VERSION, for https://listlinkedin.versioncontrol.xyz. How to install it: https://github.com/$GITHUB_REPOSITORY/blob/main/docs/extension.md"
+              --notes "The listlinkedin browser extension, version $VERSION, for https://listlinkedin.versioncontrol.xyz. Firefox: install it from https://addons.mozilla.org/firefox/addon/listlinkedin/ (once Mozilla has reviewed this version). Chrome and others: the zip below. How to install it: https://github.com/$GITHUB_REPOSITORY/blob/main/docs/extension.md"
           fi
+
+      # Last, so that a refusal by Mozilla leaves the GitHub Release in place. The Firefox
+      # build goes to addons.mozilla.org as a listed add-on (ADR-023): Mozilla reviews it,
+      # publishes it on the add-on's page and updates the installed copies itself. The listing's
+      # texts are extension/amo-metadata.json. The step doesn't wait for the review. The keys
+      # are the repository secrets AMO_JWT_ISSUER and AMO_JWT_SECRET; without them this step
+      # says so and nothing is submitted. Mozilla takes each version once.
+      - name: Submit the Firefox build to addons.mozilla.org
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::warning::No Mozilla keys (AMO_JWT_ISSUER, AMO_JWT_SECRET): this version was not submitted to addons.mozilla.org."
+            exit 0
+          fi
+          # The readable source of the bundled code, which Mozilla asks for; extension/README.md
+          # says how to build it.
+          mkdir -p amo
+          git archive --format=zip -o amo/source.zip HEAD extension
+          cp extension/amo-metadata.json amo/
+          # A copy of the build: web-ext keeps a note of its upload inside the folder it sends
+          # (.amo-upload-uuid), so that folder can't be read-only.
+          cp -r extension/dist/firefox amo/firefox
+          docker run --rm -e WEB_EXT_API_KEY -e WEB_EXT_API_SECRET \
+            -v "$PWD/amo:/amo" \
+            listlinkedin-extension:dev \
+            web-ext sign --no-config-discovery --channel listed --approval-timeout 0 \
+              --source-dir /amo/firefox --artifacts-dir /amo \
+              --amo-metadata /amo/amo-metadata.json \
+              --upload-source-code /amo/source.zip
+          echo "Submitted. Mozilla reviews it; it then appears on https://addons.mozilla.org/firefox/addon/listlinkedin/"

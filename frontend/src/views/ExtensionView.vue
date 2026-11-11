@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Where to get the browser extension and how to install it. The files are on GitHub (the
-// extension is in no store): this page only links to them.
-import { mdiDownload, mdiFirefox, mdiGoogleChrome } from '@mdi/js'
+// Where to get the browser extension and how to install it: Firefox's from Mozilla's add-on
+// site, Chrome's as a file on GitHub (it is not in the Chrome Web Store). This page only
+// links to them.
+import { mdiDownload, mdiFirefox, mdiGoogleChrome, mdiOpenInNew } from '@mdi/js'
 
 import { EXTENSION_VERSION, extensionDownloads } from '../utils/extensionDownloads'
 
@@ -11,6 +12,7 @@ const browsers = [
     icon: mdiGoogleChrome,
     title: 'Chrome, Edge, Brave',
     download: 'Download for Chrome',
+    buttonIcon: mdiDownload,
     href: extensionDownloads.chrome,
     file: 'A zip file, from GitHub',
     steps: [
@@ -24,13 +26,14 @@ const browsers = [
     id: 'firefox',
     icon: mdiFirefox,
     title: 'Firefox',
-    download: 'Download for Firefox',
+    download: 'Get it for Firefox',
+    buttonIcon: mdiOpenInNew,
     href: extensionDownloads.firefox,
-    file: 'An add-on file signed by Mozilla, from GitHub',
+    file: 'On addons.mozilla.org, Mozilla’s add-on site',
     steps: [
-      'Firefox 140 or later. If Firefox asks whether to install it, choose “Continue to Installation”.',
-      'Otherwise open about:addons, the gear, “Install Add-on From File…”, and pick the file.',
+      'Firefox 140 or later. On Mozilla’s page, choose “Add to Firefox”.',
       'Choose “Add”. Firefox says what the add-on sends: the address and title of pages you save.',
+      'Firefox keeps it up to date by itself.',
     ],
   },
 ]
@@ -54,7 +57,7 @@ const browsers = [
           </div>
           <v-btn
             :href="browser.href"
-            :prepend-icon="mdiDownload"
+            :prepend-icon="browser.buttonIcon"
             color="primary"
             rel="noopener noreferrer"
             class="mb-2"
@@ -81,9 +84,9 @@ const browsers = [
       <h2 class="text-headline-small mb-3">Good to know</h2>
       <ul class="text-body-large ll-extension-notes mb-6">
         <li>
-          This is version {{ EXTENSION_VERSION }}. The extension is not in the Chrome Web Store or
-          on addons.mozilla.org: its files are published on GitHub, and it doesn't update by itself.
-          A newer version appears here; install it over the old one.
+          This is version {{ EXTENSION_VERSION }}. Firefox updates the add-on by itself. The
+          extension is not in the Chrome Web Store: for Chrome its file is published on GitHub and
+          doesn't update by itself. A newer version appears here; install it over the old one.
           <a
             :href="extensionDownloads.release"
             target="_blank"

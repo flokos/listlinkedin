@@ -5,17 +5,21 @@ the site: from the button on the browser's toolbar, the right-click menu and key
 shortcuts. It works in Chrome, Edge and other Chromium browsers, and in Firefox 140 or later,
 on a computer. It is not made for phones (owner's decision, 2026-11-11): there, use the site.
 
-It is not in the Chrome Web Store or on addons.mozilla.org. You install it from a file, as
-this page describes. Developers building it themselves: see
+Firefox users install it from Mozilla's add-on site,
+[addons.mozilla.org](https://addons.mozilla.org/firefox/addon/listlinkedin/), where it can
+also be found by searching for "listlinkedin"
+([ADR-023](v2/adr/ADR-023-firefox-add-on-listed-on-mozilla.md)). It is not in the Chrome Web
+Store: in Chrome you install it from a file, as this page describes. Developers building it themselves: see
 [extension/README.md](../extension/README.md).
 
 ## Get it
 
 The site's **Browser extension** page (`/extension`: in the ⋮ menu at the top, at the foot
-of the phone menu and in the footer) has a download button for
-each browser and the short version of the steps below.
+of the phone menu and in the footer) has a button for
+each browser and the short version of the steps below. Firefox's leads to the add-on's page
+on addons.mozilla.org.
 
-The files themselves are on GitHub. The extension has its own releases, apart from the
+The files are on GitHub. The extension has its own releases, apart from the
 site's: [`extension-v<version>`](https://github.com/flokos/listlinkedin/releases?q=extension-v),
 `extension-v1.0.0` first. Each carries the extension built for
 `https://listlinkedin.versioncontrol.xyz`:
@@ -23,8 +27,10 @@ site's: [`extension-v<version>`](https://github.com/flokos/listlinkedin/releases
 | File | For |
 |---|---|
 | `listlinkedin-<version>-chrome.zip` | Chrome, Edge, Brave and other Chromium browsers |
-| `listlinkedin-<version>-firefox-signed.xpi` | Firefox: signed by Mozilla, stays installed |
-| `listlinkedin-<version>-firefox.zip` | Firefox, unsigned: only as a temporary add-on |
+| `listlinkedin-<version>-firefox.zip` | Firefox, unsigned: only as a temporary add-on. What Mozilla signs and offers on its site is this build |
+
+`extension-v1.0.0` also has `listlinkedin-1.0.0-firefox-signed.xpi`, from before the add-on
+was on Mozilla's site.
 
 An extension talks to one site, fixed when it is built. For another site (a development
 stack, your own installation), build it yourself with `LL_BASE_URL` set
@@ -46,10 +52,14 @@ expected for an extension that didn't come from the store.
 
 ### Firefox
 
-**Signed (`…-firefox-signed.xpi`):** open the file with Firefox (drag it into a window, or
-`about:addons` → the gear → **Install Add-on From File…**) and choose **Add**. Firefox names
-the site the add-on may reach and says that it sends browsing activity and website content:
-the address and the title of each page you save.
+**From Mozilla's site:** open the
+[add-on's page](https://addons.mozilla.org/firefox/addon/listlinkedin/) (or search for
+"listlinkedin" on addons.mozilla.org, or in `about:addons`), choose **Add to Firefox**, then
+**Add**. Firefox names the site the add-on may reach and says that it sends browsing activity
+and website content: the address and the title of each page you save. Firefox 140 or later.
+
+If you installed the `1.0.0` file by hand, Firefox should replace it with the newer version
+from Mozilla by itself; installing from the add-on's page does the same. You stay connected.
 
 **Unsigned (`…-firefox.zip`, or your own build):** release Firefox only loads it until it
 closes. Unzip it, open `about:debugging#/runtime/this-firefox`, choose **Load Temporary
@@ -108,9 +118,9 @@ does.
 
 ## Update or remove it
 
-- **Update:** download the new version's file from the site's page. Chrome: replace the folder's contents with
-  the new zip's and press the reload arrow on `chrome://extensions`. Firefox: install the
-  new `.xpi` over the old one. You stay connected. There are no automatic updates.
+- **Update:** Firefox updates the add-on by itself. Chrome: download the new version's zip
+  from the site's page, replace the folder's contents with the new zip's and press the reload
+  arrow on `chrome://extensions`; there are no automatic updates. You stay connected.
 - **Remove:** disconnect first (options page), so the site forgets this browser at once.
   Then remove the extension on `chrome://extensions` or `about:addons`.
 
@@ -118,7 +128,7 @@ does.
 
 | What you see | What to do |
 |---|---|
-| Firefox: "This add-on could not be installed because it has not been verified" | That file is unsigned. Use the `-signed.xpi`, or load it as a temporary add-on |
+| Firefox: "This add-on could not be installed because it has not been verified" | That file is unsigned. Install from addons.mozilla.org, or load it as a temporary add-on |
 | The popup says the extension can't reach listlinkedin | Chrome: `chrome://extensions` → Details → **Site access** must allow the site. Firefox: `about:addons` → listlinkedin → **Permissions**. Or choose **Allow access** where the extension offers it |
 | The Connect page says "Open this page from the extension" | It was opened by hand or reloaded. Start again from the extension's **Connect this browser** |
 | "This browser isn't connected" after it worked before | The connection ended (password change, 90 days unused, disconnected on the site). Connect again |
@@ -134,24 +144,32 @@ deploys nothing: the server only deploys the site's `vX.Y.Z` releases
 
 1. In a pull request, raise the version in `extension/package.json` and
    `EXTENSION_VERSION` in `frontend/src/utils/extensionDownloads.ts` (CI checks that they
-   agree). Mozilla signs each version once, and browsers treat a file with the same version
-   as the same extension.
+   agree). Mozilla takes each version once, and browsers treat a file with the same version
+   as the same extension. If what the extension reads, sends or keeps changed, change
+   `extension/amo-metadata.json` (the listing's description and privacy policy) too.
 2. After the merge, tag that commit on `main` and push the tag:
    `git tag extension-v1.1.0 origin/main && git push origin extension-v1.1.0`.
 3. [`extension-release.yml`](../.github/workflows/extension-release.yml) checks that the tag
    names the code's version and is on `main`, builds the extension for production's address,
-   has Mozilla sign the Firefox build, and publishes a GitHub Release with the three files.
+   publishes a GitHub Release with the two zips, and then submits the Firefox build to
+   addons.mozilla.org. It doesn't wait for Mozilla's review.
    The release is never marked "latest": that word belongs to the site's releases, and the
    server deploys whatever carries it. Don't change that by hand.
-4. Release the site afterwards (or at least after the extension's release exists): its
-   "Browser extension" page links to the files of exactly that extension version. An
+4. Mozilla reviews the version: minutes to days. The result comes by email to the Mozilla
+   account and shows in the
+   [Developer Hub](https://addons.mozilla.org/developers/addons). Once approved, the version
+   is on the add-on's page and Firefox updates installed copies.
+5. Release the site afterwards (after the extension's release exists, and the first time
+   after Mozilla has published the add-on's page): its "Browser extension" page links to
+   that page and to the Chrome zip of exactly that extension version. An
    extension that needs new API endpoints can't connect or work until the site has them.
 
 If the workflow fails, fix the cause and run it again for the tag from the Actions page. If
-Mozilla already signed that version, it won't sign it again: raise the version.
+Mozilla already has that version, it won't take it again: raise the version.
 
-**Mozilla signing** ([ADR-021](v2/adr/ADR-021-extension-distribution.md)) needs two
-repository secrets; without them the workflow warns and the release has no signed file.
+**Submitting to Mozilla** ([ADR-021](v2/adr/ADR-021-extension-distribution.md),
+[ADR-023](v2/adr/ADR-023-firefox-add-on-listed-on-mozilla.md)) needs two repository
+secrets; without them the workflow warns and nothing is submitted.
 
 1. Sign in on [addons.mozilla.org](https://addons.mozilla.org/developers/addon/api/key/) with
    the Mozilla account that should own the add-on, and generate API credentials.
@@ -159,10 +177,16 @@ repository secrets; without them the workflow warns and the release has no signe
    as `AMO_JWT_SECRET` (`gh secret set AMO_JWT_ISSUER`, or Settings → Secrets and variables
    → Actions). They are never written to a file or a log.
 
-The workflow sends the Firefox build and its source to Mozilla as an **unlisted** add-on: it
-is checked automatically and signed, usually within minutes, and is not put on
-addons.mozilla.org. The add-on's ID (`extension@listlinkedin.versioncontrol.xyz`) belongs to
-the first Mozilla account that signs it.
+The workflow sends the Firefox build, its source and the listing's texts
+(`extension/amo-metadata.json`: summary, description, category, privacy policy, license,
+notes for the reviewer) to Mozilla as a **listed** add-on. The add-on's ID
+(`extension@listlinkedin.versioncontrol.xyz`) belongs to the Mozilla account that signed it
+first. Version `1.0.0` was signed as an unlisted add-on (a file only, no page); from `1.0.1`
+it is listed.
+
+By hand, in the Developer Hub: screenshots for the add-on's page (the workflow can't send
+them), and answers to a reviewer's questions. The linter's "Unsafe assignment to innerHTML"
+warning is Vue's runtime, as the notes for the reviewer say.
 
 Every pull request's `checks` job also keeps both zips for 14 days as the `extension`
 artifact (unsigned, for production's address), to try a change by hand.

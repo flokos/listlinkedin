@@ -29,8 +29,10 @@ docker compose --profile extension up extension
 
 That writes `extension/dist/chrome` and `extension/dist/firefox`, and each as a zip beside
 them (`listlinkedin-<version>-chrome.zip`, `…-firefox.zip`): what an extension release
-carries. Installing a released build, and how the extension is released and signed, is in
-[docs/extension.md](../docs/extension.md).
+carries. Installing a released build, and how the extension is released and put on
+addons.mozilla.org, is in [docs/extension.md](../docs/extension.md). The texts of that
+listing are `amo-metadata.json`: keep its description and privacy policy true when the
+extension changes what it reads, sends or keeps.
 
 - **Chrome, Edge and other Chromium browsers:** open `chrome://extensions`, turn on
   **Developer mode**, choose **Load unpacked** and pick `extension/dist/chrome`. After a

@@ -21,7 +21,7 @@ async function open() {
 }
 
 describe('ExtensionView', () => {
-  it("links to the files of the extension's own release", async () => {
+  it("links to Mozilla's add-on page and to the files of the extension's own release", async () => {
     const wrapper = await open()
     const href = (text: string) =>
       wrapper
@@ -34,7 +34,11 @@ describe('ExtensionView', () => {
     const version = EXTENSION_VERSION
     const files = `https://github.com/flokos/listlinkedin/releases/download/extension-v${version}`
     expect(href('Download for Chrome')).toBe(`${files}/listlinkedin-${version}-chrome.zip`)
-    expect(href('Download for Firefox')).toBe(`${files}/listlinkedin-${version}-firefox-signed.xpi`)
+    // The address .github/workflows/extension-release.yml submits the add-on under (the
+    // slug in extension/amo-metadata.json).
+    expect(href('Get it for Firefox')).toBe(
+      'https://addons.mozilla.org/firefox/addon/listlinkedin/',
+    )
     expect(href("See this version's files")).toBe(
       `https://github.com/flokos/listlinkedin/releases/tag/extension-v${version}`,
     )

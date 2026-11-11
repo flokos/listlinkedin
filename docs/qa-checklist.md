@@ -92,9 +92,9 @@ or the Connect page.
 
 - [ ] An extension release's files ([extension.md](extension.md#get-it)), from the site's
       "Browser extension" page: the Chrome zip loads unpacked;
-      the signed `.xpi` installs from `about:addons` and is still there after Firefox
-      restarts; both talk to production.
-- [ ] Install: the welcome page opens by itself. Installed from a file, Firefox's prompt
+      the Firefox add-on installs from its page on addons.mozilla.org ("Add to Firefox") and
+      is still there after Firefox restarts; both talk to production.
+- [ ] Install: the welcome page opens by itself. Installed from Mozilla's site, Firefox's prompt
       names the site and says the extension sends browsing activity and website content (a
       temporary add-on shows no prompt).
 - [ ] Connect from the welcome page while signed out on the site: sign in, land on "Connect

@@ -244,8 +244,9 @@ the request id and the user id, and authentication events are logged
 credentials ([14](14-INFRASTRUCTURE.md)).
 
 Two secrets never reach the application: `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, Mozilla's
-API credentials for signing the extension's Firefox build
-([ADR-021](adr/ADR-021-extension-distribution.md)). They exist only as GitHub repository
+API credentials for submitting the extension's Firefox build to addons.mozilla.org
+([ADR-021](adr/ADR-021-extension-distribution.md),
+[ADR-023](adr/ADR-023-firefox-add-on-listed-on-mozilla.md)). They exist only as GitHub repository
 secrets, are passed to one step of `extension-release.yml` as environment variables, and are
 used by `web-ext` from the extension's locked dependencies. That workflow runs for
 `extension-v*` tags and by hand, never for pull requests.
