@@ -1,0 +1,86 @@
+# Attaches the browser extension to a GitHub Release: a zip per browser, and the Firefox
+# build signed by Mozilla when the signing keys are set (docs/extension.md, ADR-021).
+#
+# The site itself is deployed by the server, which pulls the release (ADR-018). This workflow
+# only adds files to the release; a failure here never touches the deployment.
+name: Extension release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag (vX.Y.Z) to build the extension from and attach it to
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extension-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write # to add files to the release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+
+      # For production's address (the Dockerfile's default), and checked by Mozilla's linter.
+      - name: Build the extension for Chrome and Firefox
+        run: |
+          docker build --target dev -t listlinkedin-extension:dev extension
+          docker build --target export --output extension/dist extension
+          docker run --rm -v "$PWD/extension/dist:/app/dist:ro" listlinkedin-extension:dev \
+            npm run lint:firefox
+
+      - name: Attach the zips to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" extension/dist/listlinkedin-*.zip --clobber
+
+      # Mozilla signs a build so that Firefox keeps it installed ("unlisted": it is not put
+      # on addons.mozilla.org). The keys are the repository secrets AMO_JWT_ISSUER and
+      # AMO_JWT_SECRET; without them this step says so and is skipped. Mozilla signs each
+      # version once: a release that changes extension/ raises its version first.
+      - name: Have Mozilla sign the Firefox build
+        id: sign
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::notice::No Mozilla signing keys (AMO_JWT_ISSUER, AMO_JWT_SECRET): the Firefox build is attached unsigned."
+            exit 0
+          fi
+          # The readable source of the bundled code, which Mozilla asks for; extension/README.md
+          # says how to build it.
+          mkdir -p signed
+          git archive --format=zip -o signed/source.zip HEAD extension
+          docker run --rm -e WEB_EXT_API_KEY -e WEB_EXT_API_SECRET \
+            -v "$PWD/extension/dist:/app/dist:ro" -v "$PWD/signed:/signed" \
+            listlinkedin-extension:dev \
+            web-ext sign --no-config-discovery --channel unlisted \
+              --source-dir dist/firefox --artifacts-dir /signed \
+              --upload-source-code /signed/source.zip
+          version=$(jq -r .version extension/package.json)
+          xpi=$(ls signed/*.xpi | head -n 1)
+          sudo cp "$xpi" "listlinkedin-$version-firefox-signed.xpi"
+          echo "xpi=listlinkedin-$version-firefox-signed.xpi" >> "$GITHUB_OUTPUT"
+
+      - name: Attach the signed Firefox add-on to the release
+        if: steps.sign.outputs.xpi != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          XPI: ${{ steps.sign.outputs.xpi }}
+        run: gh release upload "$TAG" "$XPI" --clobber

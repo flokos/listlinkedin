@@ -154,6 +154,11 @@ below when something fails and mails the result to `MODERATION_EMAIL`. Put a lin
 `[manual-deploy]` in the release notes of a release that needs more than these steps; it is
 then skipped and reported. The marker anywhere else in a line doesn't count.
 
+Publishing a release also attaches the browser extension to it, built from the same tag
+(`extension-release.yml`, [extension.md](extension.md#for-maintainers-releasing-it)). That
+only adds files to the release. Raise `extension/package.json`'s version in a release that
+changes `extension/`.
+
 **Rolling back:**
 
 1. Check out the previous tag.

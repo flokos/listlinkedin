@@ -27,10 +27,12 @@ ARG LL_GECKO_ID=extension@listlinkedin.versioncontrol.xyz
 ARG LL_GRANT_OPTIONAL=
 ENV LL_BASE_URL=$LL_BASE_URL LL_GECKO_ID=$LL_GECKO_ID LL_GRANT_OPTIONAL=$LL_GRANT_OPTIONAL
 COPY . .
-RUN npm run build
+# The two folders, then each as a zip beside them: what a release carries (docs/extension.md).
+RUN npm run build && npm run pack
 
 
 # Only the build's output, for `docker build --target export --output extension/dist extension`:
-# dist/chrome and dist/firefox, each a folder a browser can load.
+# dist/chrome and dist/firefox, each a folder a browser can load, and
+# dist/listlinkedin-{version}-{chrome,firefox}.zip, the same two to hand out.
 FROM scratch AS export
 COPY --from=build /app/dist /

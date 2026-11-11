@@ -107,6 +107,17 @@ const principles = [
           </v-expansion-panel-text>
         </v-expansion-panel>
 
+        <v-expansion-panel title="What does the browser extension send and keep?">
+          <v-expansion-panel-text>
+            The extension talks only to this site. It sends the address and title of a page when you
+            save it, and nothing about pages you only visit. It reads your open tabs or your history
+            only after you allow that, inside your browser, and sends only the pages you tick. In
+            your browser it keeps what connects it to your account, your lists' names and your last
+            choices; disconnecting it, there or on your account page, removes them. It has no
+            analytics.
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
         <v-expansion-panel title="Is there an API?">
           <v-expansion-panel-text>
             Yes. Everything this site does is available through a documented REST API:

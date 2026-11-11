@@ -243,6 +243,13 @@ the request id and the user id, and authentication events are logged
 ([21](21-SECURITY-REVIEW.md#logging)). Secrets stay environment-only. New secrets are the SMTP
 credentials ([14](14-INFRASTRUCTURE.md)).
 
+Two secrets never reach the application: `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, Mozilla's
+API credentials for signing the extension's Firefox build
+([ADR-021](adr/ADR-021-extension-distribution.md)). They exist only as GitHub repository
+secrets, are passed to one step of `extension-release.yml` as environment variables, and are
+used by `web-ext` from the extension's locked dependencies. That workflow runs for published
+releases and by hand, never for pull requests.
+
 ## Moderation
 
 Since task 9.0 (D29, which answers Q10): reports from the people who see a list or group, and

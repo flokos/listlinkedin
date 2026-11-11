@@ -88,7 +88,7 @@ docker compose exec frontend sh -c "npm run lint && npm run type-check && npm ru
 bash e2e/run.sh                                                # Playwright, production stack
 docker build --target dev -t listlinkedin-extension:dev extension   # the browser extension:
 docker run --rm listlinkedin-extension:dev sh -c "npm run lint && npm run format:check && npm run type-check && npm run test"
-rm -rf extension/dist && docker build --target export --output extension/dist extension   # dist/chrome, dist/firefox
+rm -rf extension/dist && docker build --target export --output extension/dist extension   # dist/chrome, dist/firefox, a zip of each
 ```
 
 ## Definition of done for every V2 PR
