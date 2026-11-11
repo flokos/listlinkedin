@@ -2,8 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { startConnect } from '../lib/connect'
-import { getConnection, getPending } from '../lib/storage'
-import { browser, json, type Sender } from '../test/fakeBrowser'
+import { cacheLists, getConnection, getPending, markUsed, saveConnection } from '../lib/storage'
+import { ADA, browser, json, type Sender } from '../test/fakeBrowser'
+import { listSummary, site } from '../test/site'
 
 const sitePage: Sender = {
   id: 'fake-extension-id',
@@ -83,5 +84,56 @@ describe('the background script', () => {
       expect(await send(ask, sender), JSON.stringify(sender)).toBe(false)
     // And only the protocol's messages.
     expect(await send({ type: 'something-else', challenge })).toBeUndefined()
+  })
+
+  it('makes the menus on install and on browser start, and again when what they show changes', async () => {
+    const menus = () => browser().contextMenus.menus.map((entry) => entry.id)
+
+    browser().runtime.onInstalled.fire({ reason: 'update' })
+    await vi.waitFor(() => expect(menus()).toEqual(['choose'])) // not connected yet
+
+    await saveConnection(ADA)
+    await cacheLists([listSummary('A')])
+    await vi.waitFor(() => expect(menus()).toContain('save-to:A'))
+
+    browser().contextMenus.menus.splice(0) // as if the browser had lost them
+    browser().runtime.onStartup.fire()
+    await vi.waitFor(() => expect(menus()).toContain('save-to:A'))
+
+    // Something the menus don't show changes nothing.
+    const before = browser().contextMenus.removeAll.mock.calls.length
+    await browser().storage.local.set({ somethingElse: 1 })
+    await browser().storage.session.set({ connection: 'not the local one' })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(browser().contextMenus.removeAll.mock.calls.length).toBe(before)
+  })
+
+  it('does what a menu entry and a shortcut ask', async () => {
+    await saveConnection(ADA)
+    await cacheLists([listSummary('A')])
+    await markUsed('A')
+    const { calls } = site({
+      'POST /api/v2/lists/A/links/': () => json({ id: 'l1', short_url: null }, 201),
+    })
+    const saved = () => calls.filter((call) => call === 'POST /api/v2/lists/A/links/').length
+
+    browser().contextMenus.onClicked.fire(
+      { menuItemId: 'save-to:A', pageUrl: 'https://example.com/a' },
+      { url: 'https://example.com/a', title: 'A' },
+    )
+    await vi.waitFor(() => expect(saved()).toBe(1))
+
+    browser().commands.onCommand.fire('save-page', { url: 'https://example.com/b', title: 'B' })
+    await vi.waitFor(() => expect(saved()).toBe(2))
+
+    // No document here, as in Chrome's service worker: copying goes through the offscreen one.
+    browser().runtime.sendMessage.mockResolvedValue({ ok: true })
+    browser().commands.onCommand.fire('copy-list-link')
+    await vi.waitFor(() =>
+      expect(browser().runtime.sendMessage).toHaveBeenCalledWith({
+        type: 'offscreen:copy',
+        text: 'https://lists.example.test/l/A',
+      }),
+    )
   })
 })

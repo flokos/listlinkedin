@@ -229,9 +229,17 @@ the phone projects run the journeys marked ★.
     the welcome page, approving on the site with the real content script; save a page to a
     new list and to an existing one; the list used last comes first; a page already there;
     pages that can't be saved; a request the extension didn't start; disconnecting on the
-    site and in the options. The popup is opened as a page about an address. Playwright
-    can't open it from the toolbar, drive menus or shortcuts, or load an extension into
-    Firefox: those are in the manual [QA checklist](../qa-checklist.md#browser-extension).
+    site and in the options. The popup is opened as a page about an address. Since 11.3
+    (`menus-and-sharing.spec.ts`): a list looked into from the popup, its link copied (and
+    the list still closed to a visitor without an account), who can open it changed only
+    after "Change", the list added to a group, the group's link copied; a right-click entry
+    saving a page without a window, the mark on the button, the reason for a refusal told by
+    the popup once, the copy shortcut through Chrome's offscreen document, and "Choose a
+    list…" opening a window about a link. Menu clicks and shortcuts are fired on the service
+    worker's own events (`chrome.contextMenus.onClicked.dispatch`), which runs everything
+    behind the click. Playwright can't open the popup from the toolbar, open a menu, press a
+    shortcut or load an extension into Firefox: those are in the manual
+    [QA checklist](../qa-checklist.md#browser-extension).
 
 ## V1 regression checklist
 

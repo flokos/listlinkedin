@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// The extension's options: which account this browser is connected to, and disconnecting.
+// The extension's options: which account this browser is connected to, disconnecting, and
+// the keyboard shortcuts as the browser has them now.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { disconnect } from '../../lib/account'
 import { SITE, siteUrl, VERSION } from '../../lib/config'
+import { ext } from '../../lib/ext'
 import { type Connection, getConnection, onConnectionChange } from '../../lib/storage'
 import BrandMark from '../../ui/BrandMark.vue'
 import ConnectPrompt from '../../ui/ConnectPrompt.vue'
@@ -14,11 +16,36 @@ const busy = ref(false)
 const host = new URL(SITE).host
 let stop = () => {}
 
+interface Shortcut {
+  name: string
+  description: string
+  keys: string
+}
+const shortcuts = ref<Shortcut[]>([])
+
 onMounted(async () => {
   connection.value = await getConnection()
   stop = onConnectionChange((next) => (connection.value = next))
+  const commands = await ext()
+    .commands.getAll()
+    .catch(() => [])
+  shortcuts.value = commands.map((command) => ({
+    name: command.name ?? '',
+    description: command.description || 'Open listlinkedin for this page',
+    keys: command.shortcut ?? '',
+  }))
 })
 onBeforeUnmount(() => stop())
+
+// Shortcuts are changed in the browser's own settings: Firefox can open them, Chrome has an
+// address for them.
+async function changeShortcuts() {
+  const commands = ext().commands as typeof chrome.commands & {
+    openShortcutSettings?: () => Promise<void>
+  }
+  if (commands.openShortcutSettings) await commands.openShortcutSettings()
+  else await ext().tabs.create({ url: 'chrome://extensions/shortcuts' })
+}
 
 async function leave() {
   busy.value = true
@@ -82,11 +109,34 @@ async function leave() {
       <ConnectPrompt v-else-if="connection === null" />
     </section>
 
+    <section v-if="shortcuts.length" class="ll-card options__card" aria-labelledby="keys-heading">
+      <h2 id="keys-heading">Keyboard shortcuts</h2>
+      <dl class="options__keys">
+        <template v-for="shortcut in shortcuts" :key="shortcut.name">
+          <dt>{{ shortcut.description }}</dt>
+          <dd>
+            <kbd v-if="shortcut.keys">{{ shortcut.keys }}</kbd>
+            <span v-else class="ll-muted">Not set</span>
+          </dd>
+        </template>
+      </dl>
+      <p class="ll-muted">
+        The last two work on the list you saved to last, without opening anything. A mark on the
+        toolbar button says how it went.
+      </p>
+      <div>
+        <button type="button" class="ll-button ll-button--tonal" @click="changeShortcuts">
+          Change shortcuts
+        </button>
+      </div>
+    </section>
+
     <section class="ll-card options__card" aria-labelledby="about-heading">
       <h2 id="about-heading">About</h2>
       <p class="ll-muted">
         Version {{ VERSION }}. This extension talks to {{ host }} and to no other site. It sends a
-        page's address and title only when you save that page.
+        page's address and title only when you save that page, from the popup, a right-click menu or
+        a shortcut.
       </p>
     </section>
   </main>
@@ -97,5 +147,22 @@ async function leave() {
 .options__confirm {
   display: grid;
   gap: 12px;
+}
+.options__keys {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 16px;
+  margin: 0;
+}
+.options__keys dd {
+  margin: 0;
+}
+.options__keys kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--ll-outline);
+  border-radius: 6px;
+  background: var(--ll-background);
+  font: inherit;
+  font-size: 12px;
 }
 </style>

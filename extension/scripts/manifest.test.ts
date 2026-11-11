@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import { manifestFor } from './manifest.ts'
+import { COMMANDS, manifestFor } from './manifest.ts'
 import { siteFrom } from './site.ts'
 
 const options = {
@@ -42,7 +42,14 @@ describe('manifestFor', () => {
       const manifest = manifestFor(browser, options)
       expect(manifest.manifest_version).toBe(3)
       expect(manifest.version).toBe('1.2.3')
-      expect(manifest.permissions).toEqual(['storage', 'activeTab'])
+      // Nothing that reads tabs, history or pages; `offscreen` is Chrome's way to copy.
+      expect(manifest.permissions).toEqual([
+        'storage',
+        'activeTab',
+        'contextMenus',
+        'clipboardWrite',
+        ...(browser === 'chrome' ? ['offscreen'] : []),
+      ])
       expect(manifest.host_permissions).toEqual(['https://lists.example.org/*'])
       // The content script runs on the site only, never on the pages people save.
       expect(manifest.content_scripts).toEqual([
@@ -51,6 +58,24 @@ describe('manifestFor', () => {
       expect(manifest).not.toHaveProperty('optional_permissions')
       expect(manifest).not.toHaveProperty('content_security_policy')
     }
+  })
+
+  it('suggests shortcuts for the popup, saving and copying, the same in both browsers', () => {
+    for (const browser of ['chrome', 'firefox'] as const)
+      expect(manifestFor(browser, options).commands).toBe(COMMANDS)
+    // The names are the ones the background script answers to (src/background/actions.ts).
+    expect(Object.keys(COMMANDS)).toEqual(['_execute_action', 'save-page', 'copy-list-link'])
+    const keys = Object.values(COMMANDS).map((command) => command.suggested_key.default)
+    expect(new Set(keys).size).toBe(keys.length)
+    for (const key of keys) expect(key).toMatch(/^Alt\+Shift\+[A-Z]$/)
+  })
+
+  it('puts the button on the toolbar in Firefox, where it would otherwise be in a menu', () => {
+    expect(manifestFor('firefox', options).action).toMatchObject({
+      default_popup: 'popup.html',
+      default_area: 'navbar',
+    })
+    expect(manifestFor('chrome', options).action).not.toHaveProperty('default_area')
   })
 
   it('declares the background script the way each browser runs it', () => {

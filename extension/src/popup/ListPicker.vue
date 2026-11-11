@@ -4,7 +4,8 @@
 import { computed } from 'vue'
 
 import { type GroupSummary, LINKS_PER_LIST } from '../lib/lists'
-import type { ListSummary, Visibility } from '../lib/storage'
+import type { ListSummary } from '../lib/storage'
+import { VISIBILITY } from '../lib/visibility'
 
 const props = defineProps<{
   /** The lists to offer, already filtered and ordered. */
@@ -17,13 +18,6 @@ const props = defineProps<{
 const selected = defineModel<string>({ required: true })
 const query = defineModel<string>('query', { required: true })
 const group = defineModel<string>('group', { required: true })
-
-// The web app's words for who can open a list (frontend/src/views/SavedListsView.vue).
-const VISIBILITY: Record<Visibility, string> = {
-  private: 'Only people you add',
-  unlisted: 'Anyone with the link',
-  public: 'Public',
-}
 
 const full = (list: ListSummary) => list.linkCount >= LINKS_PER_LIST
 const about = (list: ListSummary) =>

@@ -1,8 +1,9 @@
 # Browser extension
 
 The listlinkedin extension for Chrome and Firefox: save the page you are on into one of your
-lists, without opening the site. It is a second client of the same API as the web app in
-`../frontend`. Vue 3 and TypeScript, built with Vite; no Vuetify.
+lists and share your lists, without opening the site. It works from the toolbar popup, from
+the right-click menu and from keyboard shortcuts. It is a second client of the same API as the
+web app in `../frontend`. Vue 3 and TypeScript, built with Vite; no Vuetify.
 
 A build talks to **one** listlinkedin site, fixed when it is built (`LL_BASE_URL`). The
 manifest grants the extension that site and no other.
@@ -12,6 +13,9 @@ manifest grants the extension that site and no other.
 Everything runs in Docker, from the repository root.
 
 ```bash
+# Docker only adds to the output folder, so files of an earlier build would stay in it.
+rm -rf extension/dist
+
 # For the development stack (docker compose up -d), into extension/dist/:
 docker build --target export --build-arg LL_BASE_URL=http://localhost:5173 \
     --output extension/dist extension
@@ -27,29 +31,62 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
 
 - **Chrome, Edge and other Chromium browsers:** open `chrome://extensions`, turn on
   **Developer mode**, choose **Load unpacked** and pick `extension/dist/chrome`. After a
-  rebuild, press the extension's reload button there.
+  rebuild, press the extension's reload button there. Pin the button to the toolbar from the
+  Extensions (puzzle piece) menu: Chrome hides it there at first.
 - **Firefox:** open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on…**
   and pick `extension/dist/firefox/manifest.json`. Firefox removes a temporary add-on when it
-  closes. Release Firefox installs for good only what Mozilla has signed; Developer Edition,
-  Nightly and ESR can turn that check off (`xpinstall.signatures.required`).
+  closes. The Add-ons page ("Install Add-on From File…") refuses these builds: release
+  Firefox installs for good only what Mozilla has signed. Developer Edition, Nightly and ESR
+  can turn that check off (`xpinstall.signatures.required`).
+
+## What it does
+
+- **The popup** (the toolbar button): "Connect this browser" until an account is connected.
+  Then two views. _Save this page_: the tab's title, a list to pick (the ones saved to last
+  first), a new list. _My lists_: the account's lists and groups; a list's links; copying a
+  list's, a group's or a link's address; who can open a list; adding a list to a group.
+- **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
+  saved to last, and **Choose a list…**, which opens the popup in a small window about that
+  page or link. On the toolbar button: **Copy link to "…"** (the list saved to last) and
+  **Open my lists**.
+- **Keyboard shortcuts**, each one changeable in the browser's own settings (the options page
+  lists them and opens those settings):
+
+  | Suggested key | What                                         |
+  | ------------- | -------------------------------------------- |
+  | `Alt+Shift+L` | Open the popup for this page                 |
+  | `Alt+Shift+D` | Save this page to the list you saved to last |
+  | `Alt+Shift+C` | Copy the link of the list you saved to last  |
+
+A menu entry and the last two shortcuts open nothing. A mark on the toolbar button says how
+it went: `✓` for a moment, or `!` until the popup is opened, which then says what went wrong
+(`src/lib/feedback.ts`). The shortcuts act on the list saved to last and never pick another.
+
+Copying a link never changes who can open the list. That changes only when the user picks
+another answer under "Who can open it" and chooses **Change** (invariant 2 in
+[CLAUDE.md](../CLAUDE.md)). What an account may do with a list comes from the server
+(`permissions`), which decides again on every request.
 
 ## What is in it
 
-| Path                                 | What                                                                               |
-| ------------------------------------ | ---------------------------------------------------------------------------------- |
-| `popup.html`, `src/popup/`           | The toolbar popup: "Connect this browser", or save this page to a list             |
-| `welcome.html`, `src/pages/welcome/` | Opened once after install                                                          |
-| `options.html`, `src/pages/options/` | The connected account, and disconnecting                                           |
-| `src/background/`                    | The background script: a service worker in Chrome, an event page in Firefox        |
-| `src/content/`                       | The content script. It runs on the listlinkedin site only                          |
-| `src/lib/`                           | Everything the pages and scripts share: the API client, storage, connecting, lists |
-| `src/ui/`                            | Shared components and the stylesheet (the web app's colours, from its tokens)      |
-| `scripts/`                           | The build, and the manifest for each browser                                       |
-| `public/icons/`                      | Toolbar icons, rendered from `assets/icon.svg`                                     |
+| Path                                    | What                                                                                          |
+| --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `popup.html`, `src/popup/`              | The toolbar popup, and "Choose a list…" as a window (`popup.html?url=…&title=…`)              |
+| `welcome.html`, `src/pages/welcome/`    | Opened once after install                                                                     |
+| `options.html`, `src/pages/options/`    | The connected account, disconnecting, and the shortcuts                                       |
+| `src/background/`                       | The background script: a service worker in Chrome, an event page in Firefox                   |
+| `src/background/menus.ts`, `actions.ts` | The right-click menus, and what they and the shortcuts do                                     |
+| `offscreen.html`, `src/offscreen/`      | Chrome only: the hidden document that copies for the service worker (`src/lib/clipboard.ts`)  |
+| `src/content/`                          | The content script. It runs on the listlinkedin site only                                     |
+| `src/lib/`                              | Everything the pages and scripts share: the API client, storage, connecting, lists, clipboard |
+| `src/ui/`                               | Shared components and the stylesheet (the web app's colours, from its tokens)                 |
+| `scripts/`                              | The build, and the manifest for each browser                                                  |
+| `public/icons/`                         | Toolbar icons, rendered from `assets/icon.svg`                                                |
 
-The two browsers get the same pages and scripts. Only `manifest.json` differs
-(`scripts/manifest.ts`): how the background script is declared, and Firefox's add-on ID,
-minimum version and data declaration.
+The two browsers get the same pages and scripts. `manifest.json` differs
+(`scripts/manifest.ts`): how the background script is declared, the `offscreen` permission
+and its page (Chrome), and the add-on ID, minimum version, data declaration and the button's
+place on the toolbar (Firefox, which would otherwise keep it in its Extensions menu).
 
 ## Signing in: a connected browser
 
@@ -69,13 +106,17 @@ The page and the content script talk through `src/lib/bridge.ts`, whose other ha
 
 ## Permissions
 
-| Permission                              | Why                                                                           |
-| --------------------------------------- | ----------------------------------------------------------------------------- |
-| the listlinkedin site (host permission) | Calling its API, and the content script on its Connect page                   |
-| `activeTab`                             | The address and title of the tab in front, only when you open the popup on it |
-| `storage`                               | The connection and a copy of your lists' names, in this browser               |
+| Permission                              | Why                                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| the listlinkedin site (host permission) | Calling its API, and the content script on its Connect page                                             |
+| `activeTab`                             | The address and title of the tab in front, only when you ask there: the popup, a menu entry, a shortcut |
+| `storage`                               | The connection and a copy of your lists' names, in this browser                                         |
+| `contextMenus`                          | The right-click menus                                                                                   |
+| `clipboardWrite`                        | Copying a list's link from a shortcut or a menu, where no click in a page allows it                     |
+| `offscreen` (Chrome only)               | The hidden document that copies, because Chrome's service worker has no clipboard                       |
 
-It does not read other tabs, history or page content, and runs no code on the pages you save.
+It does not read other tabs, history, page content or the clipboard, and runs no code on the
+pages you save.
 
 ## Checks
 
@@ -94,9 +135,11 @@ bash e2e/run.sh --project=extension
   data (`vue/no-v-html` is an error).
 - **End-to-end tests** load the Chrome build into Chromium and run against the production
   stack (`../e2e/tests/extension/`). They open the popup as a page about an address
-  (`popup.html?url=…&title=…`).
+  (`popup.html?url=…&title=…`), and fire menu clicks and shortcuts on the service worker's
+  own events, since Playwright can't open a browser's menus or press its shortcuts.
 - **By hand**, because no test can drive them: the popup opened from the toolbar on a real
-  tab, and everything in Firefox.
+  tab, the menus as the browser draws them, the keys as it binds them, and everything in
+  Firefox ([docs/qa-checklist.md](../docs/qa-checklist.md#browser-extension)).
 
 Dependencies are declared in `package.json` and locked in `package-lock.json`. Change them in
 a container:

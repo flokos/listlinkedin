@@ -20,7 +20,33 @@ const ICONS = {
   128: 'icons/icon-128.png',
 }
 
+/**
+ * The keyboard shortcuts, as suggestions: the user can change each one in the browser's own
+ * settings, and a browser leaves out a suggestion that is already taken. Alt+Shift with a
+ * letter is what neither Chrome nor Firefox uses itself for L, D and C. The names are the
+ * ones src/background/actions.ts answers to.
+ */
+export const COMMANDS = {
+  _execute_action: {
+    suggested_key: { default: 'Alt+Shift+L' },
+    description: 'Open listlinkedin for this page',
+  },
+  'save-page': {
+    suggested_key: { default: 'Alt+Shift+D' },
+    description: 'Save this page to the list you saved to last',
+  },
+  'copy-list-link': {
+    suggested_key: { default: 'Alt+Shift+C' },
+    description: 'Copy the link of the list you saved to last',
+  },
+}
+
 export function manifestFor(browser: Browser, { version, site, geckoId }: ManifestOptions) {
+  const action = {
+    default_title: 'Save to listlinkedin',
+    default_popup: 'popup.html',
+    default_icon: ICONS,
+  }
   const common = {
     manifest_version: 3,
     name: 'listlinkedin',
@@ -28,27 +54,34 @@ export function manifestFor(browser: Browser, { version, site, geckoId }: Manife
     version,
     description: 'Save pages to your listlinkedin lists and share them, without leaving the page.',
     icons: ICONS,
-    action: {
-      default_title: 'Save to listlinkedin',
-      default_popup: 'popup.html',
-      default_icon: ICONS,
-    },
     options_ui: { page: 'options.html', open_in_tab: true },
-    // activeTab: the page's address and title, only when the user opens the popup on it.
-    permissions: ['storage', 'activeTab'],
+    commands: COMMANDS,
     // The one site the extension talks to. Its content script only relays the Connect
     // page's messages (src/content/bridge.ts).
     host_permissions: [site.pattern],
     content_scripts: [{ matches: [site.pattern], js: ['content.js'], run_at: 'document_start' }],
   }
+  // activeTab: the page's address and title, only when the user asks for it there (the
+  //   popup, a right-click menu, a shortcut).
+  // contextMenus: the right-click menus. clipboardWrite: copying a list's link from a
+  //   shortcut or a menu, where there is no click in a page to allow it.
+  const permissions = ['storage', 'activeTab', 'contextMenus', 'clipboardWrite']
   if (browser === 'chrome')
     return {
       ...common,
+      action,
+      // offscreen: the hidden document that copies for the service worker, which has no
+      // clipboard of its own (src/lib/clipboard.ts).
+      permissions: [...permissions, 'offscreen'],
       minimum_chrome_version: '120',
       background: { service_worker: 'background.js' },
     }
   return {
     ...common,
+    // Firefox would otherwise keep the button in its Extensions menu, where the mark that
+    // says "saved" after a right-click or a shortcut can't be seen. The user can move it.
+    action: { ...action, default_area: 'navbar' },
+    permissions,
     // Firefox runs Manifest V3 background scripts as an event page, not a service worker.
     background: { scripts: ['background.js'] },
     browser_specific_settings: {

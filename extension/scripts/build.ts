@@ -4,19 +4,21 @@
 //   LL_BASE_URL  the listlinkedin site this build talks to (default: production)
 //   LL_GECKO_ID  the add-on ID in Firefox (default: the official one)
 import { watch } from 'node:fs'
-import { cp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import vue from '@vitejs/plugin-vue'
 import { build, type InlineConfig } from 'vite'
 
-import { BROWSERS, manifestFor } from './manifest.ts'
+import { type Browser, BROWSERS, manifestFor } from './manifest.ts'
 import { siteFrom } from './site.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'dist')
 const bundle = resolve(out, '.bundle')
-const PAGES = ['popup.html', 'welcome.html', 'options.html']
+const PAGES = ['popup.html', 'welcome.html', 'options.html', 'offscreen.html']
+/** Pages only one browser uses: left out of the other's build. */
+const ONLY_IN: Record<string, Browser> = { 'offscreen.html': 'chrome' }
 
 const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')) as {
   version: string
@@ -77,6 +79,14 @@ async function buildAll() {
     const target = resolve(out, browser)
     await rm(target, { recursive: true, force: true })
     await cp(bundle, target, { recursive: true })
+    for (const [page, only] of Object.entries(ONLY_IN)) {
+      if (only === browser) continue
+      await rm(resolve(target, page), { force: true })
+      // And its script, which Vite names after the page.
+      const name = page.replace(/\.html$/, '')
+      for (const file of await readdir(resolve(target, 'assets')))
+        if (file.startsWith(`${name}-`)) await rm(resolve(target, 'assets', file))
+    }
     const manifest = manifestFor(browser, { version, site, geckoId })
     await writeFile(resolve(target, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
   }

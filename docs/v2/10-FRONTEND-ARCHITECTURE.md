@@ -108,7 +108,9 @@ one-time code (`sendCode`). The extension's half lives in `extension/` and chang
 The extension itself (task 11.2) is its own package, `extension/`, not part of this app: Vue 3
 without Vuetify, its own API client (a session token, never cookies) and its own tests. It
 borrows the app's colours and wording, and nothing else is shared but that protocol
-([extension/README.md](../../extension/README.md)).
+([extension/README.md](../../extension/README.md)). Its words for who can open a list or a
+group (`extension/src/lib/visibility.ts`, since 11.3) are the share dialog's
+(`components/ShareDialog.vue`): change them together.
 
 ## Components
 

@@ -55,6 +55,11 @@ bash e2e/run.sh --project=extension
 
 - The popup is opened as a page about an address (`popup.html?url=…&title=…`): Playwright
   can't open it from the toolbar.
+- Playwright can't open a browser's own menus or press an extension's shortcut. The tests
+  fire those on the service worker's events instead
+  (`chrome.contextMenus.onClicked.dispatch(…)`, `chrome.commands.onCommand.dispatch(…)`), so
+  everything behind the click runs for real: the save, the mark on the button, and the copy
+  through Chrome's offscreen document. The clipboard is read by the site's page.
 - The other projects still test the site's Connect page, with the test playing the extension
   (`playExtension` in `tests/fixtures.ts`), so Firefox and WebKit cover the page's half.
 - Firefox can't load an extension under Playwright. The Firefox build is linted in CI and

@@ -1,7 +1,14 @@
-// The account's lists and groups, and saving a page into a list.
+// The account's lists and groups: reading them, saving a page into a list, and sharing.
 import { asAccount } from './account'
 import { ApiError } from './api'
-import { cacheLists, getCachedLists, type ListSummary, markUsed, type Visibility } from './storage'
+import {
+  cacheLists,
+  getCachedLists,
+  getRecent,
+  type ListSummary,
+  markUsed,
+  type Visibility,
+} from './storage'
 
 /** A list as /api/v2/ represents it (backend/apps/sharing/v2/serializers.py), as far as used. */
 interface ApiList {
@@ -14,6 +21,22 @@ interface ApiList {
   permissions: string[]
 }
 
+interface ApiGroup {
+  code: string
+  title: string
+  url: string
+  visibility: Visibility
+  list_count: number
+  permissions: string[]
+}
+
+interface ApiLink {
+  id: string
+  destination_url: string
+  short_url: string | null
+  display: { title: string; site_name: string }
+}
+
 interface Page<T> {
   next: string | null
   results: T[]
@@ -22,7 +45,26 @@ interface Page<T> {
 export interface GroupSummary {
   code: string
   title: string
+  /** Its page on the site. */
+  url: string
+  visibility: Visibility
+  /** The lists the group shows this account. */
   listCount: number
+  /** The server's policy says this account may add lists to it. */
+  canAddList: boolean
+  /** The server's policy says this account may choose who can open the group. */
+  canSet: boolean
+}
+
+/** A link of a list, as much as showing and sharing it needs. */
+export interface LinkSummary {
+  id: string
+  /** What the site shows for it: the user's title, else the page's, else the host. */
+  title: string
+  url: string
+  site: string
+  /** Opens the page through the site, for whoever may open the list. */
+  shortUrl: string | null
 }
 
 /** The most links a list holds (backend/apps/sharing/domain.py). */
@@ -37,6 +79,7 @@ const summary = (list: ApiList): ListSummary => ({
   visibility: list.visibility,
   linkCount: list.link_count,
   canEdit: list.permissions.includes('edit'),
+  canSet: list.permissions.includes('settings'),
 })
 
 async function everyPage<T>(path: string): Promise<T[]> {
@@ -59,14 +102,44 @@ export async function fetchLists(): Promise<ListSummary[]> {
 /** The lists as last seen, so the popup can show them before the site answers. */
 export const cachedLists = getCachedLists
 
-export async function fetchGroups(): Promise<GroupSummary[]> {
-  const groups = await everyPage<{ code: string; title: string; list_count: number }>(
-    '/api/v2/groups/',
+/** Puts a list as the site just sent it into what is kept, in its place (or first). */
+async function remember(list: ListSummary): Promise<void> {
+  const cached = (await getCachedLists()) ?? []
+  const known = cached.some((other) => other.code === list.code)
+  await cacheLists(
+    known ? cached.map((other) => (other.code === list.code ? list : other)) : [list, ...cached],
   )
+}
+
+/** `lists` with the ones saved to last first, newest first; the rest keep their order. */
+export function byLastUse(lists: ListSummary[], recent: string[]): ListSummary[] {
+  const place = (list: ListSummary) => {
+    const index = recent.indexOf(list.code)
+    return index === -1 ? recent.length : index
+  }
+  return [...lists].sort((a, b) => place(a) - place(b))
+}
+
+/**
+ * The list saved to last, as last seen, or null when nothing was saved from this browser yet
+ * (or that list is gone). What a shortcut acts on: it never guesses another list.
+ */
+export async function lastUsedList(): Promise<ListSummary | null> {
+  const [code] = await getRecent()
+  const lists = (await getCachedLists()) ?? []
+  return lists.find((list) => list.code === code) ?? null
+}
+
+export async function fetchGroups(): Promise<GroupSummary[]> {
+  const groups = await everyPage<ApiGroup>('/api/v2/groups/')
   return groups.map((group) => ({
     code: group.code,
     title: group.title,
+    url: group.url,
+    visibility: group.visibility,
     listCount: group.list_count,
+    canAddList: group.permissions.includes('add_list'),
+    canSet: group.permissions.includes('settings'),
   }))
 }
 
@@ -74,6 +147,18 @@ export async function fetchGroups(): Promise<GroupSummary[]> {
 export async function fetchGroupLists(code: string): Promise<ListSummary[]> {
   const lists = await asAccount<ApiList[]>(`/api/v2/groups/${encodeURIComponent(code)}/lists/`)
   return lists.map(summary)
+}
+
+/** A list's links, in the list's order. */
+export async function fetchLinks(code: string): Promise<LinkSummary[]> {
+  const links = await everyPage<ApiLink>(`/api/v2/lists/${encodeURIComponent(code)}/links/`)
+  return links.map((link) => ({
+    id: link.id,
+    title: link.display.title,
+    url: link.destination_url,
+    site: link.display.site_name,
+    shortUrl: link.short_url,
+  }))
 }
 
 /** Creates a private list. `key` makes a retried request return the same list. */
@@ -85,8 +170,7 @@ export async function createList(title: string, key: string): Promise<ListSummar
       idempotencyKey: key,
     }),
   )
-  const cached = (await getCachedLists()) ?? []
-  await cacheLists([created, ...cached.filter((list) => list.code !== created.code)])
+  await remember(created)
   return created
 }
 
@@ -102,7 +186,8 @@ export type SaveOutcome =
 
 /**
  * Adds a page to a list. The title is the user's (the tab's, as they left it), so details the
- * site fetches later never replace it (invariant 6). `key` makes a retry return the same link.
+ * site fetches later never replace it (invariant 6); without one, the site shows the page's
+ * own. `key` makes a retry return the same link.
  */
 export async function savePage(
   list: string,
@@ -121,6 +206,42 @@ export async function savePage(
     // 400 is about this page or this list as they are; anything else is a failure to report.
     if (error instanceof ApiError && error.status === 400)
       return { saved: false, reason: error.userMessage }
+    throw error
+  }
+}
+
+/**
+ * Chooses who can open a list. Only ever called for a choice the user just made: nothing in
+ * the extension changes a list's visibility by itself (invariant 2). The server decides
+ * whether this account may (a public list needs a verified email address).
+ */
+export async function setVisibility(code: string, visibility: Visibility): Promise<ListSummary> {
+  const list = summary(
+    await asAccount<ApiList>(`/api/v2/lists/${encodeURIComponent(code)}/`, {
+      method: 'PATCH',
+      body: { visibility },
+    }),
+  )
+  await remember(list)
+  return list
+}
+
+export type AddOutcome =
+  | { added: true }
+  /** The server wouldn't: already in the group, not this account's to share, a full group. */
+  | { added: false; reason: string }
+
+/** Adds a list to a group, at its end. */
+export async function addToGroup(group: string, list: string): Promise<AddOutcome> {
+  try {
+    await asAccount(`/api/v2/groups/${encodeURIComponent(group)}/lists/`, {
+      method: 'POST',
+      body: { list },
+    })
+    return { added: true }
+  } catch (error) {
+    if (error instanceof ApiError && [400, 403, 409].includes(error.status))
+      return { added: false, reason: error.userMessage }
     throw error
   }
 }

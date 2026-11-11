@@ -44,7 +44,9 @@ Since phase 11 the API has a second client next to the SPA (and other frontends,
 for Chrome and Firefox. It is not a runtime component of the host: it runs in users'
 browsers, talks to `/api/v2/` only, and signs in as a connected browser
 ([ADR-020](adr/ADR-020-connected-browsers.md)). Like the SPA it never decides who may do
-what: it shows what each list's `permissions` allow
+what: it shows what each list's `permissions` allow, and it changes who can open a list only
+when the user chooses so there (invariant 2). Since 11.3 it also works without a window, from
+right-click menus and keyboard shortcuts
 ([extension/README.md](../../extension/README.md)).
 
 ## Layers and dependency direction
