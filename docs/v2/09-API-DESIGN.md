@@ -158,6 +158,7 @@ with one query per response (`selectors.fork_sources`).
 |---|---|---|---|
 | GET | `/api/v2/lists/{code}/links/` | can view | Live links by `position` (page size 100) |
 | POST | `/api/v2/lists/{code}/links/` | editor, owner | `{destination_url, title?, description?, position?}` → appended unless `position` is given. Creates the short URL and enqueues metadata |
+| POST | `/api/v2/lists/{code}/links/batch/` | editor, owner | Since 11.4. `{"links": [{destination_url, title?, description?}, …]}`, 1 to 100, appended in order as **one** change. 200 → `{added, skipped}` (below). Rate limit `link_batch` |
 | PATCH | `/api/v2/lists/{code}/links/{id}/` | editor, owner | `title`, `description`, `destination_url`. The `id` and short URL are preserved (K1) |
 | DELETE | `/api/v2/lists/{code}/links/{id}/` | editor, owner | 204. Tombstone |
 | POST | `/api/v2/lists/{code}/reorder/` | editor, owner | **Move** semantics: `{"link": "<uuid>", "to_index": 3}` (clamped, 0-based among live links). Moving to the same index is a no-op. Concurrent moves serialize under the lock, so none is lost. 200 → the live links in their new order. A deleted or foreign link → 404 |
@@ -173,6 +174,24 @@ and `Idempotency-Key` (a retry answers 200 with the first link). PATCH can't cha
 2.3, and `display` since 2.4 (until 7.3 fills `metadata`, it holds the user's values and the host);
 `metadata_status` follows in 7.3. The V1 API keeps its representation and newest-first order, and
 deletes as tombstones too.
+
+`links/batch/` (task 11.4, for the browser extension's open tabs and history) adds what it
+can and reports the rest, so one bad address doesn't refuse the others:
+
+- `added` holds the new links, in order, as on `links/`. `skipped` holds
+  `{index, destination_url, reason, detail}` for each link that wasn't added: `index` is its
+  place in the request, `destination_url` is as it was sent (null if it wasn't text), and
+  `reason` is `duplicate` (already in the list, or earlier in this request, compared after
+  normalization), `invalid` (the address or a field was refused; `detail` says why) or
+  `list_full` (the list holds 100 links).
+- One transaction, one lock and **one revision** when at least one link is added; none when
+  all are skipped, and then the `ETag` is unchanged (invariant 3). Sending the same request
+  again adds nothing, so it needs no `Idempotency-Key`.
+- A batch is always appended: `position` and every other field of an item are ignored.
+  `If-Match` is optional, as on the other content writes (412 and nothing changes).
+- A request that isn't `{"links": [1 to 100 objects]}` is refused whole with 400. The body
+  limit of 16 KB applies: a client with long addresses sends several batches.
+- Each added link's page is fetched like a single link's, after the commit.
 
 Link representation (V1 fields kept, new fields added):
 

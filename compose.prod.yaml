@@ -32,6 +32,7 @@ x-app-env: &app-env
   THROTTLE_DIRECTORY: ${THROTTLE_DIRECTORY:-600/hour}  # directory searches, per client IP
   THROTTLE_REPORT: ${THROTTLE_REPORT:-10/hour}  # reports to the operator, per user or IP
   THROTTLE_BROWSER_CONNECT: ${THROTTLE_BROWSER_CONNECT:-30/hour}  # the extension connecting, per IP
+  THROTTLE_LINK_BATCH: ${THROTTLE_LINK_BATCH:-30/hour}  # several links in one request, per user
   # Outgoing mail: account verification and password-reset links.
   EMAIL_HOST: ${EMAIL_HOST:-localhost}
   EMAIL_PORT: ${EMAIL_PORT:-587}

@@ -18,6 +18,7 @@ links = LinkViewSet.as_view({"get": "list", "post": "create"})
 link = LinkViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
 members = MemberViewSet.as_view({"get": "list", "post": "create"})
 member = MemberViewSet.as_view({"patch": "partial_update", "delete": "destroy"})
+links_batch = LinkViewSet.as_view({"post": "batch"})
 move_link = LinkViewSet.as_view({"post": "move_to_list"})
 refresh_metadata = LinkViewSet.as_view({"post": "refresh_metadata"})
 # Upload routes: config.middleware.UPLOAD_PATH and nginx allow them larger bodies.
@@ -30,6 +31,7 @@ urlpatterns = [
         "directory/lists/", DirectoryListViewSet.as_view({"get": "list"}), name="v2-directory-lists"
     ),
     path("lists/<str:code>/links/", links, name="v2-link-list"),
+    path("lists/<str:code>/links/batch/", links_batch, name="v2-link-batch"),
     path("lists/<str:code>/links/<uuid:link_id>/", link, name="v2-link-detail"),
     path(
         "lists/<str:code>/links/<uuid:link_id>/move-to-list/",
