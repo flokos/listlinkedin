@@ -11,7 +11,7 @@ and its network; deploying the app on it follows [First deploy](../../docs/deplo
 |---|---|---|
 | VCN `10.20.0.0/16`, public subnet `10.20.1.0/24`, internet gateway, default route table | IPv4 | 2 VCNs |
 | Default security list | Egress only, plus ICMP 3/4 (Path MTU). Replaces OCI's default rule that opens SSH to everyone | — |
-| NSG on the instance | In: TCP 80 and 443 from anywhere, TCP 22 from `admin_cidrs` only. Out: all | — |
+| NSG on the instance | In: TCP 80 and 443 from anywhere, TCP 22 from `admin_cidrs` (any address by default: sshd takes only the key, [ADR-022](../../docs/v2/adr/ADR-022-ssh-key-only-from-any-address.md)). Out: all | — |
 | Instance `VM.Standard.A1.Flex` | 2 OCPU, 12 GB, Ubuntu 24.04 aarch64, legacy IMDS endpoints off | 2 OCPU, 12 GB in total |
 | Boot volume | 50 GB, Balanced (10 VPU/GB) | 200 GB of boot + block in total |
 | Block volume (`data_volume_gbs`, default 50 GB) | Mounted at `/srv/data`: Docker's data root (`pgdata`, `media`) and `/var/backups/listlinkedin` | (same 200 GB) |
@@ -37,7 +37,7 @@ authentication uses the `DEFAULT` profile of `~/.oci/config`.
 
 ```bash
 cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars   # compartment, SSH public key, your IP; chmod 600
+cp terraform.tfvars.example terraform.tfvars   # compartment, SSH public key; chmod 600
 ./tf.sh init
 ./tf.sh plan -out=prod.tfplan
 ./tf.sh apply prod.tfplan                       # only after the plan was reviewed
@@ -73,6 +73,27 @@ instance and needs the volume moved too).
   backup (02:30 UTC) and autoheal every 2 minutes, both alerting `MODERATION_EMAIL` through the
   app's SMTP relay.
 - Certificate renewal: `/usr/local/sbin/lli-renew-cert`, daily from `/etc/cron.d/listlinkedin-cert`.
+
+## SSH access
+
+Port 22 is open to the addresses in `admin_cidrs`: any address by default
+([ADR-022](../../docs/v2/adr/ADR-022-ssh-key-only-from-any-address.md)). The only way in is
+the key in `ssh_public_key`, as `ubuntu`: `host/bootstrap.sh` tells sshd to refuse passwords
+and root. A server that was set up before that (cloud-init runs once) gets the same file by
+hand, once:
+
+```bash
+sudo tee /etc/ssh/sshd_config.d/00-listlinkedin-key-only.conf > /dev/null <<'SSHD'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AuthenticationMethods publickey
+SSHD
+sudo sshd -t && sudo systemctl try-reload-or-restart ssh
+sudo sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|authenticationmethods) '
+```
+
+Keep the session open and check that a second `ssh` still gets in before closing it.
 
 ## Continuous deployment
 

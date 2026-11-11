@@ -32,12 +32,12 @@ variable "ssh_public_key" {
 }
 
 variable "admin_cidrs" {
-  description = "IPv4 CIDRs allowed to reach SSH (port 22). Keep this to your own addresses."
+  description = "IPv4 CIDRs allowed to reach SSH (port 22). [\"0.0.0.0/0\"] lets any address try: the server then relies on its key-only sshd (ADR-022). List your own addresses to narrow it."
   type        = list(string)
 
   validation {
-    condition     = length(var.admin_cidrs) > 0 && alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0)) && c != "0.0.0.0/0"])
-    error_message = "admin_cidrs must be valid IPv4 CIDRs and must not include 0.0.0.0/0."
+    condition     = length(var.admin_cidrs) > 0 && alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0))])
+    error_message = "admin_cidrs must be valid IPv4 CIDRs, at least one."
   }
 }
 

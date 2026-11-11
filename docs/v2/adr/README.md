@@ -33,8 +33,9 @@ Nygard/MADR layout.
 | [014](ADR-014-django-version.md) | Stay on Django 5.2 LTS for V2; move to 6.2 LTS afterwards | Accepted |
 | [015](ADR-015-postpone-synchronization.md) | Postpone list synchronization (synced copies and merges) | Accepted |
 | [016](ADR-016-account-deletion-grace-period.md) | Account deletion with a 30-day grace period | Accepted |
-| [017](ADR-017-production-on-oci-always-free.md) | Production on Oracle Cloud Always Free, managed with Terraform | Accepted |
+| [017](ADR-017-production-on-oci-always-free.md) | Production on Oracle Cloud Always Free, managed with Terraform | Accepted (SSH access changed by 022) |
 | [018](ADR-018-pull-based-deployment.md) | Continuous deployment of GitHub Releases, pulled by the server | Accepted |
 | [019](ADR-019-cross-origin-frontends.md) | Frontends on other domains: CORS without credentials, allauth app-client tokens | Accepted (session lifetime extended for connected browsers by 020) |
 | [020](ADR-020-connected-browsers.md) | Connected browsers: the extension signs in with an approved, long-lived session | Accepted |
 | [021](ADR-021-extension-distribution.md) | The extension has its own GitHub Releases; Mozilla signs the Firefox build | Accepted |
+| [022](ADR-022-ssh-key-only-from-any-address.md) | SSH to the production host from any address, with the key as the only way in | Accepted |

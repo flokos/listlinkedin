@@ -4,7 +4,7 @@ output "public_ip" {
 }
 
 output "ssh" {
-  description = "SSH command (from an address in admin_cidrs)."
+  description = "SSH command (with the key in ssh_public_key, from an address in admin_cidrs)."
   value       = "ssh ubuntu@${oci_core_public_ip.app.ip_address}"
 }
 
