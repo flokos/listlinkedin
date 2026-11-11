@@ -60,7 +60,7 @@ export const apiGroup = (code: string, extra: Record<string, unknown> = {}) => (
   url: `https://lists.example.test/g/${code}`,
   visibility: 'private',
   list_count: 2,
-  permissions: ['view', 'edit', 'add_list', 'settings'],
+  permissions: ['view', 'edit', 'add_list', 'settings', 'delete'],
   ...extra,
 })
 

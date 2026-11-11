@@ -48,6 +48,10 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
   copying a list's, a group's or a link's address; who can open a list; adding a list to a
   group; **Edit links** (for who may edit the list): drag a link to another place or move it
   with the arrows, or remove it.
+- **Groups in the popup** (_My lists_): **New group** (with who can open it: private unless
+  chosen otherwise), and **Edit group** for a group the account may change: its name, who
+  can open it, adding lists, their order (drag, or the arrows), taking a list out, deleting
+  the group. A group never changes its lists or who can open them.
 - **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
   page or link, then **Save open tabs…** and **Save from history…**. On the toolbar button:

@@ -18,6 +18,8 @@ const group = (code: string, extra: Partial<GroupSummary> = {}): GroupSummary =>
   visibility: 'private',
   listCount: 1,
   canAddList: true,
+  canEdit: true,
+  canDelete: true,
   canSet: true,
   ...extra,
 })

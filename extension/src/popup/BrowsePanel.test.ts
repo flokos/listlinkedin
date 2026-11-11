@@ -116,6 +116,98 @@ describe('BrowsePanel', () => {
     expect(calls.every((call) => call.startsWith('GET '))).toBe(true) // nothing was changed
   })
 
+  it('makes a group that is private unless the user says otherwise, and opens it for adding lists', async () => {
+    const { calls, bodies } = site({
+      ...noGroups,
+      [LISTS]: () => page([apiList('A')]),
+      'POST /api/v2/groups/': () => json(apiGroup('N', { title: 'Team', list_count: 0 }), 201),
+    })
+    const { wrapper, button } = await open()
+
+    await button('New group')!.trigger('click')
+    expect((wrapper.find('#browse-new-access').element as HTMLSelectElement).value).toBe('private')
+    expect(wrapper.find('#browse-new-meaning').text()).toContain('Only you')
+    expect(button('Create group')!.attributes('disabled')).toBeDefined() // no name yet
+    await wrapper.find('#browse-new-group').setValue(' Team ')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(bodies[calls.indexOf('POST /api/v2/groups/')]).toEqual({
+      title: 'Team',
+      visibility: 'private',
+    })
+    // The group's own view, with the account's lists to add; no request for its (no) lists.
+    expect(wrapper.find('h2').text()).toBe('Group: Team')
+    expect(wrapper.findAll('#manage-add option').map((option) => option.text())).toContain('List A')
+    expect(calls).not.toContain('GET /api/v2/groups/N/lists/')
+
+    await button('Done')!.trigger('click')
+    expect((wrapper.find('#browse-group').element as HTMLSelectElement).value).toBe('N')
+  })
+
+  it('says why when the site makes no group, and lets the user give up', async () => {
+    site({
+      ...noGroups,
+      [LISTS]: () => page([]),
+      'POST /api/v2/groups/': () => json({ detail: 'You have too many groups.' }, 400),
+    })
+    const { wrapper, button } = await open()
+    await button('New group')!.trigger('click')
+    await wrapper.find('#browse-new-group').setValue('Team')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.find('[role="alert"]').text()).toBe('You have too many groups.')
+
+    await button('Cancel')!.trigger('click')
+    expect(wrapper.find('#browse-new-group').exists()).toBe(false)
+  })
+
+  it('edits a group the account may change, and shows what changed here too', async () => {
+    site({
+      [LISTS]: () => page([apiList('A'), apiList('B')]),
+      [GROUPS]: () =>
+        page([apiGroup('G', { title: 'Team' }), apiGroup('V', { permissions: ['view'] })]),
+      'GET /api/v2/groups/G/lists/': () => json([apiList('A'), apiList('B')]),
+      'GET /api/v2/groups/V/lists/': () => json([]),
+      'POST /api/v2/groups/G/reorder/': () => json([apiList('B'), apiList('A')]),
+      'DELETE /api/v2/groups/G/lists/A/': () => new Response(null, { status: 204 }),
+      'DELETE /api/v2/groups/G/': () => new Response(null, { status: 204 }),
+    })
+    const { wrapper, titles, button } = await open()
+
+    await wrapper.find('#browse-group').setValue('V')
+    await flushPromises()
+    expect(button('Edit group')).toBeUndefined() // nothing there is this account's to change
+
+    await wrapper.find('#browse-group').setValue('G')
+    await flushPromises()
+    await button('Edit group')!.trigger('click')
+    await wrapper.find('[aria-label="Move List B up"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[aria-label="Take List A out…"]').trigger('click')
+    await wrapper.find('[aria-label="Take List A out of the group"]').trigger('click')
+    await flushPromises()
+    await button('Done')!.trigger('click')
+
+    expect(titles()).toEqual(['List B'])
+    expect(wrapper.text()).toContain('1 list ·')
+
+    // Deleting it: back to all the lists, which are as they were.
+    await button('Edit group')!.trigger('click')
+    await button('Delete group…')!.trigger('click')
+    await button('Delete group')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[role="status"]').text()).toBe(
+      'The group “Team” is deleted. Its lists are as they were.',
+    )
+    expect(titles()).toEqual(['List A', 'List B'])
+    expect(wrapper.findAll('#browse-group option').map((option) => option.text())).toEqual([
+      'All my lists',
+      'Group: Group V',
+    ])
+  })
+
   it('searches when there are many lists', async () => {
     site({
       ...noGroups,

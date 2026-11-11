@@ -151,6 +151,15 @@ Menus, shortcuts and sharing (since task 11.3):
 - [ ] A list the account can only view: no "Who can open it" choice, only the sentence.
 - [ ] **Add to a group**, then on the site the group shows the list. Add it again: "already
       in the group".
+- [ ] Popup, **My lists**, **New group**: "Only people you add" is offered; the group opens
+      for adding lists. Add two, drag one over the other and use the arrows: the group's page
+      on the site shows the same order (since task 11.8).
+- [ ] **Rename** the group and change **Who can open it**: the site shows both; a list in it
+      that was private is still private.
+- [ ] **Take out…** asks in the row; the list is out of the group and still among your
+      lists. **Delete group…** asks; afterwards the group is gone and its lists are not.
+- [ ] A group you can only view has no **Edit group**; one you edit but don't own has no
+      "Who can open it" and no **Delete group…**.
 - [ ] Popup, **Save several: open tabs**: a page opens and reads nothing yet. **Allow reading
       your open tabs**: the browser asks, and after "Allow" the tabs are listed, without
       private windows, the browser's own pages or listlinkedin itself (since task 11.5).
