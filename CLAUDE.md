@@ -53,7 +53,9 @@ If the code and the docs disagree, stop and reconcile them. Never let them silen
   List querysets are filtered by visibility in SQL, not after loading.
 - `extension/` (since 11.2) is the browser extension: a client of `/api/v2/`, not a domain app.
   It sends `X-Session-Token` with `credentials: 'omit'`, asks for no site but the one it was
-  built for, and shows what `permissions` allow instead of deciding itself. Its message
+  built for, and shows what `permissions` allow instead of deciding itself. Copying a link
+  never changes who can open a list: only the user's choice in the popup does (invariant 2),
+  and menus and shortcuts act only on a list the user saved to before. Its message
   protocol with the Connect page has two halves that change together:
   `extension/src/lib/bridge.ts` and `frontend/src/utils/extensionBridge.ts`.
 - `List` and `Link` stay the central concepts. Don't add a `WebApp` entity, and don't rename
@@ -86,7 +88,7 @@ docker compose exec frontend sh -c "npm run lint && npm run type-check && npm ru
 bash e2e/run.sh                                                # Playwright, production stack
 docker build --target dev -t listlinkedin-extension:dev extension   # the browser extension:
 docker run --rm listlinkedin-extension:dev sh -c "npm run lint && npm run format:check && npm run type-check && npm run test"
-docker build --target export --output extension/dist extension      # dist/chrome, dist/firefox
+rm -rf extension/dist && docker build --target export --output extension/dist extension   # dist/chrome, dist/firefox
 ```
 
 ## Definition of done for every V2 PR

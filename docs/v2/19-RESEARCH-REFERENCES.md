@@ -92,10 +92,32 @@ Local verification (not web sources):
   with `CORS_ALLOWED_ORIGINS` empty, the extension's pages and its service worker call the
   site named in `host_permissions` and get answers, so no CORS applies to them; in the
   content script `event.source === window` holds for what the page posts to itself, and the
-  page accepts the content script's answers the same way. Firefox: not run by any test.
+  page accepts the content script's answers the same way. Firefox: not run by any test
+  (but see the trial below).
 - Mozilla's add-on linter (addons-linter 10.15.0) on the Firefox build, task 11.2: no errors.
   It asks for `data_collection_permissions`, and for `gecko_android.strict_min_version` 142
   next to `gecko` 140. One warning stays: `UNSAFE_VAR_ASSIGNMENT`, in Vue's runtime.
+- The extension in **Firefox 159** (task 11.3, 2026-11-11): a trial run, not a test in the
+  repository. A separate headless Firefox with a new profile, driven over Marionette, loaded
+  the Firefox build as a temporary add-on against the development stack. Seen there: the
+  welcome page opens on install and the site is granted without a prompt; connecting works
+  (the background page calls the site without CORS, and the content script's
+  `event.source === window` check holds); the toolbar popup opens as a 360 px panel with the
+  tab's title (`activeTab`); `default_area: navbar` puts the button on the toolbar; the three
+  `commands` are bound to `Alt+Shift+L`, `D` and `C`; the right-click menu shows "Save to
+  listlinkedin" with the list, a separator and "Choose a list…", and its entry saves the page
+  and sets the badge; the copy shortcut puts the list's address on the clipboard from the
+  background page (`navigator.clipboard.writeText` with `clipboardWrite`, no click). The
+  Vite dev server forwarded all of it. No console message came from the extension.
+  Marionette's page commands refuse `moz-extension:` pages, so those were driven by frame
+  scripts from the browser's side.
+- The extension's menus and shortcuts in Chromium (Playwright 1.64.1's, task 11.3,
+  2026-11-11): `chrome.contextMenus.onClicked.dispatch(info, tab)` and
+  `chrome.commands.onCommand.dispatch(name)`, evaluated in the service worker, call the
+  extension's listeners as a real click or key does. An offscreen document with the
+  `CLIPBOARD` reason and `document.execCommand('copy')` writes the clipboard for the
+  service worker, with `clipboardWrite`; the site's page reads it back. A window made with
+  `windows.create({type: 'popup'})` is a page Playwright can drive.
 
 ## Not verified in this run (prior knowledge, verify during implementation)
 
@@ -104,9 +126,7 @@ Local verification (not web sources):
 | urllib3 2.x: `server_hostname` / `assert_hostname` on connection pools opened by IP | [13 SSRF](13-SECURITY.md#ssrf-safe-fetcher) | task 7.2 |
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
-| In **Firefox**: an extension's background script and pages call a host in its `host_permissions` without CORS, and in a content script `event.source === window` holds for a message the page posts to its own window (both hold in Chromium, see above) | [ADR-020](adr/ADR-020-connected-browsers.md), `extensionBridge.ts` | the manual pass in task 11.6 |
-| Vite's dev server forwards the extension's requests (`Origin: chrome-extension://…`) to the API like any other | [extension/README.md](../../extension/README.md): a build for `http://localhost:5173` | first manual use of a development build |
-| Chrome's extension service worker needs an offscreen document to write the clipboard; Firefox's background page can with `clipboardWrite` | [17 task 11.3](17-IMPLEMENTATION-ROADMAP.md#phase-11-browser-extension) | task 11.3 |
+| Context menus and shortcut bindings survive a browser restart in both browsers without being made again (the extension makes them again on `runtime.onStartup` anyway), and Chrome leaves out a suggested shortcut another extension already has | [extension/README.md](../../extension/README.md) | the manual pass in task 11.6 |
 | `tabs` and `history` can be optional permissions, requested at run time, in both browsers | D36 | task 11.5 |
 
 ## Research areas covered (prompt Part 16)

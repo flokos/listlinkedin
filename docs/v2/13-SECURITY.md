@@ -168,11 +168,21 @@ guessed by someone who already has the image. Moving private images behind an au
   which web pages and its content script can't read, and the PKCE verifier in
   `storage.session` (memory only). It sends the token to the one site it was built for
   (`LL_BASE_URL`) and nowhere else, with `credentials: 'omit'`, so the site's cookies never
-  travel with it. Its manifest asks for that site, `activeTab` and `storage`: it can't read
-  other tabs, history or page content, and runs no script on the pages people save. The
+  travel with it. Its manifest asks for that site, `activeTab` and `storage`, and since 11.3
+  for `contextMenus` and `clipboardWrite` (in Chrome also `offscreen`, the hidden document
+  that copies for the service worker): it can't read other tabs, history, page content or
+  the clipboard, and runs no script on the pages people save. The
   content script runs on this site only and relays the Connect page's messages; the
-  background script answers only its own content script in a top frame of this site. The
-  extension loads no remote code and renders titles and names as text only.
+  background script answers only its own content script in a top frame of this site, and
+  the offscreen document only the background script. The
+  extension loads no remote code and renders titles and names as text only: a list's links
+  become links only for `http(s)` addresses, and open with `noreferrer`.
+- **Sharing from the extension** (since 11.3) adds no way around a list's visibility
+  (invariant 2). Copying a list's, a group's or a short link sends nothing to the server and
+  says who the link works for. Who can open a list changes only through
+  `PATCH /api/v2/lists/{code}/`, after the user picks another answer and confirms it, and the
+  server applies its own rules (owner only, a verified address for public). A menu entry or a
+  shortcut saves to a list the user chose before, never to one the extension picks.
 - Email verification and password-reset keys travel in the URL **fragment**
   (`/reset-password#key=…`). Browsers never send fragments to servers, so the keys stay out of
   nginx logs, as V1's edit-link tokens did. The SPA removes them from the address bar on
