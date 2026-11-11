@@ -150,3 +150,45 @@ test('a right-click entry saves without a window, and a shortcut copies the list
   await expect(chooser.getByText('Saved to Reading.')).toBeVisible()
   expect((await linksOf(page, list.code)).map((link) => link.destination_url)).toContain(linked)
 })
+
+test("put a list's links in another order and remove one, from the popup", async ({ context, extensionId, page }) => {
+  await signUpThroughApi(page, uniqueEmail('ext-edit'))
+  const list = await createAccountList(page, 'Reading')
+  for (const name of ['one', 'two', 'three'])
+    await apiAs(page, 'POST', `/api/v2/lists/${list.code}/links/`, { destination_url: `${ARTICLE}${name}`, title: name })
+  await page.goto('/')
+  await connectFrom(await welcomePage(context))
+  const titles = async () => (await linksOf(page, list.code)).map((link) => link.title)
+  const revisions = async () => {
+    const answer = await (await page.request.get(`/api/v2/lists/${list.code}/revisions/`)).json()
+    return (answer.results ?? answer).length
+  }
+  const before = await revisions()
+
+  const popup = await popupAbout(context, extensionId, ARTICLE, 'An article')
+  await popup.getByRole('button', { name: 'My lists' }).click()
+  await popup.getByRole('button', { name: /^Reading/ }).click()
+  await expect(popup.getByRole('button', { name: 'Move three up' })).toHaveCount(0) // not before it is asked for
+  await popup.getByRole('button', { name: 'Edit links' }).click()
+
+  // One place up, by the keyboard: the button keeps the focus, so Enter moves it again.
+  await popup.getByRole('button', { name: 'Move three up' }).focus()
+  await popup.keyboard.press('Enter')
+  await expect(popup.getByRole('status')).toHaveText('“three” is now 2 of 3.')
+  await expect(popup.getByRole('button', { name: 'Move three up' })).toBeFocused()
+  await popup.keyboard.press('Enter')
+  await expect(popup.getByRole('status')).toHaveText('“three” is now 1 of 3.')
+  expect(await titles()).toEqual(['three', 'one', 'two'])
+  expect(await revisions()).toBe(before + 2) // each move is one change in the history
+
+  // Removing asks first, in the row.
+  await popup.getByRole('button', { name: 'Remove one…' }).click()
+  await popup.getByRole('button', { name: 'Keep' }).click()
+  expect(await titles()).toEqual(['three', 'one', 'two'])
+  await popup.getByRole('button', { name: 'Remove one…' }).click()
+  await popup.getByRole('button', { name: 'Remove one from the list' }).click()
+  await expect(popup.getByRole('status')).toContainText('Removed “one”.')
+  expect(await titles()).toEqual(['three', 'two'])
+  expect(await revisions()).toBe(before + 3)
+  await expect(popup.getByText('2 links')).toBeVisible()
+})

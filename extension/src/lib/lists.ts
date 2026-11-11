@@ -152,13 +152,42 @@ export async function fetchGroupLists(code: string): Promise<ListSummary[]> {
 /** A list's links, in the list's order. */
 export async function fetchLinks(code: string): Promise<LinkSummary[]> {
   const links = await everyPage<ApiLink>(`/api/v2/lists/${encodeURIComponent(code)}/links/`)
-  return links.map((link) => ({
-    id: link.id,
-    title: link.display.title,
-    url: link.destination_url,
-    site: link.display.site_name,
-    shortUrl: link.short_url,
-  }))
+  return links.map(linkSummary)
+}
+
+const linkSummary = (link: ApiLink): LinkSummary => ({
+  id: link.id,
+  title: link.display.title,
+  url: link.destination_url,
+  site: link.display.site_name,
+  shortUrl: link.short_url,
+})
+
+/**
+ * Moves one link to `toIndex` (0-based) and answers with the links in their new order. The
+ * site applies the move to the order it has now, so two people moving links never undo each
+ * other, and writes one change to the list's history.
+ */
+export async function moveLink(code: string, id: string, toIndex: number): Promise<LinkSummary[]> {
+  const links = await asAccount<ApiLink[]>(`/api/v2/lists/${encodeURIComponent(code)}/reorder/`, {
+    method: 'POST',
+    body: { link: id, to_index: toIndex },
+  })
+  return links.map(linkSummary)
+}
+
+/**
+ * Removes a link from a list. Its short link stops working; the list's history on the site
+ * keeps what the list was. Answers with the list as kept here, one link fewer.
+ */
+export async function removeLink(list: ListSummary, id: string): Promise<ListSummary> {
+  await asAccount<null>(
+    `/api/v2/lists/${encodeURIComponent(list.code)}/links/${encodeURIComponent(id)}/`,
+    { method: 'DELETE' },
+  )
+  const now = { ...list, linkCount: Math.max(0, list.linkCount - 1) }
+  await remember(now)
+  return now
 }
 
 /** Creates a private list. `key` makes a retried request return the same list. */

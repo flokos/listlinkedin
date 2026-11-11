@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { GroupSummary } from '../lib/lists'
-import { getCachedLists, type ListSummary, saveConnection } from '../lib/storage'
+import { cacheLists, getCachedLists, type ListSummary, saveConnection } from '../lib/storage'
 import { ADA, json } from '../test/fakeBrowser'
 import { apiLink, apiList, listSummary, page, type Route, site } from '../test/site'
 import ListDetail from './ListDetail.vue'
@@ -208,6 +208,109 @@ describe('ListDetail', () => {
 
     site({ [LINKS]: () => json({ detail: 'Not found.' }, 404) })
     expect((await open()).wrapper.find('[role="alert"]').text()).toBe('Not found.')
+  })
+
+  describe('editing the links', () => {
+    const REORDER = 'POST /api/v2/lists/A/reorder/'
+    const three: Record<string, Route> = {
+      [LINKS]: () => page([apiLink('1'), apiLink('2'), apiLink('3')]),
+    }
+    const titles = (wrapper: Awaited<ReturnType<typeof open>>['wrapper']) =>
+      wrapper.findAll('.detail__link-title').map((title) => title.text())
+
+    it('is offered only to who may edit the list, and only when asked for', async () => {
+      site(three)
+      const viewer = await open(listSummary('A', { canEdit: false }))
+      expect(viewer.button('Edit links')).toBeUndefined()
+
+      const { wrapper, button } = await open()
+      expect(wrapper.find('.detail__move').exists()).toBe(false)
+      await button('Edit links')!.trigger('click')
+      expect(wrapper.findAll('.detail__move')).toHaveLength(6)
+      // Nothing above the first, nothing below the last.
+      expect(wrapper.find('[aria-label="Move Link 1 up"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[aria-label="Move Link 3 down"]').attributes('disabled')).toBeDefined()
+      await button('Done')!.trigger('click')
+      expect(wrapper.find('.detail__move').exists()).toBe(false)
+    })
+
+    it('moves a link by one place and shows the order the site answers with', async () => {
+      const { calls, bodies } = site({
+        ...three,
+        [REORDER]: () => json([apiLink('2'), apiLink('1'), apiLink('3')]),
+      })
+      const { wrapper, button, note } = await open()
+      await button('Edit links')!.trigger('click')
+
+      await wrapper.find('[aria-label="Move Link 2 up"]').trigger('click')
+      await flushPromises()
+
+      expect(bodies[calls.indexOf(REORDER)]).toEqual({ link: '2', to_index: 0 })
+      expect(titles(wrapper)).toEqual(['Link 2', 'Link 1', 'Link 3'])
+      expect(note().text()).toBe('“Link 2” is now 1 of 3.')
+      // It reached the top: the keyboard is on the button that still does something.
+      expect(document.activeElement?.getAttribute('aria-label')).toBe('Move Link 2 down')
+    })
+
+    it('reads the links again when a move fails', async () => {
+      let reads = 0
+      site({
+        [LINKS]: () => page(reads++ ? [apiLink('3'), apiLink('1')] : [apiLink('1'), apiLink('3')]),
+        [REORDER]: () => json({ detail: 'This link is no longer in the list.' }, 404),
+      })
+      const { wrapper, button, note } = await open()
+      await button('Edit links')!.trigger('click')
+      await wrapper.find('[aria-label="Move Link 1 down"]').trigger('click')
+      await flushPromises()
+
+      expect(note().attributes('role')).toBe('alert')
+      expect(titles(wrapper)).toEqual(['Link 3', 'Link 1'])
+    })
+
+    it('removes a link only after it was asked about', async () => {
+      const DELETE = 'DELETE /api/v2/lists/A/links/2/'
+      const { calls } = site({ ...three, [DELETE]: () => new Response(null, { status: 204 }) })
+      await cacheLists([listSummary('A', { linkCount: 3 })])
+      const { wrapper, button, note } = await open(listSummary('A', { linkCount: 3 }))
+      await button('Edit links')!.trigger('click')
+
+      await wrapper.find('[aria-label="Remove Link 2…"]').trigger('click')
+      await flushPromises()
+      expect(calls).not.toContain(DELETE) // asked, not done
+      expect(document.activeElement?.textContent?.trim()).toBe('Keep')
+
+      await button('Keep')!.trigger('click')
+      await flushPromises()
+      expect(calls).not.toContain(DELETE)
+      expect(titles(wrapper)).toEqual(['Link 1', 'Link 2', 'Link 3'])
+
+      await wrapper.find('[aria-label="Remove Link 2…"]').trigger('click')
+      await wrapper.find('[aria-label="Remove Link 2 from the list"]').trigger('click')
+      await flushPromises()
+
+      expect(calls).toContain(DELETE)
+      expect(titles(wrapper)).toEqual(['Link 1', 'Link 3'])
+      expect(note().text()).toContain('Removed “Link 2”.')
+      expect(wrapper.emitted('changed')![0]).toEqual([expect.objectContaining({ linkCount: 2 })])
+      expect((await getCachedLists())![0]!.linkCount).toBe(2)
+    })
+
+    it("says why and reads the links again when the site won't remove one", async () => {
+      site({
+        ...three,
+        'DELETE /api/v2/lists/A/links/1/': () =>
+          json({ detail: 'You can no longer change this list.' }, 403),
+      })
+      const { wrapper, button, note } = await open()
+      await button('Edit links')!.trigger('click')
+      await wrapper.find('[aria-label="Remove Link 1…"]').trigger('click')
+      await wrapper.find('[aria-label="Remove Link 1 from the list"]').trigger('click')
+      await flushPromises()
+
+      expect(note().text()).toBe('You can no longer change this list.')
+      expect(titles(wrapper)).toHaveLength(3)
+      expect(wrapper.emitted('changed')).toBeUndefined()
+    })
   })
 
   it('goes back, and reports a connection that is over', async () => {
