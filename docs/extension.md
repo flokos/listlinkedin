@@ -2,7 +2,8 @@
 
 The listlinkedin extension saves pages into your lists and shares your lists without opening
 the site: from the button on the browser's toolbar, the right-click menu and keyboard
-shortcuts. It works in Chrome, Edge and other Chromium browsers, and in Firefox 140 or later.
+shortcuts. It works in Chrome, Edge and other Chromium browsers, and in Firefox 140 or later,
+on a computer. It is not made for phones (owner's decision, 2026-11-11): there, use the site.
 
 It is not in the Chrome Web Store or on addons.mozilla.org. You install it from a file, as
 this page describes. Developers building it themselves: see

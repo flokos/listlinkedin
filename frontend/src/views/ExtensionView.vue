@@ -41,7 +41,8 @@ const browsers = [
     <h1 class="text-headline-large mb-2">Browser extension</h1>
     <p class="text-body-large text-medium-emphasis ll-reading mb-8">
       Save the page you are on into one of your lists, and share your lists, without opening this
-      site: from a button on the browser's toolbar, the right-click menu or a keyboard shortcut.
+      site: from a button on the browser's toolbar, the right-click menu or a keyboard shortcut. It
+      is for browsers on a computer; on a phone, use this site.
     </p>
 
     <v-row class="mb-8">
