@@ -143,5 +143,17 @@ Menus, shortcuts and sharing (since task 11.3):
 - [ ] A list the account can only view: no "Who can open it" choice, only the sentence.
 - [ ] **Add to a group**, then on the site the group shows the list. Add it again: "already
       in the group".
+- [ ] Popup, **Save several: open tabs**: a page opens and reads nothing yet. **Allow reading
+      your open tabs**: the browser asks, and after "Allow" the tabs are listed, without
+      private windows, the browser's own pages or listlinkedin itself (since task 11.5).
+- [ ] Refuse the browser's question instead: the page says it can't show the tabs.
+- [ ] Tick a few, choose **A new list…**, save: the sentence says how many were saved, the
+      list has them in the order shown, and its history shows one change.
+- [ ] **History**: its own question; the latest visits come first; search narrows them. Save
+      some that are in the list already: "… were already there".
+- [ ] Tick more than a list has room for: the note says how many will fit, and the result
+      says how many didn't.
+- [ ] Options, "Open tabs and history": **Stop reading …** for each; the picker then asks
+      again.
 - [ ] After saving a page: **Copy short link** and paste it in a private window: it opens the
       page only if that visitor may open the list.

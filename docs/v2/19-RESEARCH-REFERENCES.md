@@ -127,7 +127,7 @@ Local verification (not web sources):
 | PostgreSQL checks non-deferrable unique indexes per row (so URL swaps need parking) | [08 Apply](08-SYNCHRONIZATION-SPEC.md#apply-algorithm) | task 6.2 test (scenario 23) |
 | Django `GeneratedField` can store a `simple`-config `SearchVector` | [05](05-DATABASE-DESIGN.md#indexes-added-by-v2) | task 8.1 |
 | Context menus and shortcut bindings survive a browser restart in both browsers without being made again (the extension makes them again on `runtime.onStartup` anyway), and Chrome leaves out a suggested shortcut another extension already has | [extension/README.md](../../extension/README.md) | the manual pass in task 11.6 |
-| `tabs` and `history` can be optional permissions, requested at run time, in both browsers | D36 | task 11.5 |
+| `tabs` and `history` can be optional permissions, requested at run time, in both browsers (both manifests declare them and Mozilla's linter accepts them; the question itself hasn't been answered in a real browser yet) | D36 | the manual pass in task 11.6 |
 
 ## Research areas covered (prompt Part 16)
 
