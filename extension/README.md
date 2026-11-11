@@ -45,7 +45,8 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
   Then two views. _Save this page_: the tab's title, a list to pick (the ones saved to last
   first), a new list. _My lists_: the account's lists and groups; a list's links; copying a
   list's, a group's or a link's address; who can open a list; adding a list to a group;
-  **Edit links** (for who may edit the list): move a link up or down, or remove it.
+  **Edit links** (for who may edit the list): drag a link to another place or move it with
+  the arrows, or remove it.
 - **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
   page or link. On the toolbar button: **Copy link to "…"** (the list saved to last) and

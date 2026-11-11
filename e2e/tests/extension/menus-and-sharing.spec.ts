@@ -181,14 +181,21 @@ test("put a list's links in another order and remove one, from the popup", async
   expect(await titles()).toEqual(['three', 'one', 'two'])
   expect(await revisions()).toBe(before + 2) // each move is one change in the history
 
+  // By dragging: a row dropped on another takes its place.
+  const row = (title: string) => popup.locator('.detail__link').filter({ hasText: title })
+  await row('two').dragTo(row('three'))
+  await expect(popup.getByRole('status')).toHaveText('“two” is now 1 of 3.')
+  expect(await titles()).toEqual(['two', 'three', 'one'])
+  expect(await revisions()).toBe(before + 3)
+
   // Removing asks first, in the row.
   await popup.getByRole('button', { name: 'Remove one…' }).click()
   await popup.getByRole('button', { name: 'Keep' }).click()
-  expect(await titles()).toEqual(['three', 'one', 'two'])
+  expect(await titles()).toEqual(['two', 'three', 'one'])
   await popup.getByRole('button', { name: 'Remove one…' }).click()
   await popup.getByRole('button', { name: 'Remove one from the list' }).click()
   await expect(popup.getByRole('status')).toContainText('Removed “one”.')
-  expect(await titles()).toEqual(['three', 'two'])
-  expect(await revisions()).toBe(before + 3)
+  expect(await titles()).toEqual(['two', 'three'])
+  expect(await revisions()).toBe(before + 4)
   await expect(popup.getByText('2 links')).toBeVisible()
 })

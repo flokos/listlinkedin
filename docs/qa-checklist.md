@@ -136,8 +136,9 @@ Menus, shortcuts and sharing (since task 11.3):
       and **Change shortcuts** opens those settings. Change one there and use it.
 - [ ] Popup, **My lists**: open a list, open one of its links, **Copy link**, and paste: the
       list's address. An account the list isn't shared with still can't open it.
-- [ ] In a list you can edit, **Edit links**: the arrows move a link one place (by mouse and
-      by keyboard, where the focus stays on the arrow), and the site shows the same order.
+- [ ] In a list you can edit, **Edit links**: dragging a row onto another puts it in that
+      place (in Chrome and in Firefox's popup); the arrows move a link one place (by mouse and
+      by keyboard, where the focus stays on the arrow); the site shows the same order.
       **Remove…** asks in the row; **Keep** leaves it, **Remove** takes it out, and the
       list's History on the site shows each as one change (since task 11.7).
 - [ ] A list you can only view has no **Edit links**.

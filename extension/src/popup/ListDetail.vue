@@ -82,10 +82,10 @@ async function focusOn(selector: string) {
   ;(found ?? block.value?.querySelector<HTMLElement>('.detail__edit'))?.focus()
 }
 
-async function move(link: LinkSummary, by: -1 | 1) {
+/** Puts `link` at place `to` (0-based). True if the site did. */
+async function moveTo(link: LinkSummary, to: number): Promise<boolean> {
   const from = links.value?.findIndex((other) => other.id === link.id) ?? -1
-  const to = from + by
-  if (!links.value || from < 0 || to < 0 || to >= links.value.length) return
+  if (!links.value || from < 0 || to < 0 || to >= links.value.length || to === from) return false
   busy.value = true
   note.value = undefined
   try {
@@ -95,17 +95,58 @@ async function move(link: LinkSummary, by: -1 | 1) {
       tone: 'info',
       text: `“${link.title}” is now ${place} of ${links.value.length}.`,
     }
+    return true
   } catch (error) {
     failed(error)
     await loadLinks() // the order here may not be the site's any more
+    return false
   } finally {
     busy.value = false
   }
+}
+
+async function move(link: LinkSummary, by: -1 | 1) {
+  const from = links.value?.findIndex((other) => other.id === link.id) ?? -1
+  await moveTo(link, from + by)
   // The same button, or the other one where the link reached an end.
   const row = `[data-link="${link.id}"]`
   const same = by < 0 ? '.detail__up' : '.detail__down'
   const other = by < 0 ? '.detail__down' : '.detail__up'
   await focusOn(`${row} ${same}:not(:disabled), ${row} ${other}:not(:disabled)`)
+}
+
+// Dragging a row onto another puts it in that one's place: the same move as the arrows, which
+// stay for the keyboard. Only while editing, and never from the row's buttons or its link.
+const dragged = ref('')
+const over = ref('')
+
+function dragStart(event: DragEvent, link: LinkSummary) {
+  if (busy.value || !event.dataTransfer) return event.preventDefault()
+  dragged.value = link.id
+  event.dataTransfer.effectAllowed = 'move'
+  // Firefox starts no drag without data. The title only: nothing to drop elsewhere.
+  event.dataTransfer.setData('text/plain', link.title)
+}
+
+function dragOver(event: DragEvent, link: LinkSummary) {
+  if (!dragged.value) return // something else is being dragged over the popup
+  event.preventDefault() // "this is a place to drop"
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  over.value = link.id
+}
+
+function dragEnd() {
+  dragged.value = ''
+  over.value = ''
+}
+
+async function drop(event: DragEvent, onto: LinkSummary) {
+  const link = links.value?.find((other) => other.id === dragged.value)
+  dragEnd()
+  if (!link) return
+  event.preventDefault()
+  const to = links.value?.findIndex((other) => other.id === onto.id) ?? -1
+  if (await moveTo(link, to)) await focusOn(`[data-link="${link.id}"] .detail__move:not(:disabled)`)
 }
 
 async function ask(link: LinkSummary) {
@@ -265,11 +306,29 @@ async function add() {
           {{ editing ? 'Done' : 'Edit links' }}
         </button>
       </div>
+      <p v-if="editing && links?.length" class="ll-muted detail__hint">
+        Drag a link to another place, or use the arrows.
+      </p>
       <NoticeBox v-if="linksError" tone="error">{{ linksError }}</NoticeBox>
       <p v-else-if="!links" class="ll-muted" aria-busy="true">Loading the links…</p>
       <p v-else-if="!links.length" class="ll-muted">This list has no links yet.</p>
       <ul v-else class="detail__links">
-        <li v-for="(link, index) in links" :key="link.id" class="detail__link" :data-link="link.id">
+        <li
+          v-for="(link, index) in links"
+          :key="link.id"
+          class="detail__link"
+          :class="{
+            'detail__link--movable': editing && list.canEdit,
+            'detail__link--dragged': dragged === link.id,
+            'detail__link--over': over === link.id && dragged !== link.id,
+          }"
+          :data-link="link.id"
+          :draggable="editing && list.canEdit ? 'true' : undefined"
+          @dragstart="dragStart($event, link)"
+          @dragover="dragOver($event, link)"
+          @drop="drop($event, link)"
+          @dragend="dragEnd"
+        >
           <span v-if="editing && list.canEdit" class="detail__moves">
             <button
               type="button"
@@ -299,6 +358,7 @@ async function add() {
               :href="link.url"
               target="_blank"
               rel="noreferrer"
+              :draggable="editing ? 'false' : undefined"
             >
               {{ link.title }}
             </a>
@@ -384,6 +444,9 @@ async function add() {
   justify-content: space-between;
   min-height: 28px;
 }
+.detail__hint {
+  font-size: 12px;
+}
 .detail__edit {
   min-height: 28px;
   padding: 0 4px;
@@ -415,6 +478,17 @@ async function add() {
   justify-content: space-between;
   gap: 8px;
   padding: 4px 8px;
+}
+.detail__link--movable {
+  border-radius: var(--ll-radius);
+  cursor: grab;
+}
+.detail__link--dragged {
+  opacity: 0.45;
+}
+.detail__link--over {
+  outline: 2px solid var(--ll-primary);
+  outline-offset: -2px;
 }
 .detail__link-text {
   display: grid;

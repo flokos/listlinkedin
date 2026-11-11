@@ -252,6 +252,46 @@ describe('ListDetail', () => {
       expect(document.activeElement?.getAttribute('aria-label')).toBe('Move Link 2 down')
     })
 
+    it('moves a link that is dragged onto another to that place', async () => {
+      const { calls, bodies } = site({
+        ...three,
+        [REORDER]: () => json([apiLink('2'), apiLink('3'), apiLink('1')]),
+      })
+      const { wrapper, button, note } = await open()
+      const row = (id: string) => wrapper.find(`[data-link="${id}"]`)
+      expect(row('1').attributes('draggable')).toBeUndefined() // not before "Edit links"
+      await button('Edit links')!.trigger('click')
+      expect(row('1').attributes('draggable')).toBe('true')
+
+      const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+      await row('1').trigger('dragstart', { dataTransfer })
+      expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', 'Link 1') // Firefox needs data
+      await row('3').trigger('dragover', { dataTransfer })
+      expect(row('3').classes()).toContain('detail__link--over')
+      await row('3').trigger('drop', { dataTransfer })
+      await flushPromises()
+
+      expect(bodies[calls.indexOf(REORDER)]).toEqual({ link: '1', to_index: 2 })
+      expect(titles(wrapper)).toEqual(['Link 2', 'Link 3', 'Link 1'])
+      expect(note().text()).toBe('“Link 1” is now 3 of 3.')
+      expect(wrapper.find('.detail__link--over').exists()).toBe(false)
+    })
+
+    it('does nothing when a link is dropped on itself, or something else is dropped', async () => {
+      const { calls } = site(three)
+      const { wrapper, button } = await open()
+      await button('Edit links')!.trigger('click')
+      const row = wrapper.find('[data-link="2"]')
+      const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+
+      await row.trigger('drop', { dataTransfer }) // a file, a tab: not one of these rows
+      await row.trigger('dragstart', { dataTransfer })
+      await row.trigger('drop', { dataTransfer })
+      await flushPromises()
+
+      expect(calls.filter((call) => call.startsWith('POST'))).toEqual([])
+    })
+
     it('reads the links again when a move fails', async () => {
       let reads = 0
       site({
