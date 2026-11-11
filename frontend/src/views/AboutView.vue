@@ -115,6 +115,9 @@ const principles = [
             your browser it keeps what connects it to your account, your lists' names and your last
             choices; disconnecting it, there or on your account page, removes them. It has no
             analytics.
+            <router-link :to="{ name: 'extension' }" class="text-primary"
+              >Get the extension</router-link
+            >.
           </v-expansion-panel-text>
         </v-expansion-panel>
 

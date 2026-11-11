@@ -47,7 +47,13 @@ jobs:
       - name: Attach the zips to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$TAG" extension/dist/listlinkedin-*.zip --clobber
+        # Each also under a name without the version, which the site's "Browser extension"
+        # page links to as a file of the latest release (frontend/src/utils/extensionDownloads.ts).
+        run: |
+          cp extension/dist/listlinkedin-*-chrome.zip listlinkedin-chrome.zip
+          cp extension/dist/listlinkedin-*-firefox.zip listlinkedin-firefox.zip
+          gh release upload "$TAG" extension/dist/listlinkedin-*.zip \
+            listlinkedin-chrome.zip listlinkedin-firefox.zip --clobber
 
       # Mozilla signs a build so that Firefox keeps it installed ("unlisted": it is not put
       # on addons.mozilla.org). The keys are the repository secrets AMO_JWT_ISSUER and
@@ -83,4 +89,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           XPI: ${{ steps.sign.outputs.xpi }}
-        run: gh release upload "$TAG" "$XPI" --clobber
+        run: |
+          cp "$XPI" listlinkedin-firefox.xpi
+          gh release upload "$TAG" "$XPI" listlinkedin-firefox.xpi --clobber

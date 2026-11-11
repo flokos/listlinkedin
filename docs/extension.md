@@ -19,6 +19,11 @@ the extension, built for `https://listlinkedin.versioncontrol.xyz`:
 | `listlinkedin-<version>-firefox-signed.xpi` | Firefox: signed by Mozilla, stays installed |
 | `listlinkedin-<version>-firefox.zip` | Firefox, unsigned: only as a temporary add-on |
 
+The site's own **Browser extension** page (`/extension`, in the footer) has a download
+button for each browser and the short version of the steps below. Its buttons lead to the
+newest release's files under names without a version (`listlinkedin-chrome.zip`,
+`listlinkedin-firefox.xpi`), which every release also carries.
+
 `<version>` is the extension's own version (`1.0.0` first), not the site's. An extension
 talks to one site, fixed when it is built. For another site (a development stack, your own
 installation), build it yourself with `LL_BASE_URL` set
@@ -128,7 +133,9 @@ same version as the same extension.
 
 Publishing a GitHub Release runs
 [`extension-release.yml`](../.github/workflows/extension-release.yml), which builds the
-extension from the release's tag for production's address and attaches the two zips. It can
+extension from the release's tag for production's address and attaches the two zips, each
+also under a name without the version, for the site's page
+(`frontend/src/utils/extensionDownloads.ts`). It can
 be run again for a tag from the Actions page. It never touches the deployment
 ([ADR-018](v2/adr/ADR-018-pull-based-deployment.md)).
 
@@ -144,7 +151,9 @@ workflow when two repository secrets exist; without them the step is skipped and
 The workflow then sends the Firefox build and its source to Mozilla as an **unlisted**
 add-on: it is checked automatically and signed, usually within minutes, and is not put on
 addons.mozilla.org. The signed file is attached to the release as
-`listlinkedin-<version>-firefox-signed.xpi`. The add-on's ID
+`listlinkedin-<version>-firefox-signed.xpi` and as `listlinkedin-firefox.xpi`. A release
+without it (no keys, or Mozilla refused) leaves the site's Firefox button without a file:
+run the workflow again for the tag once that is fixed. The add-on's ID
 (`extension@listlinkedin.versioncontrol.xyz`) belongs to the first Mozilla account that
 signs it.
 

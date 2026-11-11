@@ -26,9 +26,13 @@ account, and it signs each version of an add-on once.
    attaches the signed `.xpi`, when the repository secrets `AMO_JWT_ISSUER` and
    `AMO_JWT_SECRET` exist. Without them it skips the step and says so. The readable source
    (`git archive` of `extension/`) is sent along, because the build is bundled.
-3. **The extension has its own version** (`extension/package.json`, `1.0.0` first), raised
+3. **The site points to those files.** Its "Browser extension" page (`/extension`) links to
+   the newest release's files under names that don't change (`listlinkedin-chrome.zip`,
+   `listlinkedin-firefox.xpi`), which the workflow attaches beside the versioned ones. The
+   page hosts nothing itself and loads nothing from GitHub: they are plain links.
+4. **The extension has its own version** (`extension/package.json`, `1.0.0` first), raised
    in every release that changes `extension/`.
-4. The tool is Mozilla's `web-ext`, a locked dev dependency of `extension/`, run in the
+5. The tool is Mozilla's `web-ext`, a locked dev dependency of `extension/`, run in the
    extension's Docker image. No third-party action handles the credentials.
 
 ## Consequences

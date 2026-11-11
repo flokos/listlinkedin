@@ -23,6 +23,14 @@ test.describe('desktop menu', () => {
     }
     await page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name: 'About' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'About & privacy' })).toBeVisible()
+    // A page that is only in the footer.
+    await page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name: 'Browser extension' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Browser extension' })).toBeFocused()
+    await expect(page).toHaveTitle('Browser extension · listlinkedin')
+    await expect(page.getByRole('link', { name: 'Download for Firefox' })).toHaveAttribute(
+      'href',
+      /\/releases\/latest\/download\/listlinkedin-firefox\.xpi$/,
+    )
     expect(await page.evaluate(() => (window as unknown as { marker?: string }).marker)).toBe('same document')
   })
 

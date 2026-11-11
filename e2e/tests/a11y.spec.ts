@@ -31,6 +31,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         ['/', /Collect links/],
         ['/lists', 'My lists'],
         ['/about', 'About & privacy'],
+        ['/extension', 'Browser extension'],
         ['/explore', 'Explore'],
         ['/no/such/page', 'Page not found'],
       ] as const) {
