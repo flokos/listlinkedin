@@ -238,7 +238,10 @@ the phone projects run the journeys marked ★.
     the popup once, the copy shortcut through Chrome's offscreen document, and "Choose a
     list…" opening a window about a link. Menu clicks and shortcuts are fired on the service
     worker's own events (`chrome.contextMenus.onClicked.dispatch`), which runs everything
-    behind the click. Playwright can't open the popup from the toolbar, open a menu, press a
+    behind the click. Since 11.5 (`tabs-and-history.spec.ts`): the open tabs saved to a
+    new list as one revision, then pages picked from the history, with the ones already
+    there reported; that build declares the two optional permissions up front. Playwright
+    can't answer a permission question, open the popup from the toolbar, open a menu, press a
     shortcut or load an extension into Firefox: those are in the manual
     [QA checklist](../qa-checklist.md#browser-extension).
 

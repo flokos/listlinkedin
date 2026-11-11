@@ -17,8 +17,9 @@ import {
   savePage,
 } from '../lib/lists'
 import { type PageToSave, pageToSave, whyNotSaveable } from '../lib/pages'
-import { getRecent, type ListSummary } from '../lib/storage'
+import { getNewListVisibility, getRecent, type ListSummary, type Visibility } from '../lib/storage'
 import { whoCanOpen } from '../lib/visibility'
+import NewListAccess from '../ui/NewListAccess.vue'
 import NoticeBox from '../ui/NoticeBox.vue'
 import ListPicker from './ListPicker.vue'
 
@@ -83,6 +84,7 @@ onMounted(async () => {
   page.value = await pageToSave().catch(() => null)
   title.value = page.value?.title ?? ''
   recent.value = await getRecent()
+  newAccess.value = await getNewListVisibility()
   lists.value = (await cachedLists()) ?? undefined
   // Offer the list saved to last, if it can still take a link.
   const last = lists.value?.find((list) => list.code === recent.value[0])
@@ -105,6 +107,8 @@ watch(group, async (code) => {
 // A new list, made here and chosen at once.
 const creating = ref(false)
 const newTitle = ref('')
+/** Who can open the new list: the user's answer here, starting from the one given last. */
+const newAccess = ref<Visibility>('private')
 let createKey = crypto.randomUUID()
 async function create() {
   const name = newTitle.value.trim()
@@ -112,7 +116,7 @@ async function create() {
   busy.value = true
   notice.value = undefined
   try {
-    const list = await createList(name, createKey)
+    const list = await createList(name, createKey, newAccess.value)
     lists.value = [list, ...(lists.value ?? []).filter((other) => other.code !== list.code)]
     group.value = ''
     query.value = ''
@@ -249,6 +253,7 @@ function another() {
           </button>
         </div>
       </div>
+      <NewListAccess v-if="creating" id="save-new-access" v-model="newAccess" :disabled="busy" />
       <div class="ll-row save__actions">
         <button type="submit" class="ll-button" :disabled="busy || !target">Save</button>
         <button

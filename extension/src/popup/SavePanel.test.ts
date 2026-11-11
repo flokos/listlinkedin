@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { cacheLists, markUsed, saveConnection } from '../lib/storage'
+import { cacheLists, markUsed, saveConnection, saveNewListVisibility } from '../lib/storage'
 import { ADA, browser, json } from '../test/fakeBrowser'
 import { apiGroup, apiList, listSummary as summary, page, type Route, site } from '../test/site'
 import SavePanel from './SavePanel.vue'
@@ -179,13 +179,40 @@ describe('SavePanel', () => {
 
     await button('New list')!.trigger('click')
     await wrapper.find('#save-new-list').setValue('  Reading ')
+    // Private unless the user says otherwise (D16), and the sentence says what that means.
+    expect((wrapper.find('#save-new-access').element as HTMLSelectElement).value).toBe('private')
+    expect(wrapper.find('#save-new-access-meaning').text()).toContain('Only you')
     await button('Create')!.trigger('click')
     await flushPromises()
 
-    expect(bodies[calls.indexOf('POST /api/v2/lists/')]).toEqual({ title: 'Reading' })
+    expect(bodies[calls.indexOf('POST /api/v2/lists/')]).toEqual({
+      title: 'Reading',
+      visibility: 'private',
+    })
     expect(titles()).toEqual(['Reading', 'List A'])
     await save()
     expect(calls.at(-1)).toBe('POST /api/v2/lists/N/links/')
+  })
+
+  it('offers the answer given last for who can open a new list', async () => {
+    await saveNewListVisibility('unlisted')
+    const { calls, bodies } = site({
+      ...noGroups,
+      [LISTS]: () => page([apiList('A')]),
+      'POST /api/v2/lists/': () => json(apiList('N', { title: 'Shared', link_count: 0 }), 201),
+    })
+    const { wrapper, button } = await open()
+
+    await button('New list')!.trigger('click')
+    expect((wrapper.find('#save-new-access').element as HTMLSelectElement).value).toBe('unlisted')
+    await wrapper.find('#save-new-list').setValue('Shared')
+    await button('Create')!.trigger('click')
+    await flushPromises()
+
+    expect(bodies[calls.indexOf('POST /api/v2/lists/')]).toEqual({
+      title: 'Shared',
+      visibility: 'unlisted',
+    })
   })
 
   it("narrows to a group's lists", async () => {

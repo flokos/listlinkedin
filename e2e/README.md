@@ -60,6 +60,9 @@ bash e2e/run.sh --project=extension
   (`chrome.contextMenus.onClicked.dispatch(…)`, `chrome.commands.onCommand.dispatch(…)`), so
   everything behind the click runs for real: the save, the mark on the button, and the copy
   through Chrome's offscreen document. The clipboard is read by the site's page.
+- `run.sh` builds the extension with `LL_GRANT_OPTIONAL=1`: the permissions to read the open
+  tabs and the history, which a user grants when the picker first needs them, are declared
+  up front, because a test can't answer the browser's question.
 - The other projects still test the site's Connect page, with the test playing the extension
   (`playExtension` in `tests/fixtures.ts`), so Firefox and WebKit cover the page's half.
 - Firefox can't load an extension under Playwright. The Firefox build is linted in CI and

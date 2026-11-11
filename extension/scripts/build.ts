@@ -3,6 +3,7 @@
 //
 //   LL_BASE_URL  the listlinkedin site this build talks to (default: production)
 //   LL_GECKO_ID  the add-on ID in Firefox (default: the official one)
+//   LL_GRANT_OPTIONAL=1  declare the optional permissions up front (end-to-end tests only)
 import { watch } from 'node:fs'
 import { cp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -16,7 +17,7 @@ import { siteFrom } from './site.ts'
 const root = resolve(import.meta.dirname, '..')
 const out = resolve(root, 'dist')
 const bundle = resolve(out, '.bundle')
-const PAGES = ['popup.html', 'welcome.html', 'options.html', 'offscreen.html']
+const PAGES = ['popup.html', 'welcome.html', 'options.html', 'picker.html', 'offscreen.html']
 /** Pages only one browser uses: left out of the other's build. */
 const ONLY_IN: Record<string, Browser> = { 'offscreen.html': 'chrome' }
 
@@ -25,6 +26,7 @@ const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'ut
 }
 const site = siteFrom(process.env.LL_BASE_URL || 'https://listlinkedin.versioncontrol.xyz')
 const geckoId = process.env.LL_GECKO_ID || 'extension@listlinkedin.versioncontrol.xyz'
+const grantOptional = process.env.LL_GRANT_OPTIONAL === '1'
 
 const shared: InlineConfig = {
   root,
@@ -87,7 +89,7 @@ async function buildAll() {
       for (const file of await readdir(resolve(target, 'assets')))
         if (file.startsWith(`${name}-`)) await rm(resolve(target, 'assets', file))
     }
-    const manifest = manifestFor(browser, { version, site, geckoId })
+    const manifest = manifestFor(browser, { version, site, geckoId, grantOptional })
     await writeFile(resolve(target, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
   }
   await rm(bundle, { recursive: true, force: true })

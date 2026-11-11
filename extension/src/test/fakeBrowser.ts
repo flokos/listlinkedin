@@ -39,6 +39,12 @@ export interface MenuClick {
 export interface FakeTab {
   url?: string
   title?: string
+  incognito?: boolean
+}
+
+export interface Wanted {
+  origins?: string[]
+  permissions?: string[]
 }
 
 export function fakeBrowser() {
@@ -74,6 +80,8 @@ export function fakeBrowser() {
   }
   /** The menus the browser has now, in the order they were made. */
   const menus: MenuEntry[] = []
+  /** The optional permissions the user has allowed. */
+  const granted = new Set<string>()
   /** The mark on the toolbar button. */
   const badge = { text: '', color: '' }
   return {
@@ -127,8 +135,28 @@ export function fakeBrowser() {
       closeDocument: vi.fn(async () => {}),
     },
     permissions: {
-      contains: vi.fn<(wanted: { origins: string[] }) => Promise<boolean>>(async () => true),
-      request: vi.fn<(wanted: { origins: string[] }) => Promise<boolean>>(async () => true),
+      granted,
+      // The site is granted at install; an optional permission only once it was asked for.
+      contains: vi.fn(async (wanted: Wanted) =>
+        (wanted.permissions ?? []).every((name) => granted.has(name)),
+      ),
+      request: vi.fn(async (wanted: Wanted) => {
+        for (const name of wanted.permissions ?? []) granted.add(name)
+        return true
+      }),
+      remove: vi.fn(async (wanted: Wanted) => {
+        for (const name of wanted.permissions ?? []) granted.delete(name)
+        return true
+      }),
+    },
+    history: {
+      search: vi.fn<
+        (query: {
+          text: string
+          startTime?: number
+          maxResults?: number
+        }) => Promise<{ url?: string; title?: string; lastVisitTime?: number }[]>
+      >(async () => []),
     },
   }
 }

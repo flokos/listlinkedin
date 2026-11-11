@@ -43,14 +43,20 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
 
 - **The popup** (the toolbar button): "Connect this browser" until an account is connected.
   Then two views. _Save this page_: the tab's title, a list to pick (the ones saved to last
-  first), a new list. _My lists_: the account's lists and groups; a list's links; copying a
-  list's, a group's or a link's address; who can open a list; adding a list to a group;
-  **Edit links** (for who may edit the list): drag a link to another place or move it with
-  the arrows, or remove it.
+  first), a new list (with who can open it: private unless chosen otherwise, and the answer
+  given last is offered again). _My lists_: the account's lists and groups; a list's links;
+  copying a list's, a group's or a link's address; who can open a list; adding a list to a
+  group; **Edit links** (for who may edit the list): drag a link to another place or move it
+  with the arrows, or remove it.
 - **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
-  page or link. On the toolbar button: **Copy link to "…"** (the list saved to last) and
-  **Open my lists**.
+  page or link, then **Save open tabs…** and **Save from history…**. On the toolbar button:
+  **Copy link to "…"** (the list saved to last), the same two, and **Open my lists**.
+- **Saving several pages at once** (`picker.html`, from the popup's "Save several" links or
+  the right-click menu's two entries):
+  tick pages among the open tabs or in the history, choose a list or a new one, and they are
+  saved as one change. The page asks for the permission to read the tabs or the history the
+  first time; the options page takes it back.
 - **Keyboard shortcuts**, each one changeable in the browser's own settings (the options page
   lists them and opens those settings):
 
@@ -75,7 +81,8 @@ another answer under "Who can open it" and chooses **Change** (invariant 2 in
 | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `popup.html`, `src/popup/`              | The toolbar popup, and "Choose a list…" as a window (`popup.html?url=…&title=…`)              |
 | `welcome.html`, `src/pages/welcome/`    | Opened once after install                                                                     |
-| `options.html`, `src/pages/options/`    | The connected account, disconnecting, and the shortcuts                                       |
+| `options.html`, `src/pages/options/`    | The connected account, disconnecting, the shortcuts, and what the picker may read             |
+| `picker.html`, `src/pages/picker/`      | Saving several pages at once, from the open tabs or the history                               |
 | `src/background/`                       | The background script: a service worker in Chrome, an event page in Firefox                   |
 | `src/background/menus.ts`, `actions.ts` | The right-click menus, and what they and the shortcuts do                                     |
 | `offscreen.html`, `src/offscreen/`      | Chrome only: the hidden document that copies for the service worker (`src/lib/clipboard.ts`)  |
@@ -116,9 +123,11 @@ The page and the content script talk through `src/lib/bridge.ts`, whose other ha
 | `contextMenus`                          | The right-click menus                                                                                   |
 | `clipboardWrite`                        | Copying a list's link from a shortcut or a menu, where no click in a page allows it                     |
 | `offscreen` (Chrome only)               | The hidden document that copies, because Chrome's service worker has no clipboard                       |
+| `tabs`, `history` (optional)            | The picker: asked for when it is first used, never at install, and given back on the options page       |
 
-It does not read other tabs, history, page content or the clipboard, and runs no code on the
-pages you save.
+Without those two it does not read other tabs or the history. It never reads page content or
+the clipboard, and runs no code on the pages you save. What the picker reads stays in the
+browser: only the pages you tick are sent.
 
 ## Checks
 
