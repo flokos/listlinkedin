@@ -47,9 +47,10 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
   list's, a group's or a link's address; who can open a list; adding a list to a group.
 - **The right-click menu**, on a page or a link: **Save to listlinkedin** with the six lists
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
-  page or link. On the toolbar button: **Copy link to "…"** (the list saved to last) and
-  **Open my lists**.
-- **Saving several pages at once** (`picker.html`, from the popup's "Save several" links):
+  page or link, then **Save open tabs…** and **Save from history…**. On the toolbar button:
+  **Copy link to "…"** (the list saved to last), the same two, and **Open my lists**.
+- **Saving several pages at once** (`picker.html`, from the popup's "Save several" links or
+  the right-click menu's two entries):
   tick pages among the open tabs or in the history, choose a list or a new one, and they are
   saved as one change. The page asks for the permission to read the tabs or the history the
   first time; the options page takes it back.

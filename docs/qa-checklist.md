@@ -128,6 +128,8 @@ Menus, shortcuts and sharing (since task 11.3):
       a restart.
 - [ ] Right-click the toolbar button: **Copy link to "…"** names the list saved to last and
       puts its address on the clipboard; **Open my lists** opens the site's lists page.
+- [ ] **Save open tabs…** and **Save from history…**, under "Save to listlinkedin" on a page
+      and on the toolbar button, each open the page for saving several, on that source.
 - [ ] Shortcuts (`Alt+Shift+L`, `Alt+Shift+D`, `Alt+Shift+C` unless changed): the popup
       opens; the page is saved to the list saved to last (`✓`); that list's address is on the
       clipboard (`✓`). After copying a private list's link, the popup says once that only

@@ -10,6 +10,9 @@ import type { Page } from '@playwright/test'
 import { signUpThroughApi, uniqueEmail } from '../fixtures'
 import { connectFrom, expect, test, welcomePage } from './fixtures'
 
+// The extension API inside the service worker (this project has no types for it).
+declare const chrome: any
+
 const SITE = 'http://fixture.test/'
 
 const listsOf = async (page: Page): Promise<{ code: string; title: string; link_count: number }[]> =>
@@ -92,4 +95,27 @@ test('the popup leads to the picker', async ({ context, extensionId, page }) => 
     popup.getByRole('link', { name: 'from history' }).click(),
   ])
   await expect(picker.getByRole('button', { name: 'History' })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('the right-click menu leads to the picker', async ({ context, page }) => {
+  await signUpThroughApi(page, uniqueEmail('ext-picker-menu'))
+  await page.goto('/')
+  await connectFrom(await welcomePage(context))
+  const [worker] = context.serviceWorkers()
+
+  // Under "Save to listlinkedin" on a page, and on the toolbar button (its ids end in ":button").
+  for (const [menuItemId, source] of [
+    ['several:tabs', 'Open tabs'],
+    ['several:history:button', 'History'],
+  ] as const) {
+    const [picker] = await Promise.all([
+      context.waitForEvent('page'),
+      worker!.evaluate(
+        (id) => chrome.contextMenus.onClicked.dispatch({ menuItemId: id, pageUrl: 'http://fixture.test/' }),
+        menuItemId,
+      ),
+    ])
+    await expect(picker.getByRole('button', { name: source })).toHaveAttribute('aria-pressed', 'true')
+    await picker.close()
+  }
 })

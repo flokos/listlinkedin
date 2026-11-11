@@ -1,14 +1,22 @@
 // The right-click menus.
 //
 // On a page or a link: "Save to listlinkedin" with the lists saved to last, and "Choose a
-// list…". On the toolbar button: "Copy link to …" for the list saved to last, and "Open my
-// lists". The menus are made again whenever what they show changes (the connection, the
+// list…", then "Save open tabs…" and "Save from history…", which open the page for saving
+// several at once. On the toolbar button: "Copy link to …" for the list saved to last, the
+// same two, and "Open my lists". The menus are made again whenever what they show changes (the connection, the
 // lists, the ones used last), so they are right even while the background script is asleep.
 import { ext } from '../lib/ext'
 import { byLastUse } from '../lib/lists'
 import type { PageToSave } from '../lib/pages'
 import { getCachedLists, getConnection, getRecent, type ListSummary } from '../lib/storage'
-import { copyLastListLink, openChooser, openMyLists, pageOfTab, saveTo } from './actions'
+import {
+  copyLastListLink,
+  openChooser,
+  openMyLists,
+  openPicker,
+  pageOfTab,
+  saveTo,
+} from './actions'
 
 /** How many lists the menu offers; the rest are behind "Choose a list…". */
 export const MENU_LISTS = 6
@@ -18,6 +26,10 @@ const SAVE_TO = 'save-to:'
 const CHOOSE = 'choose'
 const COPY_LINK = 'copy-link'
 const MY_LISTS = 'my-lists'
+// Several pages at once: once under "Save to listlinkedin", once on the toolbar button.
+const SEVERAL = { tabs: 'Save open tabs…', history: 'Save from history…' } as const
+const SEVERAL_FROM = 'several:'
+const ON_BUTTON = ':button'
 
 type Context = 'page' | 'link' | 'action'
 
@@ -62,6 +74,9 @@ export function menuItems(state: {
   if (offered.length)
     items.push({ id: 'separator', parentId: SAVE, type: 'separator', contexts: onPage })
   items.push({ id: CHOOSE, parentId: SAVE, title: 'Choose a list…', contexts: onPage })
+  items.push({ id: 'separator-several', parentId: SAVE, type: 'separator', contexts: onPage })
+  for (const [source, title] of Object.entries(SEVERAL))
+    items.push({ id: SEVERAL_FROM + source, parentId: SAVE, title, contexts: onPage })
 
   const last = state.lists.find((list) => list.code === state.recent[0])
   if (last)
@@ -70,6 +85,9 @@ export function menuItems(state: {
       title: `Copy link to “${menuTitle(last.title)}”`,
       contexts: ['action'],
     })
+  // Chrome shows at most six entries of an extension on its toolbar button: these are four.
+  for (const [source, title] of Object.entries(SEVERAL))
+    items.push({ id: SEVERAL_FROM + source + ON_BUTTON, title, contexts: ['action'] })
   items.push({ id: MY_LISTS, title: 'Open my lists', contexts: ['action'] })
   return items
 }
@@ -128,6 +146,11 @@ export async function onMenuClick(
   const id = String(info.menuItemId)
   if (id === COPY_LINK) return copyLastListLink()
   if (id === MY_LISTS) return openMyLists()
+  if (id.startsWith(SEVERAL_FROM)) {
+    const source = id.slice(SEVERAL_FROM.length).replace(ON_BUTTON, '')
+    if (source === 'tabs' || source === 'history') return openPicker(source)
+    return
+  }
   if (id === CHOOSE) return openChooser(pageOfClick(info, tab))
   if (id.startsWith(SAVE_TO)) return saveTo(id.slice(SAVE_TO.length), pageOfClick(info, tab))
 }
