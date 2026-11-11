@@ -14,7 +14,7 @@ import { useDisplay } from 'vuetify'
 
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
-import { externalNav, shownNav, signInRoute, type NavItem } from '../navigation'
+import { externalNav, moreNav, shownNav, signInRoute, type NavItem } from '../navigation'
 import AppLogo from './AppLogo.vue'
 import ThemeMenu from './ThemeMenu.vue'
 
@@ -120,6 +120,13 @@ const isDev = import.meta.env.DEV
           <v-btn v-bind="props" :icon="mdiDotsVertical" variant="text" aria-label="More" />
         </template>
         <v-list role="menu" density="compact" nav>
+          <v-list-item
+            v-for="item in moreNav"
+            :key="item.label"
+            role="menuitem"
+            :to="item.to"
+            :title="item.label"
+          />
           <v-list-item
             v-for="link in externalNav"
             :key="link.label"
