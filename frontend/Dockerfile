@@ -27,5 +27,5 @@ RUN npm run build
 
 # The production proxy: nginx serves the built app and forwards the API to Django. Its
 # config is the template mounted by compose.prod.yaml (deploy/nginx/).
-FROM nginx:1.30-alpine AS prod
+FROM nginx:1.31-alpine AS prod
 COPY --from=build /app/dist /usr/share/nginx/html
