@@ -49,6 +49,10 @@ That writes `extension/dist/chrome` and `extension/dist/firefox`.
   saved to last, and **Choose a list…**, which opens the popup in a small window about that
   page or link. On the toolbar button: **Copy link to "…"** (the list saved to last) and
   **Open my lists**.
+- **Saving several pages at once** (`picker.html`, from the popup's "Save several" links):
+  tick pages among the open tabs or in the history, choose a list or a new one, and they are
+  saved as one change. The page asks for the permission to read the tabs or the history the
+  first time; the options page takes it back.
 - **Keyboard shortcuts**, each one changeable in the browser's own settings (the options page
   lists them and opens those settings):
 
@@ -73,7 +77,8 @@ another answer under "Who can open it" and chooses **Change** (invariant 2 in
 | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `popup.html`, `src/popup/`              | The toolbar popup, and "Choose a list…" as a window (`popup.html?url=…&title=…`)              |
 | `welcome.html`, `src/pages/welcome/`    | Opened once after install                                                                     |
-| `options.html`, `src/pages/options/`    | The connected account, disconnecting, and the shortcuts                                       |
+| `options.html`, `src/pages/options/`    | The connected account, disconnecting, the shortcuts, and what the picker may read             |
+| `picker.html`, `src/pages/picker/`      | Saving several pages at once, from the open tabs or the history                               |
 | `src/background/`                       | The background script: a service worker in Chrome, an event page in Firefox                   |
 | `src/background/menus.ts`, `actions.ts` | The right-click menus, and what they and the shortcuts do                                     |
 | `offscreen.html`, `src/offscreen/`      | Chrome only: the hidden document that copies for the service worker (`src/lib/clipboard.ts`)  |
@@ -114,9 +119,11 @@ The page and the content script talk through `src/lib/bridge.ts`, whose other ha
 | `contextMenus`                          | The right-click menus                                                                                   |
 | `clipboardWrite`                        | Copying a list's link from a shortcut or a menu, where no click in a page allows it                     |
 | `offscreen` (Chrome only)               | The hidden document that copies, because Chrome's service worker has no clipboard                       |
+| `tabs`, `history` (optional)            | The picker: asked for when it is first used, never at install, and given back on the options page       |
 
-It does not read other tabs, history, page content or the clipboard, and runs no code on the
-pages you save.
+Without those two it does not read other tabs or the history. It never reads page content or
+the clipboard, and runs no code on the pages you save. What the picker reads stays in the
+browser: only the pages you tick are sent.
 
 ## Checks
 

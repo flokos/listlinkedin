@@ -11,7 +11,18 @@ export interface ManifestOptions {
   site: Site
   /** Firefox knows an add-on by this ID: its storage and permissions hang on it. */
   geckoId: string
+  /**
+   * Declare the optional permissions up front instead. Only for the build the end-to-end
+   * tests load: a test can't answer the browser's question.
+   */
+  grantOptional?: boolean
 }
+
+/**
+ * Asked for only when the picker first needs them (src/lib/permissions.ts): reading the open
+ * tabs and the browsing history. Installing the extension asks for neither.
+ */
+export const OPTIONAL_PERMISSIONS = ['tabs', 'history']
 
 const ICONS = {
   16: 'icons/icon-16.png',
@@ -41,7 +52,10 @@ export const COMMANDS = {
   },
 }
 
-export function manifestFor(browser: Browser, { version, site, geckoId }: ManifestOptions) {
+export function manifestFor(
+  browser: Browser,
+  { version, site, geckoId, grantOptional = false }: ManifestOptions,
+) {
   const action = {
     default_title: 'Save to listlinkedin',
     default_popup: 'popup.html',
@@ -65,10 +79,18 @@ export function manifestFor(browser: Browser, { version, site, geckoId }: Manife
   //   popup, a right-click menu, a shortcut).
   // contextMenus: the right-click menus. clipboardWrite: copying a list's link from a
   //   shortcut or a menu, where there is no click in a page to allow it.
-  const permissions = ['storage', 'activeTab', 'contextMenus', 'clipboardWrite']
+  const permissions = [
+    'storage',
+    'activeTab',
+    'contextMenus',
+    'clipboardWrite',
+    ...(grantOptional ? OPTIONAL_PERMISSIONS : []),
+  ]
+  const optional = grantOptional ? {} : { optional_permissions: OPTIONAL_PERMISSIONS }
   if (browser === 'chrome')
     return {
       ...common,
+      ...optional,
       action,
       // offscreen: the hidden document that copies for the service worker, which has no
       // clipboard of its own (src/lib/clipboard.ts).
@@ -78,6 +100,7 @@ export function manifestFor(browser: Browser, { version, site, geckoId }: Manife
     }
   return {
     ...common,
+    ...optional,
     // Firefox would otherwise keep the button in its Extensions menu, where the mark that
     // says "saved" after a right-click or a shortcut can't be seen. The user can move it.
     action: { ...action, default_area: 'navbar' },

@@ -55,6 +55,24 @@ describe('the options page', () => {
     expect(browser().tabs.create).toHaveBeenCalledWith({ url: 'chrome://extensions/shortcuts' })
   })
 
+  it('shows what the picker may read and takes it back', async () => {
+    browser().permissions.granted.add('history')
+    const wrapper = mount(OptionsApp)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('It can read your browsing history.')
+    expect(wrapper.text()).not.toContain('It can read your open tabs.')
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Stop reading your browsing history')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(browser().permissions.remove).toHaveBeenCalledWith({ permissions: ['history'] })
+    expect(wrapper.text()).toContain('The extension can read neither now.')
+  })
+
   it('offers to connect when no account is connected', async () => {
     const wrapper = mount(OptionsApp)
     await flushPromises()

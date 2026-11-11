@@ -95,6 +95,15 @@ describe('the popup', () => {
     expect((await open()).find('[role="status"]').exists()).toBe(false)
   })
 
+  it('links to the page for saving several pages at once', async () => {
+    await saveConnection(ADA)
+    const wrapper = await open()
+    expect(wrapper.findAll('.popup__more a').map((a) => a.attributes('href'))).toEqual([
+      'chrome-extension://fake-extension-id/picker.html?source=tabs',
+      'chrome-extension://fake-extension-id/picker.html?source=history',
+    ])
+  })
+
   it('opens the options page', async () => {
     const wrapper = await open()
     await wrapper
