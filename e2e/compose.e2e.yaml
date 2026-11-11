@@ -22,7 +22,7 @@ services:
       FETCH_BLOCKED_NETWORKS: "0.0.0.0/0,::/0"
 
   fixture:
-    image: nginx:1.30-alpine  # the same base as the production frontend image
+    image: nginx:1.31-alpine  # the same base as the production frontend image
     volumes:
       - ./e2e/fixture-site:/usr/share/nginx/html:ro
 
