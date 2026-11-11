@@ -177,6 +177,11 @@ guessed by someone who already has the image. Moving private images behind an au
   the offscreen document only the background script. The
   extension loads no remote code and renders titles and names as text only: a list's links
   become links only for `http(s)` addresses, and open with `noreferrer`.
+- **Open tabs and history** (since 11.5) are read only by the picker page, inside the browser,
+  and only after the user allowed it there: `tabs` and `history` are optional permissions,
+  not asked at install, and the options page takes them back. Tabs of private windows are
+  left out. Nothing of what is read leaves the browser except the address and title of each
+  page the user ticks, sent through `links/batch/`.
 - **Sharing from the extension** (since 11.3) adds no way around a list's visibility
   (invariant 2). Copying a list's, a group's or a short link sends nothing to the server and
   says who the link works for. Who can open a list changes only through

@@ -13,7 +13,14 @@ import {
   savePage,
   setVisibility,
 } from './lists'
-import { cacheLists, getCachedLists, getRecent, markUsed, saveConnection } from './storage'
+import {
+  cacheLists,
+  getCachedLists,
+  getNewListVisibility,
+  getRecent,
+  markUsed,
+  saveConnection,
+} from './storage'
 
 const apiList = (code: string, permissions = ['view', 'edit', 'settings'], extra = {}) => ({
   id: `id-${code}`,
@@ -123,14 +130,16 @@ describe('createList', () => {
       json(apiList('N', ['view', 'edit'], { title: 'New', link_count: 0 }), 201),
     )
 
-    const created = await createList('New', 'key-1')
+    const created = await createList('New', 'key-1', 'unlisted')
 
     const [url, init] = fetch.mock.calls[0]!
     expect(url).toBe('https://lists.example.test/api/v2/lists/')
-    expect(init).toMatchObject({ method: 'POST', body: '{"title":"New"}' })
+    expect(init).toMatchObject({ method: 'POST', body: '{"title":"New","visibility":"unlisted"}' })
     expect(init.headers).toMatchObject({ 'Idempotency-Key': 'key-1' })
     expect(created).toMatchObject({ code: 'N', title: 'New', linkCount: 0, canEdit: true })
     expect((await getCachedLists())!.map((list) => list.code)).toEqual(['N', 'A'])
+    // The answer is offered again the next time a list is made here.
+    expect(await getNewListVisibility()).toBe('unlisted')
   })
 })
 

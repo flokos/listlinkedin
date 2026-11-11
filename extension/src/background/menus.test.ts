@@ -39,6 +39,9 @@ describe('menuItems', () => {
       'save-to:B',
       'separator',
       'choose',
+      'separator-several',
+      'several:tabs',
+      'several:history',
     ])
     expect(items[0]).toEqual({
       id: 'save',
@@ -48,6 +51,8 @@ describe('menuItems', () => {
     // On the toolbar button. The list saved to last was V, which can still be shared.
     expect(items.filter((item) => item.contexts[0] === 'action')).toEqual([
       { id: 'copy-link', title: 'Copy link to “List V”', contexts: ['action'] },
+      { id: 'several:tabs:button', title: 'Save open tabs…', contexts: ['action'] },
+      { id: 'several:history:button', title: 'Save from history…', contexts: ['action'] },
       { id: 'my-lists', title: 'Open my lists', contexts: ['action'] },
     ])
   })
@@ -61,7 +66,19 @@ describe('menuItems', () => {
 
   it('has only "Choose a list…" for an account without a list to save to', () => {
     const items = menus.menuItems({ connected: true, lists: [], recent: [] })
-    expect(items.map((item) => item.id)).toEqual(['save', 'choose', 'my-lists'])
+    expect(items.map((item) => item.id)).toEqual([
+      'save',
+      'choose',
+      'separator-several',
+      'several:tabs',
+      'several:history',
+      'several:tabs:button',
+      'several:history:button',
+      'my-lists',
+    ])
+    // Chrome shows no more than six of an extension's entries on its toolbar button.
+    const onButton = menus.menuItems({ connected: true, lists: [listSummary('A')], recent: ['A'] })
+    expect(onButton.filter((item) => item.contexts[0] === 'action')).toHaveLength(4)
   })
 })
 
@@ -83,8 +100,22 @@ describe('rebuildMenus', () => {
     await markUsed('B')
     await menus.rebuildMenus()
 
-    expect(titles()).toEqual(['Save to listlinkedin', 'Copy link to “Work”', 'Open my lists'])
-    expect(titles('save')).toEqual(['Work', 'Reading', '(separator)', 'Choose a list…'])
+    expect(titles()).toEqual([
+      'Save to listlinkedin',
+      'Copy link to “Work”',
+      'Save open tabs…',
+      'Save from history…',
+      'Open my lists',
+    ])
+    expect(titles('save')).toEqual([
+      'Work',
+      'Reading',
+      '(separator)',
+      'Choose a list…',
+      '(separator)',
+      'Save open tabs…',
+      'Save from history…',
+    ])
   })
 
   it('leaves the menus alone when nothing they show has changed, unless told to', async () => {
@@ -159,6 +190,19 @@ describe('onMenuClick', () => {
   it('opens "My lists" on the site from the toolbar button', async () => {
     await menus.onMenuClick({ menuItemId: 'my-lists' })
     expect(browser().tabs.create).toHaveBeenCalledWith({ url: 'https://lists.example.test/lists' })
+  })
+
+  it('opens the page for saving several, on the open tabs or on the history', async () => {
+    await menus.onMenuClick({ menuItemId: 'several:tabs', pageUrl: 'https://example.com/page' })
+    expect(browser().tabs.create).toHaveBeenLastCalledWith({
+      url: 'chrome-extension://fake-extension-id/picker.html?source=tabs',
+    })
+    await menus.onMenuClick({ menuItemId: 'several:history:button' }) // on the toolbar button
+    expect(browser().tabs.create).toHaveBeenLastCalledWith({
+      url: 'chrome-extension://fake-extension-id/picker.html?source=history',
+    })
+    // It only opens the page: nothing is read or sent by the click.
+    expect(browser().tabs.query).not.toHaveBeenCalled()
   })
 
   it('does nothing for an entry it does not know', async () => {

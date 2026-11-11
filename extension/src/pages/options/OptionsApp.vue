@@ -6,6 +6,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { disconnect } from '../../lib/account'
 import { SITE, siteUrl, VERSION } from '../../lib/config'
 import { ext } from '../../lib/ext'
+import { isAllowed, OPTIONAL, type Optional, takeBack, WHAT } from '../../lib/permissions'
 import { type Connection, getConnection, onConnectionChange } from '../../lib/storage'
 import BrandMark from '../../ui/BrandMark.vue'
 import ConnectPrompt from '../../ui/ConnectPrompt.vue'
@@ -36,6 +37,19 @@ onMounted(async () => {
   }))
 })
 onBeforeUnmount(() => stop())
+
+// What the user allowed the picker to read. Taking it back is one click; asking again
+// happens in the picker, when it is next needed.
+const reading = ref<Optional[]>([])
+async function loadReading() {
+  const allowed = await Promise.all(OPTIONAL.map((name) => isAllowed(name).catch(() => false)))
+  reading.value = OPTIONAL.filter((_, index) => allowed[index])
+}
+onMounted(loadReading)
+async function stopReading(name: Optional) {
+  await takeBack(name)
+  await loadReading()
+}
 
 // Shortcuts are changed in the browser's own settings: Firefox can open them, Chrome has an
 // address for them.
@@ -131,6 +145,23 @@ async function leave() {
       </div>
     </section>
 
+    <section class="ll-card options__card" aria-labelledby="reading-heading">
+      <h2 id="reading-heading">Open tabs and history</h2>
+      <p class="ll-muted">
+        Saving several pages at once reads your open tabs or your history, in this browser, and only
+        after you allow it there. Only the pages you tick are sent.
+      </p>
+      <p v-if="!reading.length">The extension can read neither now.</p>
+      <ul v-else class="options__reading">
+        <li v-for="name in reading" :key="name" class="ll-row">
+          <span>It can read {{ WHAT[name] }}.</span>
+          <button type="button" class="ll-button ll-button--tonal" @click="stopReading(name)">
+            Stop reading {{ WHAT[name] }}
+          </button>
+        </li>
+      </ul>
+    </section>
+
     <section class="ll-card options__card" aria-labelledby="about-heading">
       <h2 id="about-heading">About</h2>
       <p class="ll-muted">
@@ -147,6 +178,13 @@ async function leave() {
 .options__confirm {
   display: grid;
   gap: 12px;
+}
+.options__reading {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .options__keys {
   display: grid;

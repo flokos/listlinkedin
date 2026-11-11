@@ -58,6 +58,8 @@ interface Local {
   lists?: ListSummary[]
   /** Codes of the lists saved to last, newest first. */
   recent?: string[]
+  /** Who can open a new list, as chosen the last time one was made here. */
+  newListVisibility?: Visibility
 }
 
 const RECENT = 8
@@ -75,7 +77,12 @@ export const saveConnection = (connection: Connection) => write({ connection })
 
 /** Forgets the account: its token, and everything kept about it. */
 export async function forgetAccount(): Promise<void> {
-  await ext().storage.local.remove(['connection', 'lists', 'recent'] satisfies (keyof Local)[])
+  await ext().storage.local.remove([
+    'connection',
+    'lists',
+    'recent',
+    'newListVisibility',
+  ] satisfies (keyof Local)[])
 }
 
 /** Calls `listener` whenever this browser gets connected or disconnected, in any page. */
@@ -100,6 +107,12 @@ export async function markUsed(code: string): Promise<void> {
   const recent = (await getRecent()).filter((other) => other !== code)
   await write({ recent: [code, ...recent].slice(0, RECENT) })
 }
+
+/** Who can open a new list unless the user says otherwise: only them, until one was made here. */
+export const getNewListVisibility = async (): Promise<Visibility> =>
+  (await read('newListVisibility')) ?? 'private'
+
+export const saveNewListVisibility = (newListVisibility: Visibility) => write({ newListVisibility })
 
 const PENDING = 'pendingConnect'
 

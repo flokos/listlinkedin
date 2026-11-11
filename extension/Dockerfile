@@ -23,7 +23,9 @@ CMD ["node", "scripts/build.ts", "--watch"]
 FROM deps AS build
 ARG LL_BASE_URL=https://listlinkedin.versioncontrol.xyz
 ARG LL_GECKO_ID=extension@listlinkedin.versioncontrol.xyz
-ENV LL_BASE_URL=$LL_BASE_URL LL_GECKO_ID=$LL_GECKO_ID
+# 1 only for the build the end-to-end tests load (scripts/manifest.ts).
+ARG LL_GRANT_OPTIONAL=
+ENV LL_BASE_URL=$LL_BASE_URL LL_GECKO_ID=$LL_GECKO_ID LL_GRANT_OPTIONAL=$LL_GRANT_OPTIONAL
 COPY . .
 RUN npm run build
 

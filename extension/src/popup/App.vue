@@ -55,6 +55,8 @@ function disconnected() {
 }
 
 const options = () => ext().runtime.openOptionsPage()
+/** The page for saving several pages at once: a tab of its own, with room for a long list. */
+const picker = (source: 'tabs' | 'history') => ext().runtime.getURL(`picker.html?source=${source}`)
 // The Connect page opens in a new tab; a popup would close by itself, a page stays.
 const started = () => window.close()
 </script>
@@ -90,6 +92,11 @@ const started = () => window.close()
       </div>
       <SavePanel v-show="view === 'save'" @disconnected="disconnected" />
       <BrowsePanel v-if="browsed" v-show="view === 'lists'" @disconnected="disconnected" />
+      <p v-show="view === 'save'" class="popup__more">
+        Save several:
+        <a :href="picker('tabs')" target="_blank" rel="noreferrer">open tabs</a> ·
+        <a :href="picker('history')" target="_blank" rel="noreferrer">from history</a>
+      </p>
       <p class="popup__account ll-muted">{{ connection.email }}</p>
     </template>
   </main>
@@ -132,6 +139,9 @@ const started = () => window.close()
 .popup__view[aria-pressed='true'] {
   background: var(--ll-surface);
   color: var(--ll-primary);
+}
+.popup__more {
+  font-size: 12px;
 }
 .popup__account {
   overflow: hidden;

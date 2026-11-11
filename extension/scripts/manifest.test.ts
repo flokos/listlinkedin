@@ -55,8 +55,17 @@ describe('manifestFor', () => {
       expect(manifest.content_scripts).toEqual([
         { matches: ['https://lists.example.org/*'], js: ['content.js'], run_at: 'document_start' },
       ])
-      expect(manifest).not.toHaveProperty('optional_permissions')
+      // Reading the open tabs and the history is asked for only when the picker needs it.
+      expect(manifest).toHaveProperty('optional_permissions', ['tabs', 'history'])
       expect(manifest).not.toHaveProperty('content_security_policy')
+    }
+  })
+
+  it('declares the optional permissions up front only in the build the tests load', () => {
+    for (const browser of ['chrome', 'firefox'] as const) {
+      const manifest = manifestFor(browser, { ...options, grantOptional: true })
+      expect(manifest.permissions).toEqual(expect.arrayContaining(['tabs', 'history']))
+      expect(manifest).not.toHaveProperty('optional_permissions')
     }
   })
 

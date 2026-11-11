@@ -48,8 +48,10 @@ echo "Building and starting the production stack..."
 compose up --build -d --quiet-pull 2>&1 | grep -iE "error|fail" || true
 docker build -q -t listlinkedin-e2e e2e >/dev/null
 # The browser extension, built for this stack's address: the `extension` project loads it
-# into Chromium (e2e/tests/extension/).
+# into Chromium (e2e/tests/extension/). Its optional permissions (open tabs, history) are
+# declared up front in this build: a test can't answer the browser's question.
 docker build -q --target export --build-arg LL_BASE_URL="$PUBLIC_BASE_URL" \
+    --build-arg LL_GRANT_OPTIONAL=1 \
     --output "$work/extension" extension >/dev/null
 
 nginx_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \

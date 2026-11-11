@@ -1,5 +1,5 @@
 // What the right-click menus and the keyboard shortcuts do. They save and copy without
-// opening anything; only "Choose a list…" shows a window. How it went is said by a mark on the
+// opening anything; only "Choose a list…" shows a window, and saving several pages a tab. How it went is said by a mark on the
 // toolbar button (src/lib/feedback.ts).
 import { Disconnected } from '../lib/account'
 import { errorMessage } from '../lib/api'
@@ -97,6 +97,14 @@ export async function openChooser(page: PageToSave): Promise<void> {
     type: 'popup',
     ...CHOOSER,
   })
+}
+
+/**
+ * Opens the page for saving several pages at once, on the open tabs or on the history. It
+ * reads neither before the user has allowed that there (src/pages/picker).
+ */
+export async function openPicker(source: 'tabs' | 'history'): Promise<void> {
+  await ext().tabs.create({ url: ext().runtime.getURL(`picker.html?source=${source}`) })
 }
 
 export async function openMyLists(): Promise<void> {
