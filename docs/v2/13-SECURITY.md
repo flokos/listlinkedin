@@ -250,6 +250,11 @@ secrets, are passed to one step of `extension-release.yml` as environment variab
 used by `web-ext` from the extension's locked dependencies. That workflow runs for
 `extension-v*` tags and by hand, never for pull requests.
 
+Installed Firefox add-ons update from `/extension-updates.json`, a static file of the site
+([ADR-023](adr/ADR-023-extension-self-updates.md)). Changing that file can't install other
+code: Firefox takes only a file Mozilla signed for this add-on's ID, and never a lower
+version. The request for it carries no cookie and no session token.
+
 ## Moderation
 
 Since task 9.0 (D29, which answers Q10): reports from the people who see a list or group, and

@@ -65,6 +65,11 @@ check "HTTP redirects pages to HTTPS" "301 https://$SERVER_NAME/lists" \
 check "HTTP API requests are refused, not redirected" 403 \
     "$(curl_ -o /dev/null -w '%{http_code}' "$http/api/v2/lists/")"
 
+# Installed Firefox add-ons read this file to find a newer version (ADR-023). A missing file
+# would be answered with the app's HTML.
+check "the extension's update file is JSON" "200 application/json" \
+    "$(curl_ -o /dev/null -w '%{http_code} %{content_type}' "$https/extension-updates.json")"
+
 # Creating needs an account and V1's anonymous API is gone (task 9.6), so seed an account's
 # unlisted list with one link through the services and read it as a visitor.
 check "the V1 API is gone" 404 \

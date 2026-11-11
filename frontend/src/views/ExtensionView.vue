@@ -82,8 +82,9 @@ const browsers = [
       <ul class="text-body-large ll-extension-notes mb-6">
         <li>
           This is version {{ EXTENSION_VERSION }}. The extension is not in the Chrome Web Store or
-          on addons.mozilla.org: its files are published on GitHub, and it doesn't update by itself.
-          A newer version appears here; install it over the old one.
+          on addons.mozilla.org: its files are published on GitHub. In Firefox it updates by itself
+          from version 1.0.1 on (install that once over 1.0.0). In Chrome it doesn't: a newer
+          version appears here; install it over the old one.
           <a
             :href="extensionDownloads.release"
             target="_blank"

@@ -1,0 +1,12 @@
+{
+  "addons": {
+    "extension@listlinkedin.versioncontrol.xyz": {
+      "updates": [
+        {
+          "version": "1.0.1",
+          "update_link": "https://github.com/flokos/listlinkedin/releases/download/extension-v1.0.1/listlinkedin-1.0.1-firefox-signed.xpi"
+        }
+      ]
+    }
+  }
+}

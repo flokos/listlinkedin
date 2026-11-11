@@ -97,6 +97,8 @@ describe('manifestFor', () => {
     expect(firefox).toHaveProperty('browser_specific_settings', {
       gecko: {
         id: 'extension@lists.example.org',
+        // Firefox looks for newer versions on the site the build talks to.
+        update_url: 'https://lists.example.org/extension-updates.json',
         strict_min_version: '140.0',
         // Firefox tells the user at install what the extension sends: the pages they save.
         data_collection_permissions: { required: ['browsingActivity', 'websiteContent'] },
@@ -104,5 +106,11 @@ describe('manifestFor', () => {
       gecko_android: { strict_min_version: '142.0' },
     })
     expect(firefox).not.toHaveProperty('minimum_chrome_version')
+  })
+
+  it('gives a build for a local site no update address: Firefox takes one over https only', () => {
+    const local = manifestFor('firefox', { ...options, site: siteFrom('http://localhost:5173') })
+    expect(local).toHaveProperty('browser_specific_settings.gecko.id', options.geckoId)
+    expect(local).not.toHaveProperty('browser_specific_settings.gecko.update_url')
   })
 })

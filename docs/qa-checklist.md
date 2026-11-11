@@ -94,6 +94,9 @@ or the Connect page.
       "Browser extension" page: the Chrome zip loads unpacked;
       the signed `.xpi` installs from `about:addons` and is still there after Firefox
       restarts; both talk to production.
+- [ ] Firefox, after a site release that offers a newer extension version: `about:addons` →
+      the gear → **Check for Updates** installs it (from 1.0.1; 1.0.0 has no update address),
+      and the add-on is still connected.
 - [ ] Install: the welcome page opens by itself. Installed from a file, Firefox's prompt
       names the site and says the extension sends browsing activity and website content (a
       temporary add-on shows no prompt).

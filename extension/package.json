@@ -1,14 +1,14 @@
 {
   "name": "listlinkedin-extension",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.ts",
     "watch": "node scripts/build.ts --watch",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint .",
-    "lint:firefox": "addons-linter dist/firefox",
+    "lint:firefox": "addons-linter --self-hosted dist/firefox",
     "pack": "web-ext build --no-config-discovery -o -s dist/chrome -a dist -n listlinkedin-{version}-chrome.zip && web-ext build --no-config-discovery -o -s dist/firefox -a dist -n listlinkedin-{version}-firefox.zip",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

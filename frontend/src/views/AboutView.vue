@@ -113,8 +113,9 @@ const principles = [
             save it, and nothing about pages you only visit. It reads your open tabs or your history
             only after you allow that, inside your browser, and sends only the pages you tick. In
             your browser it keeps what connects it to your account, your lists' names and your last
-            choices; disconnecting it, there or on your account page, removes them. It has no
-            analytics.
+            choices; disconnecting it, there or on your account page, removes them. In Firefox it
+            asks this site about once a day whether a newer version exists, without saying who you
+            are. It has no analytics.
             <router-link :to="{ name: 'extension' }" class="text-primary"
               >Get the extension</router-link
             >.

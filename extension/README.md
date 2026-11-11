@@ -102,7 +102,9 @@ another answer under "Who can open it" and chooses **Change** (invariant 2 in
 The two browsers get the same pages and scripts. `manifest.json` differs
 (`scripts/manifest.ts`): how the background script is declared, the `offscreen` permission
 and its page (Chrome), and the add-on ID, minimum version, data declaration and the button's
-place on the toolbar (Firefox, which would otherwise keep it in its Extensions menu).
+place on the toolbar (Firefox, which would otherwise keep it in its Extensions menu). An
+https build for Firefox also names where it finds newer versions: `update_url`, the site's
+`/extension-updates.json` ([ADR-023](../docs/v2/adr/ADR-023-extension-self-updates.md)).
 
 ## Signing in: a connected browser
 
@@ -148,7 +150,9 @@ bash e2e/run.sh --project=extension
 
 - **Unit tests** (Vitest) run against a fake browser API (`src/test/fakeBrowser.ts`) and a
   mocked site (`src/test/site.ts`).
-- **`lint:firefox`** is Mozilla's add-on linter on the Firefox build. One warning is expected:
+- **`lint:firefox`** is Mozilla's add-on linter on the Firefox build, told that Mozilla
+  doesn't host the add-on (`--self-hosted`: the manifest's `update_url` is an error
+  otherwise). One warning is expected:
   `UNSAFE_VAR_ASSIGNMENT`, for Vue's own runtime. The extension's code never sets HTML from
   data (`vue/no-v-html` is an error).
 - **End-to-end tests** load the Chrome build into Chromium and run against the production
