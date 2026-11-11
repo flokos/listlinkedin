@@ -206,3 +206,11 @@ request:
 | [docs/qa-checklist.md](docs/qa-checklist.md) | Manual accessibility and device checks |
 | [docs/v1/](docs/v1/README.md) | Version 1: its README, decisions and threat model |
 | [CLAUDE.md](CLAUDE.md) | Working rules for contributors and coding agents |
+
+## License
+
+listlinkedin is open source under the [MIT License](LICENSE): the site, the API and the
+browser extension. You may use, change and redistribute it, also commercially, as long as the
+copyright notice and the license text stay with it. It comes without warranty.
+
+The libraries it is built with keep their own licenses.
