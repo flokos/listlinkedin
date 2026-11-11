@@ -12,7 +12,7 @@ import { useRoute } from 'vue-router'
 
 import { useSession } from '../composables/useSession'
 import { useSignOut } from '../composables/useSignOut'
-import { externalNav, shownNav, signInRoute } from '../navigation'
+import { externalNav, moreNav, shownNav, signInRoute } from '../navigation'
 import AppLogo from './AppLogo.vue'
 
 const open = defineModel<boolean>({ required: true })
@@ -108,6 +108,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <template #append>
       <v-list nav density="compact">
+        <v-list-item
+          v-for="item in moreNav"
+          :key="item.label"
+          :to="item.to"
+          :title="item.label"
+          @click="close"
+        />
         <v-list-item
           v-for="link in externalNav"
           :key="link.label"

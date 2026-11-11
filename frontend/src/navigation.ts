@@ -43,8 +43,11 @@ export const mainNav: NavItem[] = [
 /** The menu items for this visitor: account pages only when signed in. */
 export const shownNav = computed(() => mainNav.filter((item) => !item.account || currentUser()))
 
-/** Pages that are only in the footer: worth finding, not worth a place in the app bar. */
-export const footerNav: Pick<NavItem, 'label' | 'to'>[] = [
+/**
+ * Pages worth finding but not worth a place in the app bar: in the "More" menu, at the
+ * bottom of the mobile drawer and in the footer.
+ */
+export const moreNav: Pick<NavItem, 'label' | 'to'>[] = [
   { label: 'Browser extension', to: { name: 'extension' } },
 ]
 

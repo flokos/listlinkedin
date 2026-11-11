@@ -34,6 +34,13 @@ test.describe('desktop menu', () => {
     expect(await page.evaluate(() => (window as unknown as { marker?: string }).marker)).toBe('same document')
   })
 
+  test('the "More" menu leads to the browser extension\'s page', async ({ page }) => {
+    await page.goto('/about')
+    await page.getByRole('banner').getByRole('button', { name: 'More' }).click()
+    await page.getByRole('menuitem', { name: 'Browser extension' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Browser extension' })).toBeVisible()
+  })
+
   test('the skip link is the first tab stop and jumps to the content', async ({ page }) => {
     await page.goto('/about')
     await page.keyboard.press('Tab')
@@ -66,6 +73,12 @@ test.describe('mobile menu', () => {
     // Signed out, it leads to Home's invitation to create an account (ADR-011).
     await page.getByRole('banner').getByRole('link', { name: 'New list' }).click()
     await expect(page.getByRole('link', { name: 'Create a free account' })).toBeVisible()
+
+    // The pages that aren't in the main menu are at the drawer's foot.
+    await opener.click()
+    await drawer.getByRole('link', { name: 'Browser extension' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Browser extension' })).toBeVisible()
+    await expect(drawer).toBeHidden()
   })
 })
 

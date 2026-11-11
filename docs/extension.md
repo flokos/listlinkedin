@@ -10,7 +10,8 @@ this page describes. Developers building it themselves: see
 
 ## Get it
 
-The site's **Browser extension** page (`/extension`, in the footer) has a download button for
+The site's **Browser extension** page (`/extension`: in the ⋮ menu at the top, at the foot
+of the phone menu and in the footer) has a download button for
 each browser and the short version of the steps below.
 
 The files themselves are on GitHub. The extension has its own releases, apart from the
