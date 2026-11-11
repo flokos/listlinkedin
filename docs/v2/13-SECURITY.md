@@ -216,6 +216,7 @@ These are initial values. Tune them from logs.
 | Content writes (lists, links, groups, reorder) | 1200/h per user |
 | Uploads | 120/h per user |
 | Metadata refresh | 60/h per user (`metadata_refresh`, since 8.1: missed in 7.3), 1/h per link |
+| Several links in one request (`links/batch/`) | 30/h per user (`link_batch`, since 11.4): one request can queue 100 page fetches, so it isn't counted with single writes |
 | Sync apply (postponed), restore | 120/h per user |
 | Directory search | 600/h per IP, signed in or not (`directory`, `ReadRateThrottle`, since 8.1) |
 | Adding members by email | 60/h per user |

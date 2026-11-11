@@ -148,6 +148,7 @@ Real threads against PostgreSQL (`transactional_db`, V1's barrier pattern):
 | Test | Expectation |
 |---|---|
 | Simultaneous edits to two links of one list | both applied, revisions n+1 and n+2, no lost update |
+| A batch of links and single adds of one of its addresses at once (11.4) | the address is in the list once; the later writer is refused or skips it; positions `0..n-1`; one revision per change |
 | Concurrent moves of different links | serialized; final order equals some serial order; positions `0..n-1` |
 | Duplicate short codes | V1 collision simulation, extended to group codes |
 | Two simultaneous applies with the same key | one apply, one replay |

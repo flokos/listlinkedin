@@ -31,6 +31,7 @@ from apps.versioning.serializers import (
 )
 
 from .. import selectors
+from ..domain import MAX_LINKS_PER_LIST, MAX_URL_LENGTH
 from ..policy import Action, Role, can
 from ..services import forks as fork_services
 from ..services import links as link_services
@@ -46,6 +47,8 @@ from .serializers import (
     DirectoryQuerySerializer,
     ForkSerializer,
     ImageUploadSerializer,
+    LinkBatchResultSerializer,
+    LinkBatchSerializer,
     LinkDetailSerializer,
     ListDetailSerializer,
     ListWriteSerializer,
@@ -336,7 +339,9 @@ class LinkViewSet(viewsets.ViewSet):
 
     @property
     def throttle_scope(self) -> str:
-        return "metadata_refresh" if self.action == "refresh_metadata" else "list_manage"
+        # A batch can queue a hundred page fetches, so it has a limit of its own.
+        scopes = {"refresh_metadata": "metadata_refresh", "batch": "link_batch"}
+        return scopes.get(self.action, "list_manage")
 
     @extend_schema(responses={200: LinkDetailSerializer(many=True), 404: ERRORS[404]})
     def list(self, request, code=None):
@@ -369,6 +374,54 @@ class LinkViewSet(viewsets.ViewSet):
         data = LinkDetailSerializer(selectors.get_link(shared_list, link.pk)).data
         response = Response(data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
         return with_etag(response, selectors.head_revision_of(shared_list))
+
+    @extend_schema(
+        parameters=[CODE, IF_MATCH],
+        request=LinkBatchSerializer,
+        responses={200: LinkBatchResultSerializer, **ERRORS},
+    )
+    def batch(self, request, code=None):
+        """Append several links as one change: one revision if at least one is added, none
+        otherwise. A link that is already in the list, isn't a valid address or no longer
+        fits is skipped and reported, and the others are still added, so sending the same
+        request again adds nothing. Editors and owners; rate-limited on its own."""
+        principal = principal_of(request)
+        shared_list, _ = selectors.get_list_for(principal, code)
+        batch = LinkBatchSerializer(data=request.data)
+        batch.is_valid(raise_exception=True)
+        sent = batch.validated_data["links"]
+
+        items, skipped = [], {}
+        for index, raw in enumerate(sent):
+            item = LinkDetailSerializer(
+                data={field: raw[field] for field in _BATCH_FIELDS if field in raw}
+            )
+            if item.is_valid():
+                items.append((index, item.validated_data))
+            else:
+                skipped[index] = (link_services.SKIPPED_INVALID, _first_error(item.errors))
+        added, refused = link_services.add_links(
+            principal, shared_list.pk, items, expected_head=if_match(request)
+        )
+        for index, reason in refused:
+            skipped[index] = (reason, _BATCH_REASONS[reason])
+
+        links = selectors.links_with_short_codes(shared_list).filter(
+            pk__in=[link.pk for link in added]
+        )
+        data = {
+            "added": LinkDetailSerializer(links, many=True).data,
+            "skipped": [
+                {
+                    "index": index,
+                    "destination_url": _as_sent(sent[index].get("destination_url")),
+                    "reason": reason,
+                    "detail": detail,
+                }
+                for index, (reason, detail) in sorted(skipped.items())
+            ],
+        }
+        return with_etag(Response(data), selectors.head_revision_of(shared_list))
 
     @extend_schema(
         request=LinkDetailSerializer,
@@ -678,6 +731,26 @@ def detail_context(principal, shared_list, access) -> dict:
         "access": {shared_list.pk: access},
         "fork_sources": selectors.fork_sources(principal.user, [shared_list]),
     }
+
+
+# What a link of a batch may carry. `position` is not among them: a batch is appended.
+_BATCH_FIELDS = ("destination_url", "title", "description")
+_BATCH_REASONS = {
+    link_services.SKIPPED_DUPLICATE: link_services.DUPLICATE_URL,
+    link_services.SKIPPED_LIST_FULL: f"A list can contain at most {MAX_LINKS_PER_LIST} links.",
+}
+
+
+def _first_error(field_errors) -> str:
+    """The first message of a serializer's errors, for one line about a skipped link."""
+    messages = next(iter(field_errors.values()), ["This link isn't valid."])
+    return str(messages[0] if isinstance(messages, list) and messages else messages)
+
+
+def _as_sent(value) -> str | None:
+    """A skipped link's address as the client sent it, if it was text at all (cut to the
+    longest address a link can have, so a refused value isn't echoed at any length)."""
+    return value[:MAX_URL_LENGTH] if isinstance(value, str) else None
 
 
 def _idempotency_key(request) -> uuid.UUID | None:

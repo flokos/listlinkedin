@@ -39,6 +39,11 @@ from .lists import _lock, check_head, denied
 
 DUPLICATE_URL = "This URL is already in the list."
 
+# Why a link of a batch wasn't added (docs/v2/09-API-DESIGN.md#links).
+SKIPPED_DUPLICATE = "duplicate"
+SKIPPED_LIST_FULL = "list_full"
+SKIPPED_INVALID = "invalid"  # found before the service is called: the address or a field
+
 
 # Authorized by the policy: editors and owners.
 
@@ -86,6 +91,51 @@ def add_link(
     )
     _versioned(locked, principal)
     return link, True
+
+
+@transaction.atomic
+def add_links(
+    principal: Principal,
+    list_id: UUID,
+    items: list[tuple[int, dict]],
+    *,
+    expected_head: int | None = None,
+) -> tuple[list[SharedLink], list[tuple[int, str]]]:
+    """Append several links as one change: one lock and **one revision** when at least one is
+    added, none otherwise (invariant 3).
+
+    `items` are `(index, fields)`, the index being the link's place in the request. A link
+    whose URL is already in the list (or earlier in the same batch) and one that no longer
+    fits are skipped, not errors, so the rest is still added: returns the added links in
+    order and `(index, reason)` for each skipped one. Sending the same batch again therefore
+    adds nothing.
+    """
+    locked = _lock_for_edit(principal, list_id, expected_head)
+    # Live URLs are unique in a list, so this set's size is also the number of live links.
+    present = set(live_links(locked).values_list("destination_url", flat=True))
+    added: list[SharedLink] = []
+    skipped: list[tuple[int, str]] = []
+    for index, fields in items:
+        url = fields["destination_url"]
+        if url in present:
+            skipped.append((index, SKIPPED_DUPLICATE))
+        elif len(present) >= MAX_LINKS_PER_LIST:
+            skipped.append((index, SKIPPED_LIST_FULL))
+        else:
+            link = SharedLink.objects.create(
+                shared_list=locked,
+                destination_url=url,
+                title=fields.get("title"),
+                description=fields.get("description"),
+                position=len(present),
+            )
+            create_redirect(link)
+            metadata.request_fetch(link.pk, url)
+            present.add(url)
+            added.append(link)
+    if added:
+        _versioned(locked, principal)
+    return added, skipped
 
 
 @transaction.atomic

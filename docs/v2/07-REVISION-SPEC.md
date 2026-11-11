@@ -111,6 +111,7 @@ sequenceDiagram
 | Create list, fork, branch (branch postponed) | always (number 1) | `created` / `forked` / `branched` (reserved) |
 | Change title or description | if the value changed | `edited` |
 | Add, edit or delete a link | if content changed | `edited` |
+| Add several links in one request (`links/batch/`, since 11.4) | one, if at least one link was added; none if all were skipped | `edited` |
 | Move or reorder a link | if order changed (moving to the same index is a no-op) | `edited` |
 | Move a link to another list | one in each list | `edited` |
 | Restore revision N | if the restored content differs from head | `restored` (`restored_from = N`) |

@@ -10,6 +10,7 @@ from apps.metadata import images
 
 from ..domain import (
     MAX_DESCRIPTION_LENGTH,
+    MAX_LINKS_PER_LIST,
     MAX_TAGS,
     display_host,
     normalize_destination_url,
@@ -384,6 +385,34 @@ class LinkDetailSerializer(LinkSerializer):
         if self.instance is None and self.partial:  # PATCH
             raise serializers.ValidationError("Links are moved with the reorder endpoint.")
         return value
+
+
+class LinkBatchSerializer(serializers.Serializer):
+    """Several links to append in one change. Each item is `{destination_url, title?,
+    description?}`; it is checked on its own, so one bad address doesn't refuse the rest."""
+
+    links = serializers.ListField(
+        child=serializers.DictField(),
+        min_length=1,
+        max_length=MAX_LINKS_PER_LIST,
+        help_text="1 to 100 links, in the order to append them.",
+    )
+
+
+class LinkBatchSkippedSerializer(serializers.Serializer):
+    index = serializers.IntegerField(help_text="The link's place in the request, from 0.")
+    destination_url = serializers.CharField(allow_null=True, help_text="As it was sent.")
+    reason = serializers.ChoiceField(
+        choices=["duplicate", "invalid", "list_full"],
+        help_text="duplicate: already in the list, or earlier in this request. invalid: the "
+        "address or a field was refused. list_full: the list holds 100 links.",
+    )
+    detail = serializers.CharField(help_text="The reason in words.")
+
+
+class LinkBatchResultSerializer(serializers.Serializer):
+    added = LinkDetailSerializer(many=True)
+    skipped = LinkBatchSkippedSerializer(many=True)
 
 
 class ReorderSerializer(serializers.Serializer):

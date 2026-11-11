@@ -66,7 +66,7 @@ Copy [.env.example](../.env.example) to `.env` next to `compose.prod.yaml` and s
 | `WORKER_REPLICAS` | `2` | Worker containers, each running one task at a time |
 | `METADATA_FETCH_ENABLED` | `true` | `false`: never fetch link details, for a deployment that must not contact other sites |
 | `FETCH_BLOCKED_NETWORKS` | empty | Extra CIDRs the fetcher never connects to, added to its built-in private, loopback, link-local and cloud-metadata ranges. For internal services on public addresses |
-| `THROTTLE_LIST_CREATE`, `THROTTLE_LIST_MANAGE`, `THROTTLE_GROUP_CREATE`, `THROTTLE_GROUP_MANAGE`, `THROTTLE_ACCOUNT`, `THROTTLE_UPLOAD`, `THROTTLE_RESTORE`, `THROTTLE_METADATA_REFRESH`, `THROTTLE_DIRECTORY`, `THROTTLE_REPORT`, `THROTTLE_BROWSER_CONNECT` | see [.env.example](../.env.example) | Rate limits in DRF syntax (`30/hour`). Keep the defaults unless you have a reason ([13](v2/13-SECURITY.md#rate-limits)) |
+| `THROTTLE_LIST_CREATE`, `THROTTLE_LIST_MANAGE`, `THROTTLE_GROUP_CREATE`, `THROTTLE_GROUP_MANAGE`, `THROTTLE_ACCOUNT`, `THROTTLE_UPLOAD`, `THROTTLE_RESTORE`, `THROTTLE_METADATA_REFRESH`, `THROTTLE_DIRECTORY`, `THROTTLE_REPORT`, `THROTTLE_BROWSER_CONNECT`, `THROTTLE_LINK_BATCH` | see [.env.example](../.env.example) | Rate limits in DRF syntax (`30/hour`). Keep the defaults unless you have a reason ([13](v2/13-SECURITY.md#rate-limits)) |
 | `DB_LOCK_TIMEOUT`, `DB_STATEMENT_TIMEOUT` | `5s`, `20s` | The API's PostgreSQL waits. Keep the statement cap below Gunicorn's 30 s. `migrate` runs without one |
 | `LOG_FORMAT` | `json` | One JSON object per log line. `text` is easier to read by eye |
 | `TLS_CERT_DIR` | `./deploy/certs` | The directory holding `fullchain.pem` and `privkey.pem` |
