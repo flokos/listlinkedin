@@ -82,11 +82,14 @@ jobs:
           # says how to build it.
           mkdir -p signed
           git archive --format=zip -o signed/source.zip HEAD extension
+          # A copy of the build: web-ext keeps a note of its upload inside the folder it signs
+          # (.amo-upload-uuid), so that folder can't be read-only, and the zips stay untouched.
+          cp -r extension/dist/firefox signed/firefox
           docker run --rm -e WEB_EXT_API_KEY -e WEB_EXT_API_SECRET \
-            -v "$PWD/extension/dist:/app/dist:ro" -v "$PWD/signed:/signed" \
+            -v "$PWD/signed:/signed" \
             listlinkedin-extension:dev \
             web-ext sign --no-config-discovery --channel unlisted \
-              --source-dir dist/firefox --artifacts-dir /signed \
+              --source-dir /signed/firefox --artifacts-dir /signed \
               --upload-source-code /signed/source.zip
           xpi=$(ls signed/*.xpi | head -n 1)
           sudo cp "$xpi" "release/listlinkedin-$VERSION-firefox-signed.xpi"
