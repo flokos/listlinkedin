@@ -154,6 +154,11 @@ below when something fails and mails the result to `MODERATION_EMAIL`. Put a lin
 `[manual-deploy]` in the release notes of a release that needs more than these steps; it is
 then skipped and reported. The marker anywhere else in a line doesn't count.
 
+The browser extension is released apart from the site, with tags `extension-v<version>`
+([extension.md](extension.md#for-maintainers-releasing-it)). Those releases are never marked
+"latest" and deploy nothing. Release the extension before a site release whose "Browser
+extension" page offers that version.
+
 **Rolling back:**
 
 1. Check out the previous tag.

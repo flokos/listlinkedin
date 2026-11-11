@@ -86,6 +86,12 @@ const router = createRouter({
       component: () => import('./views/AboutView.vue'),
       meta: { title: 'About & privacy' },
     },
+    {
+      path: '/extension',
+      name: 'extension',
+      component: () => import('./views/ExtensionView.vue'),
+      meta: { title: 'Browser extension' },
+    },
     // Accounts. Emailed links carry their key in the fragment (#key=…), never in the path.
     {
       path: '/signin',

@@ -27,7 +27,10 @@ docker build --target export --output extension/dist extension
 docker compose --profile extension up extension
 ```
 
-That writes `extension/dist/chrome` and `extension/dist/firefox`.
+That writes `extension/dist/chrome` and `extension/dist/firefox`, and each as a zip beside
+them (`listlinkedin-<version>-chrome.zip`, `…-firefox.zip`): what an extension release
+carries. Installing a released build, and how the extension is released and signed, is in
+[docs/extension.md](../docs/extension.md).
 
 - **Chrome, Edge and other Chromium browsers:** open `chrome://extensions`, turn on
   **Developer mode**, choose **Load unpacked** and pick `extension/dist/chrome`. After a

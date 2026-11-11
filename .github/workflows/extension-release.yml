@@ -1,0 +1,107 @@
+# Releases the browser extension, on its own: a GitHub Release named after the tag
+# `extension-v<version>`, with a zip per browser and the Firefox build signed by Mozilla when
+# the signing keys are set (docs/extension.md, ADR-021).
+#
+# It is not a release of the site. The server deploys only `vX.Y.Z` releases, and only the
+# one GitHub calls "latest" (ADR-018): this workflow never marks its release as latest.
+name: Extension release
+
+on:
+  push:
+    tags: ['extension-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: An existing tag (extension-vX.Y.Z) to release again, after a failure
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extension-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write # to create the release and add its files
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The tag names the version the code says it is, and that code is on main.
+      - name: Check the tag
+        id: version
+        run: |
+          version=$(jq -r .version extension/package.json)
+          if [ "$TAG" != "extension-v$version" ]; then
+            echo "::error::The tag is $TAG, but extension/package.json says version $version (expected extension-v$version)."
+            exit 1
+          fi
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$TAG is not on main."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # For production's address (the Dockerfile's default), and checked by Mozilla's linter.
+      - name: Build the extension for Chrome and Firefox
+        run: |
+          docker build --target dev -t listlinkedin-extension:dev extension
+          docker build --target export --output extension/dist extension
+          docker run --rm -v "$PWD/extension/dist:/app/dist:ro" listlinkedin-extension:dev \
+            npm run lint:firefox
+          mkdir release
+          cp extension/dist/listlinkedin-*.zip release/
+
+      # Mozilla signs a build so that Firefox keeps it installed ("unlisted": it is not put
+      # on addons.mozilla.org). The keys are the repository secrets AMO_JWT_ISSUER and
+      # AMO_JWT_SECRET; without them this step says so and the release has no signed file.
+      # Mozilla signs each version once.
+      - name: Have Mozilla sign the Firefox build
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::warning::No Mozilla signing keys (AMO_JWT_ISSUER, AMO_JWT_SECRET): this release has no signed Firefox add-on."
+            exit 0
+          fi
+          # The readable source of the bundled code, which Mozilla asks for; extension/README.md
+          # says how to build it.
+          mkdir -p signed
+          git archive --format=zip -o signed/source.zip HEAD extension
+          docker run --rm -e WEB_EXT_API_KEY -e WEB_EXT_API_SECRET \
+            -v "$PWD/extension/dist:/app/dist:ro" -v "$PWD/signed:/signed" \
+            listlinkedin-extension:dev \
+            web-ext sign --no-config-discovery --channel unlisted \
+              --source-dir dist/firefox --artifacts-dir /signed \
+              --upload-source-code /signed/source.zip
+          xpi=$(ls signed/*.xpi | head -n 1)
+          sudo cp "$xpi" "release/listlinkedin-$VERSION-firefox-signed.xpi"
+
+      # Never "latest": that word is the site's, and the server deploys what carries it.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ls -l release
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" release/* --verify-tag --latest=false \
+              --title "Browser extension $VERSION" \
+              --notes "The listlinkedin browser extension, version $VERSION, for https://listlinkedin.versioncontrol.xyz. How to install it: https://github.com/$GITHUB_REPOSITORY/blob/main/docs/extension.md"
+          fi

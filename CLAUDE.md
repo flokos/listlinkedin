@@ -20,6 +20,10 @@ kept on `release/v1`.
   it or merge into it.
 - Releases are tags on `main` (`v2.1.0`, …) with a GitHub Release. V1 was never deployed
   (D32), so there is no production to cut over.
+- The browser extension is released apart from the site: a tag `extension-v<version>` on
+  `main` runs `extension-release.yml` ([docs/extension.md](docs/extension.md),
+  [ADR-021](docs/v2/adr/ADR-021-extension-distribution.md)). Its release is never marked
+  "latest": the server deploys the latest release.
 
 ## Read before changing anything architectural
 
@@ -88,7 +92,7 @@ docker compose exec frontend sh -c "npm run lint && npm run type-check && npm ru
 bash e2e/run.sh                                                # Playwright, production stack
 docker build --target dev -t listlinkedin-extension:dev extension   # the browser extension:
 docker run --rm listlinkedin-extension:dev sh -c "npm run lint && npm run format:check && npm run type-check && npm run test"
-rm -rf extension/dist && docker build --target export --output extension/dist extension   # dist/chrome, dist/firefox
+rm -rf extension/dist && docker build --target export --output extension/dist extension   # dist/chrome, dist/firefox, a zip of each
 ```
 
 ## Definition of done for every V2 PR

@@ -277,6 +277,9 @@ async function signOut() {
       <p class="text-body-medium text-medium-emphasis mb-4">
         Browsers where the listlinkedin extension is signed in to your account. Changing your
         password disconnects all of them.
+        <router-link :to="{ name: 'extension' }" class="text-primary"
+          >Get the browser extension</router-link
+        >.
       </p>
       <v-alert v-if="browsersError" type="error" :text="browsersError">
         <template #append>

@@ -68,6 +68,22 @@ jobs:
           test -f extension/dist/chrome/manifest.json
           docker run --rm -v "$PWD/extension/dist:/app/dist:ro" listlinkedin-extension:dev \
             npm run lint:firefox
+          ls extension/dist/listlinkedin-*-chrome.zip extension/dist/listlinkedin-*-firefox.zip
+          # The site's "Browser extension" page links to the release of one extension version:
+          # the one the extension's code says it is.
+          version=$(jq -r .version extension/package.json)
+          grep -qF "EXTENSION_VERSION = '$version'" frontend/src/utils/extensionDownloads.ts ||
+            { echo "::error::frontend/src/utils/extensionDownloads.ts doesn't offer extension version $version"; exit 1; }
+
+      # The builds of this commit, for production's address, to try by hand
+      # (docs/extension.md). The Firefox one is unsigned: it loads as a temporary add-on.
+      - name: Upload the extension builds
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: extension
+          path: extension/dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
 
       # Known vulnerabilities in the locked dependencies (task 9.1). pip-audit reports every
       # advisory with a fix; npm audit fails on high and critical ones. An advisory without a

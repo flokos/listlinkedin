@@ -131,7 +131,7 @@ docker compose up --build -d
 
 - [frontend/README.md](frontend/README.md) covers the frontend's structure.
 - [extension/README.md](extension/README.md) covers the browser extension, which is built
-  and tested on its own.
+  and tested on its own; [docs/extension.md](docs/extension.md) is its install guide.
 - The design system (palette, tokens, components, accessibility rules) is in
   [docs/design-system.md](docs/design-system.md).
 - The dev server renders a style guide at http://localhost:5173/design.
@@ -201,6 +201,7 @@ request:
 | [docs/deployment.md](docs/deployment.md) | Running it in production, operating it |
 | [docs/v2/](docs/v2/README.md) | The V2 specs, ADRs, roadmap, security review |
 | [docs/design-system.md](docs/design-system.md) | The UI's design system |
+| [docs/extension.md](docs/extension.md) | The browser extension: installing and using it, releasing it |
 | [extension/README.md](extension/README.md) | The browser extension: building, loading and testing it |
 | [docs/qa-checklist.md](docs/qa-checklist.md) | Manual accessibility and device checks |
 | [docs/v1/](docs/v1/README.md) | Version 1: its README, decisions and threat model |

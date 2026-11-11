@@ -37,3 +37,4 @@ Nygard/MADR layout.
 | [018](ADR-018-pull-based-deployment.md) | Continuous deployment of GitHub Releases, pulled by the server | Accepted |
 | [019](ADR-019-cross-origin-frontends.md) | Frontends on other domains: CORS without credentials, allauth app-client tokens | Accepted (session lifetime extended for connected browsers by 020) |
 | [020](ADR-020-connected-browsers.md) | Connected browsers: the extension signs in with an approved, long-lived session | Accepted |
+| [021](ADR-021-extension-distribution.md) | The extension has its own GitHub Releases; Mozilla signs the Firefox build | Accepted |
