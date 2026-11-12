@@ -52,6 +52,13 @@ export const COMMANDS = {
   },
 }
 
+/**
+ * Where Firefox asks whether a newer version exists: a file of the site the build talks to
+ * (frontend/public/extension-updates.json, ADR-023). Firefox takes it over https only, so a
+ * build for a local site has none and never updates itself.
+ */
+export const UPDATES_PATH = '/extension-updates.json'
+
 export function manifestFor(
   browser: Browser,
   { version, site, geckoId, grantOptional = false }: ManifestOptions,
@@ -110,6 +117,7 @@ export function manifestFor(
     browser_specific_settings: {
       gecko: {
         id: geckoId,
+        ...(site.origin.startsWith('https://') ? { update_url: site.origin + UPDATES_PATH } : {}),
         // 140 is the first Firefox with the built-in data consent the next key relies on.
         strict_min_version: '140.0',
         // What leaves the browser, shown to the user at install: the address

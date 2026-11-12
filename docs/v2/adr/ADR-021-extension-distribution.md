@@ -1,6 +1,8 @@
 # ADR-021: The extension has its own GitHub Releases; Mozilla signs the Firefox build
 
 - Status: Accepted (2026-11-11, user: D37). Follows D36 (no store publishing for now).
+  Since extension `1.0.1` the Firefox add-on updates itself
+  ([ADR-023](ADR-023-extension-self-updates.md)): the first consequence below is replaced.
 - Related: [docs/extension.md](../../extension.md),
   [ADR-018](ADR-018-pull-based-deployment.md) (what a release does to the server),
   [13 Logging and secrets](../13-SECURITY.md#logging-and-secrets),

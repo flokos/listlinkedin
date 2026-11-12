@@ -108,9 +108,14 @@ does.
 
 ## Update or remove it
 
-- **Update:** download the new version's file from the site's page. Chrome: replace the folder's contents with
-  the new zip's and press the reload arrow on `chrome://extensions`. Firefox: install the
-  new `.xpi` over the old one. You stay connected. There are no automatic updates.
+- **Update, Firefox:** from version 1.0.1 the add-on updates itself: Firefox asks the site
+  about once a day whether a newer version exists and installs it
+  ([ADR-023](v2/adr/ADR-023-extension-self-updates.md)). To have it now: `about:addons` → the
+  gear → **Check for Updates**. Version 1.0.0 can't do this: install the newer `.xpi` over it
+  once. You stay connected.
+- **Update, Chrome:** download the new version's zip from the site's page, replace the
+  folder's contents with the new zip's and press the reload arrow on `chrome://extensions`.
+  There are no automatic updates. You stay connected.
 - **Remove:** disconnect first (options page), so the site forgets this browser at once.
   Then remove the extension on `chrome://extensions` or `about:addons`.
 
@@ -132,9 +137,10 @@ The extension is released on its own, with the tag `extension-v<version>`. Such 
 deploys nothing: the server only deploys the site's `vX.Y.Z` releases
 ([ADR-018](v2/adr/ADR-018-pull-based-deployment.md)).
 
-1. In a pull request, raise the version in `extension/package.json` and
+1. In a pull request, raise the version in `extension/package.json`,
    `EXTENSION_VERSION` in `frontend/src/utils/extensionDownloads.ts` (CI checks that they
-   agree). Mozilla signs each version once, and browsers treat a file with the same version
+   agree) and the version and link in `frontend/public/extension-updates.json` (a test
+   checks them). Mozilla signs each version once, and browsers treat a file with the same version
    as the same extension.
 2. After the merge, tag that commit on `main` and push the tag:
    `git tag extension-v1.1.0 origin/main && git push origin extension-v1.1.0`.
@@ -144,7 +150,10 @@ deploys nothing: the server only deploys the site's `vX.Y.Z` releases
    The release is never marked "latest": that word belongs to the site's releases, and the
    server deploys whatever carries it. Don't change that by hand.
 4. Release the site afterwards (or at least after the extension's release exists): its
-   "Browser extension" page links to the files of exactly that extension version. An
+   "Browser extension" page links to the files of exactly that extension version, and its
+   `/extension-updates.json` tells installed Firefox add-ons to move to it, which they do
+   within about a day. So a site release is what rolls an extension version out to Firefox
+   users; a fix for a bad version is a higher version. An
    extension that needs new API endpoints can't connect or work until the site has them.
 
 If the workflow fails, fix the cause and run it again for the tag from the Actions page. If
@@ -162,7 +171,8 @@ repository secrets; without them the workflow warns and the release has no signe
 The workflow sends the Firefox build and its source to Mozilla as an **unlisted** add-on: it
 is checked automatically and signed, usually within minutes, and is not put on
 addons.mozilla.org. The add-on's ID (`extension@listlinkedin.versioncontrol.xyz`) belongs to
-the first Mozilla account that signs it.
+the first Mozilla account that signs it. It stays unlisted on purpose: the manifest's
+`update_url` is what updates it, and Mozilla refuses that in listed add-ons (D40).
 
 Every pull request's `checks` job also keeps both zips for 14 days as the `extension`
 artifact (unsigned, for production's address), to try a change by hand.
